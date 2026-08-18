@@ -1,11 +1,11 @@
 /**
- * Aplikasi Cetak Voucher Ruijie — Cloud Enterprise Edition
- * Logic: Ruijie Cloud API Sync, Batch Voucher Generator Bawaan, Custom Background,
- * POS Cashier Shift Management, Admin PIN Security Lock, PNG Sheet Exporter,
- * Reseller Manager & Surat Jalan, Tom & Jerry Labels, Thermal 58mm/80mm, QR Code
+ * Aplikasi Cetak Voucher Ruijie Cloud — POS & Print Studio
+ * Features: Dark Mode, 1-Click POS Print & Shift Kasir, Import Ruijie (Excel/CSV),
+ * Anti-Deduplication, Manajemen Reseller & Surat Jalan, Kertas Stiker Label TJ,
+ * Thermal 58mm/80mm, Lembaran A4 (16-50/hal), QR Code, Export PNG Siap Cetak
  */
 
-// ===== DEFAULT PRESETS =====
+// ===== DEFAULT PRESETS & RESELLERS =====
 const DEFAULT_PRESET = {
   id: 'preset_default',
   name: 'Warkop Utama',
@@ -20,9 +20,10 @@ const DEFAULT_RESELLERS = [
   { id: 'res_2', name: 'Toko Pak Budi', phone: '081987654321', address: 'Depan Lapangan Desa', note: 'Setoran tiap jumat' }
 ];
 
-// ===== STATE =====
+// ===== APP STATE =====
 const state = {
   uiMode: 'admin', // 'admin' | 'kasir'
+  themeMode: 'light', // 'light' | 'dark'
   adminPin: '1234',
   vouchers: [],
   resellers: DEFAULT_RESELLERS,
@@ -40,12 +41,6 @@ const state = {
     salesCount: 0,
     salesOmset: 0,
     closed: false
-  },
-  cloudConfig: {
-    serverUrl: 'https://cloud.ruijienetworks.com',
-    account: '',
-    secret: '',
-    networkId: ''
   },
   settings: {
     ssid: 'Hotspot_Ruijie',
@@ -78,6 +73,7 @@ const $id = (id) => document.getElementById(id);
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', () => {
   loadState();
+  initTheme();
   bindEvents();
   applyUIMode();
   renderPresetSelect();
@@ -89,11 +85,38 @@ document.addEventListener('DOMContentLoaded', () => {
   initPWA();
 });
 
+// ===== THEME ENGINE (DARK / LIGHT MODE) =====
+function initTheme() {
+  const savedTheme = localStorage.getItem('ruijie_theme_mode') || 'light';
+  state.themeMode = savedTheme;
+  applyTheme();
+
+  const themeToggle = $id('btn-theme-toggle');
+  if (themeToggle) {
+    themeToggle.addEventListener('click', () => {
+      state.themeMode = state.themeMode === 'light' ? 'dark' : 'light';
+      localStorage.setItem('ruijie_theme_mode', state.themeMode);
+      applyTheme();
+      showToast(`Mode: ${state.themeMode === 'dark' ? '🌙 Dark Mode' : '☀️ Light Mode'}`);
+    });
+  }
+}
+
+function applyTheme() {
+  document.documentElement.setAttribute('data-theme', state.themeMode);
+  if (state.themeMode === 'dark') {
+    document.body.classList.add('dark-mode');
+    document.body.classList.remove('theme-light');
+  } else {
+    document.body.classList.remove('dark-mode');
+    document.body.classList.add('theme-light');
+  }
+}
+
 // ===== PWA INSTALLATION & SERVICE WORKER =====
 let deferredPwaPrompt = null;
 
 function initPWA() {
-  // 1. Register Service Worker for Offline Cache
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js')
       .then((reg) => {
@@ -104,7 +127,6 @@ function initPWA() {
       });
   }
 
-  // 2. Listen for Install Prompt
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPwaPrompt = e;
@@ -138,10 +160,6 @@ function bindEvents() {
   $id('btn-mode-admin').addEventListener('click', handleSwitchToAdmin);
   $id('btn-mode-kasir').addEventListener('click', () => setUIMode('kasir'));
   $id('btn-change-pin').addEventListener('click', showChangePinModal);
-
-  // Cloud API Sync & Batch Generator
-  $id('btn-sync-cloud').addEventListener('click', showCloudSyncModal);
-  $id('btn-batch-gen').addEventListener('click', showBatchGenModal);
 
   // POS Shift Management
   $id('btn-toggle-shift').addEventListener('click', showShiftModal);
@@ -184,6 +202,14 @@ function bindEvents() {
     searchClear.style.display = 'none';
     renderTable();
     renderPreview();
+  });
+
+  // Global search shortcut '/'
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '/' && document.activeElement !== searchInput && !$('#modal-overlay').classList.contains('active')) {
+      e.preventDefault();
+      searchInput.focus();
+    }
   });
 
   $id('filter-reseller-select').addEventListener('change', (e) => {
@@ -235,7 +261,7 @@ function bindEvents() {
   $id('btn-deselect-all').addEventListener('click', () => selectAll(false));
   $id('btn-select-page').addEventListener('click', selectOnePageUnprinted);
 
-  // Table row checkbox & action delegation
+  // Table row click delegation
   $id('voucher-table').addEventListener('click', handleTableClick);
 
   // Modal close
@@ -251,7 +277,6 @@ function bindEvents() {
 function handleSwitchToAdmin() {
   if (state.uiMode === 'admin') return;
 
-  // Prompt PIN when switching from Kasir to Admin
   showPinPromptModal(() => {
     setUIMode('admin');
   });
@@ -265,7 +290,10 @@ function setUIMode(mode) {
 }
 
 function applyUIMode() {
-  document.body.className = `mode-${state.uiMode} ${state.settings.fontFamily || 'font-inter'} ${state.settings.borderStyle || 'border-dashed'}`;
+  const fontClass = state.settings.fontFamily || 'font-inter';
+  const borderClass = state.settings.borderStyle || 'border-dashed';
+  const darkClass = state.themeMode === 'dark' ? 'dark-mode' : 'theme-light';
+  document.body.className = `mode-${state.uiMode} ${fontClass} ${borderClass} ${darkClass}`;
   $id('btn-mode-admin').classList.toggle('active', state.uiMode === 'admin');
   $id('btn-mode-kasir').classList.toggle('active', state.uiMode === 'kasir');
 }
@@ -277,11 +305,13 @@ function showPinPromptModal(onSuccess) {
       <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
     </div>
     <div class="modal-body" style="text-align:center;">
-      <p style="font-size:0.85rem;color:#475569;margin-bottom:1rem;">Menu Admin dilindungi PIN untuk mencegah kasir/operator merubah data.</p>
+      <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:1.2rem;">
+        Menu Admin dilindungi PIN untuk mencegah kasir merubah data dan laporan.
+      </p>
       <div class="pin-input-wrap">
         <input type="password" id="m-pin-input" maxlength="6" class="form-input" style="font-size:1.6rem;text-align:center;letter-spacing:0.3em;max-width:200px;margin:0 auto;" autofocus placeholder="••••">
       </div>
-      <p style="font-size:0.75rem;color:#94a3b8;">Default PIN: <strong>1234</strong></p>
+      <p style="font-size:0.75rem;color:var(--text-muted);">Default PIN: <strong>1234</strong></p>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal()">Batal</button>
@@ -364,254 +394,7 @@ function showChangePinModal() {
   });
 }
 
-// ===== 🔄 RUIJIE CLOUD API SYNC ENGINE =====
-function showCloudSyncModal() {
-  const cfg = state.cloudConfig || {};
-  const html = `
-    <div class="modal-header">
-      <h3>🔄 Sinkronisasi API Ruijie Cloud</h3>
-      <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
-    </div>
-    <div class="modal-body">
-      <div style="font-size:0.8rem;color:#475569;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:0.6rem 0.8rem;margin-bottom:1rem;">
-        💡 Hubungkan aplikasi langsung ke <strong>Ruijie Cloud / MACC API</strong> untuk menarik voucher berstatus <em>Unused</em> secara instan tanpa perlu download CSV.
-      </div>
-      <div class="modal-form">
-        <div class="form-group">
-          <label for="m-cloud-url">Ruijie Cloud API Server URL</label>
-          <input type="text" id="m-cloud-url" class="form-input" value="${esc(cfg.serverUrl || 'https://cloud.ruijienetworks.com')}">
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="m-cloud-acc">Account / Access Key ID *</label>
-            <input type="text" id="m-cloud-acc" class="form-input" placeholder="Contoh: user@ruijie.com" value="${esc(cfg.account || '')}">
-          </div>
-          <div class="form-group">
-            <label for="m-cloud-sec">Access Secret / Token *</label>
-            <input type="password" id="m-cloud-sec" class="form-input" placeholder="••••••••••••" value="${esc(cfg.secret || '')}">
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="m-cloud-net">Tenant / Project ID (Opsional)</label>
-          <input type="text" id="m-cloud-net" class="form-input" placeholder="ID Proyek / Network Ruijie" value="${esc(cfg.networkId || '')}">
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer" style="justify-content:space-between;">
-      <button class="btn btn-secondary" onclick="closeModal()">Tutup</button>
-      <div style="display:flex;gap:0.4rem;">
-        <button class="btn btn-secondary" id="btn-save-cloud-config">💾 Simpan Info</button>
-        <button class="btn btn-primary" id="btn-run-cloud-sync">🔄 Mulai Sync Sekarang</button>
-      </div>
-    </div>
-  `;
-
-  openModal(html, 'modal-wide');
-
-  $id('btn-save-cloud-config').addEventListener('click', () => {
-    state.cloudConfig = {
-      serverUrl: $id('m-cloud-url').value.trim(),
-      account: $id('m-cloud-acc').value.trim(),
-      secret: $id('m-cloud-sec').value.trim(),
-      networkId: $id('m-cloud-net').value.trim()
-    };
-    saveState();
-    showToast('Konfigurasi API Ruijie Cloud disimpan!');
-  });
-
-  $id('btn-run-cloud-sync').addEventListener('click', runCloudSync);
-}
-
-function runCloudSync() {
-  const acc = $id('m-cloud-acc').value.trim();
-  state.cloudConfig = {
-    serverUrl: $id('m-cloud-url').value.trim(),
-    account: acc,
-    secret: $id('m-cloud-sec').value.trim(),
-    networkId: $id('m-cloud-net').value.trim()
-  };
-  saveState();
-
-  const syncBtn = $id('btn-run-cloud-sync');
-  syncBtn.textContent = '⏳ Menghubungi Server Ruijie...';
-  syncBtn.disabled = true;
-
-  // Simulator Cloud Fetch
-  setTimeout(() => {
-    // Generate fetched batch sample
-    const sampleBatch = [
-      { code: 'rj' + Math.random().toString(36).substring(2, 7), paket: 'Paket 1GB', harga: '5000', periode: '1 Hari', speed: '2M/5M', quota: '1 GB', createdAt: new Date().toISOString(), printed: false, selected: true },
-      { code: 'rj' + Math.random().toString(36).substring(2, 7), paket: 'Paket 1GB', harga: '5000', periode: '1 Hari', speed: '2M/5M', quota: '1 GB', createdAt: new Date().toISOString(), printed: false, selected: true },
-      { code: 'rj' + Math.random().toString(36).substring(2, 7), paket: 'Paket 3GB', harga: '10000', periode: '3 Hari', speed: '5M/10M', quota: '3 GB', createdAt: new Date().toISOString(), printed: false, selected: true },
-      { code: 'rj' + Math.random().toString(36).substring(2, 7), paket: 'Paket 3GB', harga: '10000', periode: '3 Hari', speed: '5M/10M', quota: '3 GB', createdAt: new Date().toISOString(), printed: false, selected: true },
-      { code: 'rj' + Math.random().toString(36).substring(2, 7), paket: 'Paket 5 Jam', harga: '7000', periode: '5 Jam', speed: '3M/7M', quota: 'Unlimited', createdAt: new Date().toISOString(), printed: false, selected: true }
-    ];
-
-    closeModal();
-    showImportPreview(sampleBatch);
-    showToast('Berhasil terhubung & menarik 5 voucher dari Ruijie Cloud!');
-  }, 1200);
-}
-
-// ===== ⚡ BATCH VOUCHER GENERATOR BAWAAN =====
-function showBatchGenModal() {
-  const html = `
-    <div class="modal-header">
-      <h3>⚡ Batch Voucher Generator (Buat Masal)</h3>
-      <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="modal-form">
-        <div class="form-row">
-          <div class="form-group">
-            <label for="g-count">Jumlah Voucher *</label>
-            <input type="number" id="g-count" class="form-input" value="50" min="1" max="1000">
-          </div>
-          <div class="form-group">
-            <label for="g-charset">Karakter Kode *</label>
-            <select id="g-charset" class="form-input">
-              <option value="alphanumeric" selected>Alfanumerik (Huruf + Angka: 4fx5hi)</option>
-              <option value="numeric">Angka Saja (Numerik: 839201)</option>
-              <option value="uppercase">Huruf Kapital + Angka (7B3X9K)</option>
-              <option value="lowercase">Huruf Kecil Saja (abcdef)</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="g-length">Panjang Kode Voucher</label>
-            <input type="number" id="g-length" class="form-input" value="6" min="4" max="12">
-          </div>
-          <div class="form-group">
-            <label for="g-prefix">Prefix Awalan (Opsional)</label>
-            <input type="text" id="g-prefix" class="form-input" placeholder="Contoh: WK- atau kosong">
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="g-paket">Nama Paket Hotspot *</label>
-            <input type="text" id="g-paket" class="form-input" value="Paket 3 Jam" placeholder="Contoh: Paket 3 Jam">
-          </div>
-          <div class="form-group">
-            <label for="g-harga">Harga (Tanpa Rp) *</label>
-            <input type="number" id="g-harga" class="form-input" value="5000" placeholder="5000">
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="g-periode">Durasi / Masa Aktif</label>
-            <input type="text" id="g-periode" class="form-input" value="3 Jam" placeholder="Contoh: 3 Jam">
-          </div>
-          <div class="form-group">
-            <label for="g-speed">Kecepatan (Up/Down)</label>
-            <input type="text" id="g-speed" class="form-input" value="2M/5M" placeholder="Contoh: 2M/5M">
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer" style="justify-content:space-between;">
-      <button class="btn btn-secondary" onclick="closeModal()">Batal</button>
-      <div style="display:flex;gap:0.4rem;">
-        <button class="btn btn-secondary" id="btn-export-ruijie-csv" title="Generate & Download CSV Format Ruijie Cloud">📥 Export Format Ruijie</button>
-        <button class="btn btn-primary" id="btn-confirm-generate">✨ Buat Masal ke Aplikasi</button>
-      </div>
-    </div>
-  `;
-
-  openModal(html, 'modal-wide');
-
-  $id('btn-confirm-generate').addEventListener('click', () => {
-    const generated = runVoucherGeneration();
-    if (!generated || generated.length === 0) return;
-
-    state.vouchers.push(...generated);
-    saveState();
-    renderQuickPOSGrid();
-    renderTable();
-    renderPreview();
-    closeModal();
-    showToast(`Berhasil men-generate ${generated.length} voucher baru!`);
-  });
-
-  $id('btn-export-ruijie-csv').addEventListener('click', () => {
-    const generated = runVoucherGeneration();
-    if (!generated || generated.length === 0) return;
-
-    exportGeneratedRuijieCSV(generated);
-    closeModal();
-  });
-}
-
-function runVoucherGeneration() {
-  const count = parseInt($id('g-count').value, 10) || 50;
-  const charsetType = $id('g-charset').value;
-  const length = parseInt($id('g-length').value, 10) || 6;
-  const prefix = $id('g-prefix').value.trim();
-  const paket = $id('g-paket').value.trim() || 'Reguler';
-  const harga = $id('g-harga').value.trim() || '5000';
-  const periode = $id('g-periode').value.trim() || '';
-  const speed = $id('g-speed').value.trim() || '';
-
-  let charPool = '23456789abcdefghjkmnpqrstuvwxyz';
-  if (charsetType === 'numeric') charPool = '0123456789';
-  else if (charsetType === 'uppercase') charPool = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
-  else if (charsetType === 'lowercase') charPool = 'abcdefghijklmnopqrstuvwxyz';
-
-  const existingCodes = new Set(state.vouchers.map(v => v.code.toLowerCase()));
-  const newVouchers = [];
-
-  let attempts = 0;
-  while (newVouchers.length < count && attempts < count * 20) {
-    attempts++;
-    let randStr = '';
-    for (let i = 0; i < length; i++) {
-      randStr += charPool.charAt(Math.floor(Math.random() * charPool.length));
-    }
-    const fullCode = prefix ? `${prefix}${randStr}` : randStr;
-    if (!existingCodes.has(fullCode.toLowerCase())) {
-      existingCodes.add(fullCode.toLowerCase());
-      newVouchers.push({
-        code: fullCode,
-        paket: paket,
-        harga: harga,
-        periode: periode,
-        speed: speed,
-        quota: '',
-        resellerId: null,
-        resellerName: null,
-        createdAt: new Date().toISOString(),
-        printed: false,
-        printedAt: null,
-        selected: true
-      });
-    }
-  }
-
-  return newVouchers;
-}
-
-function exportGeneratedRuijieCSV(vouchers) {
-  let csv = "Kode voucher,Grup pengguna,Status,Dinonaktifkan,Harga,Periode,,,,Dibuat di,,,,,Lalu Lintas yang Digunakan/Total,Batasan Unggah/Unduh\n";
-  vouchers.forEach(v => {
-    csv += `"${v.code}","${v.paket}","Tidak digunakan","Tidak","${v.harga}","${v.periode}",,,,"${new Date().toISOString().replace('T', ' ').substring(0, 19)}",,,,,"0 MB/1 GB","${v.speed || '1Mbps/2Mbps'}"\n`;
-  });
-
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.setAttribute('href', url);
-  link.setAttribute('download', `ruijie_voucher_batch_${Date.now()}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-  showToast('File CSV Ruijie Cloud berhasil didownload!');
-}
-
-// ===== BACKGROUND CARD IMAGE & OPACITY =====
+// ===== BACKGROUND CARD IMAGE =====
 function handleBgUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -648,26 +431,26 @@ function showShiftModal() {
       <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
     </div>
     <div class="modal-body">
-      <div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:1rem;">
+      <div style="background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-xs);padding:1rem;margin-bottom:1.15rem;">
         <div style="display:flex;justify-content:space-between;margin-bottom:0.4rem;">
-          <span style="color:#64748b;">Kasir Aktif:</span>
+          <span style="color:var(--text-secondary);">Kasir Aktif:</span>
           <strong>${esc(shift.cashierName || 'Umum')}</strong>
         </div>
         <div style="display:flex;justify-content:space-between;margin-bottom:0.4rem;">
-          <span style="color:#64748b;">Mulai Shift:</span>
+          <span style="color:var(--text-secondary);">Mulai Shift:</span>
           <span>${formattedStart}</span>
         </div>
         <div style="display:flex;justify-content:space-between;margin-bottom:0.4rem;">
-          <span style="color:#64748b;">Modal Kas Awal:</span>
+          <span style="color:var(--text-secondary);">Modal Kas Awal:</span>
           <strong>Rp ${formatNumber(shift.startCash || 0)}</strong>
         </div>
-        <div style="display:flex;justify-content:space-between;border-top:1px dashed var(--border);padding-top:0.4rem;margin-top:0.4rem;">
-          <span style="color:#64748b;">Voucher Terjual Shift Ini:</span>
-          <strong style="color:#059669;">${shift.salesCount || 0} pcs</strong>
+        <div style="display:flex;justify-content:space-between;border-top:1px dashed var(--border);padding-top:0.5rem;margin-top:0.5rem;">
+          <span style="color:var(--text-secondary);">Voucher Terjual Shift Ini:</span>
+          <strong style="color:var(--success);">${shift.salesCount || 0} pcs</strong>
         </div>
-        <div style="display:flex;justify-content:space-between;margin-top:0.2rem;">
-          <span style="color:#64748b;">Omset Kasir Shift Ini:</span>
-          <strong style="color:var(--primary);font-size:1.1rem;">Rp ${formatNumber(shift.salesOmset || 0)}</strong>
+        <div style="display:flex;justify-content:space-between;margin-top:0.25rem;">
+          <span style="color:var(--text-secondary);">Omset Kasir Shift Ini:</span>
+          <strong style="color:var(--primary);font-size:1.15rem;">Rp ${formatNumber(shift.salesOmset || 0)}</strong>
         </div>
       </div>
 
@@ -684,7 +467,7 @@ function showShiftModal() {
     </div>
     <div class="modal-footer" style="justify-content:space-between;">
       <button class="btn btn-secondary" onclick="closeModal()">Tutup</button>
-      <div style="display:flex;gap:0.4rem;">
+      <div style="display:flex;gap:0.45rem;">
         <button class="btn btn-secondary" id="btn-print-close-shift">🖨️ Cetak Struk Tutup Shift</button>
         <button class="btn btn-primary" id="btn-save-open-shift">✨ Buka / Mulai Shift Baru</button>
       </div>
@@ -704,7 +487,7 @@ function showShiftModal() {
       closed: false
     };
     saveState();
-    $id('pos-cashier-name').textContent = state.activeShift.cashierName;
+    if ($id('pos-cashier-name')) $id('pos-cashier-name').textContent = state.activeShift.cashierName;
     closeModal();
     showToast(`Shift dibuka untuk kasir: ${state.activeShift.cashierName}`);
   });
@@ -777,11 +560,9 @@ function exportPreviewAsPNG() {
 
   showToast('Menyiapkan file gambar siap cetak...');
 
-  // Render high-res canvas of first preview sheet
   const previewPage = document.querySelector('.preview-page');
   if (!previewPage) return;
 
-  const svgData = new XMLSerializer().serializeToString(previewPage);
   const canvas = document.createElement('canvas');
   canvas.width = 1200;
   canvas.height = 1700;
@@ -813,7 +594,6 @@ function exportPreviewAsPNG() {
   };
 
   img.onerror = () => {
-    // Fallback direct download
     window.print();
   };
 }
@@ -859,8 +639,8 @@ function renderQuickPOSGrid() {
   const pkgs = Object.values(pkgMap);
   if (pkgs.length === 0) {
     container.innerHTML = `
-      <div style="grid-column:1/-1;text-align:center;color:#64748b;font-size:0.85rem;padding:0.75rem;">
-        Belum ada paket voucher. Silakan gunakan <strong>"⚡ Generate Masal"</strong> atau <strong>"📁 Import File"</strong> di Mode Admin.
+      <div style="grid-column:1/-1;text-align:center;color:var(--text-muted);font-size:0.85rem;padding:0.75rem;">
+        Belum ada paket voucher. Klik tombol <strong>"📁 Import File Ruijie"</strong> atau <strong>"＋ Tambah"</strong> untuk mulai.
       </div>
     `;
     return;
@@ -871,7 +651,7 @@ function renderQuickPOSGrid() {
       <div class="pos-pkg-name">⚡ ${esc(p.name)}</div>
       <div class="pos-pkg-price">Rp ${formatNumber(p.harga)}</div>
       <div class="pos-pkg-stock-badge ${p.unprintedCount === 0 ? 'empty' : ''}">
-        ${p.unprintedCount > 0 ? `📦 Sisa Stok: ${p.unprintedCount} pcs` : '❌ Stok Habis'}
+        ${p.unprintedCount > 0 ? `📦 Sisa: ${p.unprintedCount} pcs` : '❌ Habis'}
       </div>
     </button>
   `).join('');
@@ -887,7 +667,7 @@ function renderQuickPOSGrid() {
 function quickPrintPackage(pkgName, qty = 1) {
   const matches = state.vouchers.filter(v => !v.printed && (v.paket || 'Reguler') === pkgName);
   if (matches.length === 0) {
-    showToast(`Stok voucher ${pkgName} habis! Silakan buat voucher baru.`, 'error');
+    showToast(`Stok voucher ${pkgName} habis! Silakan import voucher baru.`, 'error');
     return;
   }
 
@@ -957,7 +737,7 @@ function showResellerModal() {
         <div class="reseller-meta">📞 ${esc(r.phone || '-')} • 📍 ${esc(r.address || '-')}</div>
         <div class="reseller-stat-row">
           <span>Stok Dititip: <strong>${s.totalVouchers} pcs</strong></span>
-          <span style="color:#059669;">Terjual: <strong>${s.printedVouchers} pcs</strong></span>
+          <span style="color:var(--success);">Terjual: <strong>${s.printedVouchers} pcs</strong></span>
         </div>
         <div class="reseller-stat-row">
           <span>Nilai Titipan:</span>
@@ -974,12 +754,12 @@ function showResellerModal() {
     </div>
     <div class="modal-body">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem;">
-        <p style="font-size:0.82rem;color:#475569;">Kelola warung/agen tempat menitipkan voucher WiFi dan pantau piutang.</p>
+        <p style="font-size:0.82rem;color:var(--text-secondary);">Kelola warung/agen tempat menitipkan voucher WiFi dan pantau piutang.</p>
         <button class="btn btn-primary btn-sm" id="btn-add-new-reseller">＋ Tambah Reseller</button>
       </div>
 
       <div class="reseller-card-grid">
-        ${cardsHtml || '<div style="color:#64748b;">Belum ada reseller. Klik "Tambah Reseller" untuk mulai.</div>'}
+        ${cardsHtml || '<div style="color:var(--text-muted);">Belum ada reseller. Klik "Tambah Reseller" untuk mulai.</div>'}
       </div>
     </div>
     <div class="modal-footer">
@@ -1066,7 +846,7 @@ function showAssignResellerModal() {
       <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
     </div>
     <div class="modal-body">
-      <p style="font-size:0.85rem;color:#334155;margin-bottom:0.85rem;">
+      <p style="font-size:0.85rem;color:var(--text);margin-bottom:0.85rem;">
         Anda akan menandai <strong>${selected.length}</strong> voucher terpilih sebagai titipan ke reseller berikut:
       </p>
       <div class="form-group">
@@ -1295,7 +1075,7 @@ function showAddPresetModal() {
   });
 }
 
-// ===== REKAP OMSET DASHBOARD ENGINE =====
+// ===== REKAP OMSET DASHBOARD =====
 let rekapFilter = {
   period: 'all',
   package: 'all',
@@ -1308,23 +1088,21 @@ function parseVoucherDate(dateStr) {
   if (!dateStr) return null;
   if (dateStr instanceof Date) return dateStr;
   
-  if (typeof dateStr === 'string') {
-    if (dateStr.includes('/')) {
-      const parts = dateStr.trim().split(' ');
-      const dateParts = parts[0].split('/');
-      if (dateParts.length === 3) {
-        const year = parseInt(dateParts[0], 10);
-        const month = parseInt(dateParts[1], 10) - 1;
-        const day = parseInt(dateParts[2], 10);
-        let hour = 0, min = 0, sec = 0;
-        if (parts[1]) {
-          const timeParts = parts[1].split(':');
-          hour = parseInt(timeParts[0], 10) || 0;
-          min = parseInt(timeParts[1], 10) || 0;
-          sec = parseInt(timeParts[2], 10) || 0;
-        }
-        return new Date(year, month, day, hour, min, sec);
+  if (typeof dateStr === 'string' && dateStr.includes('/')) {
+    const parts = dateStr.trim().split(' ');
+    const dateParts = parts[0].split('/');
+    if (dateParts.length === 3) {
+      const year = parseInt(dateParts[0], 10);
+      const month = parseInt(dateParts[1], 10) - 1;
+      const day = parseInt(dateParts[2], 10);
+      let hour = 0, min = 0, sec = 0;
+      if (parts[1]) {
+        const timeParts = parts[1].split(':');
+        hour = parseInt(timeParts[0], 10) || 0;
+        min = parseInt(timeParts[1], 10) || 0;
+        sec = parseInt(timeParts[2], 10) || 0;
       }
+      return new Date(year, month, day, hour, min, sec);
     }
   }
 
@@ -1412,12 +1190,12 @@ function renderRekapModalContent() {
     const contrib = totalOmsetPrinted > 0 ? ((s.omsetPrinted / totalOmsetPrinted) * 100).toFixed(1) : '0';
     return `
       <tr>
-        <td style="font-weight:700;">${esc(pkg)}</td>
+        <td style="font-weight:750;">${esc(pkg)}</td>
         <td>Rp ${formatNumber(s.harga)}</td>
-        <td style="color:#059669;font-weight:700;">${s.printed} pcs</td>
-        <td style="color:#64748b;">${s.unprinted} pcs</td>
-        <td style="font-weight:800;color:var(--primary);">Rp ${formatNumber(s.omsetPrinted)}</td>
-        <td style="font-size:0.75rem;font-weight:600;color:#64748b;">${contrib}%</td>
+        <td style="color:var(--success);font-weight:750;">${s.printed} pcs</td>
+        <td style="color:var(--text-muted);">${s.unprinted} pcs</td>
+        <td style="font-weight:850;color:var(--primary);">Rp ${formatNumber(s.omsetPrinted)}</td>
+        <td style="font-size:0.76rem;font-weight:650;color:var(--text-muted);">${contrib}%</td>
       </tr>
     `;
   }).join('');
@@ -1434,12 +1212,12 @@ function renderRekapModalContent() {
 
     return `
       <tr>
-        <td style="font-size:0.75rem;color:#64748b;">${idx + 1}</td>
-        <td style="font-family:var(--font-mono);font-weight:700;color:var(--primary);">${esc(v.code)}</td>
+        <td style="font-size:0.75rem;color:var(--text-muted);">${idx + 1}</td>
+        <td style="font-family:var(--font-mono);font-weight:750;color:var(--primary);">${esc(v.code)}</td>
         <td>${esc(v.paket)}</td>
-        <td style="font-weight:700;">${v.harga ? 'Rp ' + formatNumber(v.harga) : '-'}</td>
+        <td style="font-weight:750;">${v.harga ? 'Rp ' + formatNumber(v.harga) : '-'}</td>
         <td>${statusBadge}</td>
-        <td style="font-size:0.72rem;color:#64748b;">${dateFormatted}</td>
+        <td style="font-size:0.74rem;color:var(--text-muted);">${dateFormatted}</td>
       </tr>
     `;
   }).join('');
@@ -1496,49 +1274,49 @@ function renderRekapModalContent() {
       <div class="rekap-card-grid-3">
         <div class="rekap-card rekap-card-accent-green">
           <div class="rekap-label">Omset Voucher Dicetak</div>
-          <div class="rekap-val" style="color:#059669;">Rp ${formatNumber(totalOmsetPrinted)}</div>
-          <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">✨ <strong>${printedList.length}</strong> voucher tercetak</div>
+          <div class="rekap-val" style="color:var(--success);">Rp ${formatNumber(totalOmsetPrinted)}</div>
+          <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:3px;">✨ <strong>${printedList.length}</strong> voucher terjual</div>
         </div>
         <div class="rekap-card rekap-card-accent-blue">
           <div class="rekap-label">Sisa Stok (Belum Cetak)</div>
-          <div class="rekap-val" style="color:#2563eb;">Rp ${formatNumber(totalOmsetUnprinted)}</div>
-          <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">📦 <strong>${unprintedList.length}</strong> voucher siap cetak</div>
+          <div class="rekap-val" style="color:var(--primary);">Rp ${formatNumber(totalOmsetUnprinted)}</div>
+          <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:3px;">📦 <strong>${unprintedList.length}</strong> voucher siap cetak</div>
         </div>
         <div class="rekap-card rekap-card-accent-purple">
           <div class="rekap-label">Total Nilai Keseluruhan</div>
           <div class="rekap-val" style="color:#7c3aed;">Rp ${formatNumber(totalOmsetAll)}</div>
-          <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">📋 <strong>${filtered.length}</strong> voucher terfilter</div>
+          <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:3px;">📋 <strong>${filtered.length}</strong> voucher terdata</div>
         </div>
       </div>
 
       <!-- Section: Rincian Paket -->
       <div class="rekap-section-title">
         <span>📦 Rincian Omset per Paket Hotspot</span>
-        <span style="font-size:0.72rem;color:#64748b;">${Object.keys(packageStats).length} Paket</span>
+        <span style="font-size:0.74rem;color:var(--text-muted);">${Object.keys(packageStats).length} Paket</span>
       </div>
-      <table class="import-table" style="margin-bottom:1rem;">
+      <table class="data-table" style="margin-bottom:1rem;background:var(--surface);">
         <thead>
           <tr>
             <th>Paket</th>
             <th>Harga Satuan</th>
-            <th>Terjual (Dicetak)</th>
+            <th>Terjual</th>
             <th>Sisa Stok</th>
             <th>Subtotal Omset</th>
             <th>Kontribusi</th>
           </tr>
         </thead>
         <tbody>
-          ${packageRows || '<tr><td colspan="6" style="text-align:center;color:#94a3b8;">Tidak ada data pada filter ini</td></tr>'}
+          ${packageRows || '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Tidak ada data pada filter ini</td></tr>'}
         </tbody>
       </table>
 
       <!-- Section: Rincian Voucher -->
       <div class="rekap-section-title">
         <span>📋 Log & Riwayat Voucher (${filtered.length} voucher)</span>
-        <span style="font-size:0.72rem;color:#64748b;">Menampilkan ${listSlice.length} baris</span>
+        <span style="font-size:0.74rem;color:var(--text-muted);">Menampilkan ${listSlice.length} baris</span>
       </div>
       <div class="rekap-table-wrapper">
-        <table class="import-table">
+        <table class="data-table" style="background:var(--surface);">
           <thead>
             <tr>
               <th>No</th>
@@ -1550,14 +1328,14 @@ function renderRekapModalContent() {
             </tr>
           </thead>
           <tbody>
-            ${detailRows || '<tr><td colspan="6" style="text-align:center;color:#94a3b8;">Tidak ada voucher</td></tr>'}
-            ${moreDetailCount > 0 ? `<tr><td colspan="6" style="text-align:center;font-size:0.75rem;color:#94a3b8;font-style:italic;">...dan ${moreDetailCount} voucher lainnya (Export CSV untuk melihat lengkap)</td></tr>` : ''}
+            ${detailRows || '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Tidak ada voucher</td></tr>'}
+            ${moreDetailCount > 0 ? `<tr><td colspan="6" style="text-align:center;font-size:0.75rem;color:var(--text-muted);font-style:italic;">...dan ${moreDetailCount} voucher lainnya (Export CSV untuk melihat lengkap)</td></tr>` : ''}
           </tbody>
         </table>
       </div>
     </div>
     <div class="modal-footer" style="justify-content:space-between;flex-wrap:wrap;">
-      <div style="display:flex;gap:0.4rem;">
+      <div style="display:flex;gap:0.45rem;">
         <button class="btn btn-secondary btn-sm" id="btn-export-rekap-csv" title="Download data laporan ke Excel/CSV">📥 Export CSV</button>
         <button class="btn btn-secondary btn-sm" id="btn-print-rekap-receipt" title="Cetak struk rekap penjualan">🖨️ Cetak Struk Rekap</button>
       </div>
@@ -1731,8 +1509,8 @@ function showUpgradeProModal() {
       <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
     </div>
     <div class="modal-body">
-      <div style="text-align:center;margin-bottom:1rem;">
-        <p style="font-size:0.88rem;color:#475569;">Pilih paket lisensi untuk aktivasi fitur lengkap tanpa batas.</p>
+      <div style="text-align:center;margin-bottom:1.15rem;">
+        <p style="font-size:0.88rem;color:var(--text-secondary);">Pilih paket lisensi untuk aktivasi fitur lengkap tanpa batas.</p>
       </div>
 
       <div class="pricing-grid">
@@ -1743,11 +1521,11 @@ function showUpgradeProModal() {
             <div class="pricing-price">Rp 20.000 <span>/ bulan</span></div>
             <ul class="pricing-features">
               <li>✓ Unlimited Cetak Voucher</li>
-              <li>✓ Cloud API Sync Ruijie Otomatis</li>
-              <li>✓ Batch Voucher Generator Bawaan</li>
+              <li>✓ Import File CSV/Excel Ruijie Otomatis</li>
               <li>✓ 1-Click Quick POS Print & Shift Kasir</li>
               <li>✓ Manajemen Reseller & Surat Jalan</li>
               <li>✓ Kertas Stiker Label & Thermal POS</li>
+              <li>✓ QR Code Auto Login Scanner</li>
             </ul>
           </div>
           <button class="btn btn-pro" style="width:100%;justify-content:center;" onclick="handleOrderPlan('Paket PRO Bulanan (Rp 20.000)')">Langganan PRO</button>
@@ -1769,7 +1547,7 @@ function showUpgradeProModal() {
         </div>
       </div>
 
-      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:0.75rem;text-align:center;font-size:0.78rem;color:#475569;">
+      <div style="background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.85rem;text-align:center;font-size:0.8rem;color:var(--text-secondary);">
         💳 <strong>Pembayaran Instan:</strong> Mendukung QRIS (GoPay, OVO, Dana, ShopeePay, BCA, Mandiri, BRI).
       </div>
     </div>
@@ -1849,7 +1627,7 @@ function updateLogoUI() {
   }
 }
 
-// ===== FILE IMPORT =====
+// ===== FILE IMPORT (RUIJIE EXCEL & CSV) =====
 function handleFileInput(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -2024,7 +1802,7 @@ function showImportPreview(uploadedVouchers) {
   let tableRows = showing.map((v, i) => `
     <tr>
       <td>${i + 1}</td>
-      <td class="code">${esc(v.code)}</td>
+      <td class="col-code">${esc(v.code)}</td>
       <td>${esc(v.paket)}</td>
       <td>${v.harga ? 'Rp ' + esc(v.harga) : '-'}</td>
       <td>${esc(v.periode) || '-'}</td>
@@ -2033,7 +1811,7 @@ function showImportPreview(uploadedVouchers) {
   `).join('');
 
   if (more > 0) {
-    tableRows += `<tr><td colspan="6" style="text-align:center;color:#94a3b8;font-style:italic;">...dan ${more} voucher lainnya</td></tr>`;
+    tableRows += `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);font-style:italic;">...dan ${more} voucher lainnya</td></tr>`;
   }
 
   const html = `
@@ -2042,28 +1820,28 @@ function showImportPreview(uploadedVouchers) {
       <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
     </div>
     <div class="modal-body">
-      <div class="import-stats-box">
-        <div class="import-stat-item">
-          <div class="import-stat-num" style="color:var(--text);">${totalCount}</div>
-          <div class="import-stat-label">Total File</div>
+      <div class="rekap-card-grid-3" style="margin-bottom:1rem;">
+        <div class="rekap-card">
+          <div class="rekap-val">${totalCount}</div>
+          <div class="rekap-label">Total File</div>
         </div>
-        <div class="import-stat-item" style="background:#ecfdf5;border-color:#a7f3d0;">
-          <div class="import-stat-num" style="color:#065f46;">✨ ${newCount}</div>
-          <div class="import-stat-label">Voucher Baru</div>
+        <div class="rekap-card rekap-card-accent-green">
+          <div class="rekap-val" style="color:var(--success);">✨ ${newCount}</div>
+          <div class="rekap-label">Voucher Baru</div>
         </div>
-        <div class="import-stat-item" style="background:#f8fafc;border-color:#e2e8f0;">
-          <div class="import-stat-num" style="color:#64748b;">🔁 ${dupCount}</div>
-          <div class="import-stat-label">Sudah Ada (Dobel)</div>
+        <div class="rekap-card">
+          <div class="rekap-val" style="color:var(--text-muted);">🔁 ${dupCount}</div>
+          <div class="rekap-label">Sudah Ada (Dobel)</div>
         </div>
       </div>
 
       ${dupCount > 0 ? `
-        <div style="font-size:0.8rem;color:#475569;background:#f1f5f9;padding:0.6rem 0.8rem;border-radius:6px;margin-bottom:0.8rem;">
+        <div style="font-size:0.82rem;color:var(--text);background:var(--surface-alt);border:1px solid var(--border);padding:0.65rem 0.85rem;border-radius:var(--radius-xs);margin-bottom:0.9rem;">
           💡 Ditemukan <strong>${dupCount}</strong> voucher yang sudah ada di sistem. Sistem otomatis memisahkan voucher baru agar <strong>tidak tercetak dobel</strong>.
         </div>
       ` : ''}
 
-      <table class="import-table">
+      <table class="data-table" style="background:var(--surface);">
         <thead>
           <tr>
             <th>No</th>
@@ -2459,7 +2237,7 @@ function confirmDeleteSelected() {
       <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
     </div>
     <div class="modal-body">
-      <p style="font-size:0.88rem;color:#334155;">Yakin ingin menghapus <strong>${selected.length}</strong> voucher yang dicentang dari daftar?</p>
+      <p style="font-size:0.88rem;color:var(--text);">Yakin ingin menghapus <strong>${selected.length}</strong> voucher yang dicentang dari daftar?</p>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal()">Batal</button>
@@ -2513,8 +2291,8 @@ function renderTable() {
       empty.querySelector('p').textContent = 'Tidak ada voucher yang cocok dengan filter / pencarian ini';
       empty.querySelector('.hint').textContent = 'Coba bersihkan kolom pencarian atau ubah filter';
     } else {
-      empty.querySelector('p').textContent = 'Belum ada voucher';
-      empty.querySelector('.hint').textContent = 'Klik "Tambah", "Generate Masal", atau "Import File" untuk mulai';
+      empty.querySelector('p').textContent = 'Belum ada data voucher';
+      empty.querySelector('.hint').textContent = 'Klik tombol "📁 Import File Ruijie" atau "＋ Tambah" untuk mulai';
     }
     updateSelectionUI();
     return;
@@ -2533,7 +2311,7 @@ function renderTable() {
 
     const resellerBadge = v.resellerName
       ? `<span class="badge-reseller" title="Dititipkan ke ${esc(v.resellerName)}">🏪 ${esc(v.resellerName)}</span>`
-      : `<span style="color:#94a3b8;font-size:0.75rem;">-</span>`;
+      : `<span style="color:var(--text-muted);font-size:0.75rem;">-</span>`;
 
     return `
       <tr class="${rowClass}">
@@ -2577,7 +2355,7 @@ function renderPreview() {
   }
 
   if (state.vouchers.length === 0) {
-    container.innerHTML = '<div class="preview-empty">Belum ada voucher. Silakan Tambah Manual, Generate Masal, atau Import File.</div>';
+    container.innerHTML = '<div class="preview-empty">Belum ada voucher. Silakan import file atau tambah manual.</div>';
     return;
   }
 
@@ -2727,7 +2505,6 @@ function buildCardHTML(v, num, settings, isPreview) {
     ? `<div class="v-meta-item v-meta-price"><span class="v-meta-val">${settings.pricePrefix}${formatNumber(v.harga)}</span></div>`
     : '';
 
-  // Background Layer if uploaded
   const bgStyle = settings.bgImage
     ? `background-image: url('${settings.bgImage}'); opacity: ${(settings.bgOpacity || 20) / 100};`
     : 'display:none;';
@@ -2868,7 +2645,7 @@ function setFilter(filterName) {
 }
 
 // ===== LOCAL STORAGE PERSISTENCE =====
-const STORAGE_KEY = 'ruijie_voucher_app_v6_cloud_enterprise';
+const STORAGE_KEY = 'ruijie_voucher_app_v7_clean';
 
 function saveState() {
   try {
@@ -2880,13 +2657,13 @@ function saveState() {
 
 function loadState() {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('ruijie_voucher_app_v5_enterprise') || localStorage.getItem('ruijie_voucher_app_v4_pro');
+    const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('ruijie_voucher_app_v6_cloud_enterprise') || localStorage.getItem('ruijie_voucher_app_v5_enterprise');
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed.uiMode) state.uiMode = parsed.uiMode;
+      if (parsed.themeMode) state.themeMode = parsed.themeMode;
       if (parsed.adminPin) state.adminPin = parsed.adminPin;
       if (parsed.activeShift) state.activeShift = parsed.activeShift;
-      if (parsed.cloudConfig) state.cloudConfig = parsed.cloudConfig;
       if (Array.isArray(parsed.vouchers)) {
         state.vouchers = parsed.vouchers.map(v => ({
           ...v,
@@ -2970,7 +2747,7 @@ function showToast(message, type = 'success') {
     document.body.appendChild(toast);
   }
   toast.textContent = message;
-  toast.style.background = type === 'error' ? '#ef4444' : '#0f172a';
+  toast.style.background = type === 'error' ? '#ef4444' : (state.themeMode === 'dark' ? '#1e293b' : '#0f172a');
   toast.classList.add('show');
   clearTimeout(toast._timeout);
   toast._timeout = setTimeout(() => toast.classList.remove('show'), 2800);

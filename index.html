@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Aplikasi cetak voucher WiFi Ruijie — Cloud API Sync, Batch Generator, A4 Hemat (16-50/hal), Thermal POS (58mm/80mm), Stiker Label (Tom & Jerry), 1-Click POS Print, Shift Kasir & PIN Lock">
-  <title>Cetak Voucher Ruijie Cloud — Enterprise Cloud Edition</title>
+  <meta name="description" content="Aplikasi Cetak Voucher WiFi Ruijie — Import Excel/CSV Ruijie Cloud, A4 Hemat (16-50/hal), Thermal POS (58mm/80mm), Stiker Label (Tom & Jerry), 1-Click POS Print & Shift Kasir">
+  <title>Cetak Voucher Ruijie Cloud — POS & Print Studio</title>
   <link rel="stylesheet" href="index.css">
   <link rel="stylesheet" href="print.css">
   <link rel="manifest" href="manifest.json">
@@ -16,17 +16,19 @@
   <link rel="apple-touch-icon" href="icon.svg">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
 </head>
-<body class="mode-admin font-inter">
+<body class="mode-admin font-inter theme-light">
 
-  <!-- ===== HEADER ===== -->
+  <!-- ===== APP NAVBAR ===== -->
   <header class="app-header">
     <div class="header-inner">
       <div class="header-brand">
-        <h1>
+        <div class="brand-icon-wrap">
           <span class="icon">🎫</span>
-          Cetak Voucher Ruijie
-        </h1>
-        <span class="header-badge">Cloud Enterprise</span>
+        </div>
+        <div class="brand-text">
+          <h1>Cetak Voucher Ruijie</h1>
+          <span class="header-badge">SaaS Studio</span>
+        </div>
       </div>
 
       <!-- Mode Switcher (Kasir vs Admin) -->
@@ -35,7 +37,7 @@
         <button class="btn-mode" id="btn-mode-kasir" data-mode="kasir">🛒 Mode Kasir</button>
       </div>
 
-      <!-- Preset Toko & Quick Tools -->
+      <!-- Header Tools & Dark Mode Toggle -->
       <div class="header-tools">
         <!-- Preset Toko Selector -->
         <div class="preset-manager" title="Kelola Profil / Cabang Toko Berbeda">
@@ -45,44 +47,49 @@
           <button class="btn btn-secondary btn-sm admin-only" id="btn-add-preset" title="Tambah profil / cabang baru">＋ Profil</button>
         </div>
 
-        <button class="btn btn-primary btn-sm admin-only" id="btn-sync-cloud" title="Sync Otomatis dari Ruijie Cloud API">🔄 Sync Cloud</button>
-        <button class="btn btn-secondary btn-sm admin-only" id="btn-batch-gen" title="Generate Ratusan Voucher Masal Bawaan">⚡ Generate</button>
         <button class="btn btn-secondary btn-sm admin-only" id="btn-reseller" title="Kelola Titipan Warung & Agen">🏪 Reseller</button>
         <button class="btn btn-secondary btn-sm" id="btn-rekap">📊 Rekap Omset</button>
+        
+        <!-- Dark Mode Toggle Button -->
+        <button class="btn-theme-toggle" id="btn-theme-toggle" title="Ganti Mode Gelap / Terang (Dark Mode)">
+          <span class="theme-icon-light">🌙</span>
+          <span class="theme-icon-dark">☀️</span>
+        </button>
+
         <button class="btn btn-secondary btn-sm" id="btn-install-pwa" style="display:none;" title="Install aplikasi ini ke Layar Utama HP / Komputer">📲 Install App</button>
         <button class="btn btn-pro btn-sm admin-only" id="btn-upgrade-pro">💎 Upgrade PRO</button>
       </div>
     </div>
   </header>
 
-  <!-- ===== MAIN APP ===== -->
+  <!-- ===== MAIN APP CONTENT ===== -->
   <main class="app-main">
 
     <!-- ⚡ QUICK POS CASHIER PANEL (1-CLICK PRINT & SHIFT) -->
     <section class="panel quick-pos-panel" id="quick-pos-panel">
       <div class="quick-pos-header">
         <div class="quick-pos-title">
-          <span class="icon">⚡</span>
+          <div class="pos-pulse-dot"></div>
           <div>
             <h3>Cetak Cepat Kasir (1-Click POS Print)</h3>
-            <p class="quick-pos-subtitle">Klik tombol paket untuk langsung mencetak 1 voucher ke printer kasir</p>
+            <p class="quick-pos-subtitle">Klik kartu paket untuk langsung mencetak 1 voucher ke printer kasir</p>
           </div>
         </div>
         <div class="quick-pos-stats">
           <span class="pos-stat-pill">Kasir: <strong id="pos-cashier-name">Umum</strong></span>
-          <span class="pos-stat-pill">Shift Hari Ini: <strong id="pos-today-count">0</strong> voucher (<strong id="pos-today-omset">Rp 0</strong>)</span>
+          <span class="pos-stat-pill pos-stat-omset">Shift Hari Ini: <strong id="pos-today-count">0</strong> pcs (<strong id="pos-today-omset">Rp 0</strong>)</span>
           <button class="btn btn-secondary btn-sm" id="btn-toggle-shift" title="Kelola Buka / Tutup Shift Kasir">🚪 Shift Kasir</button>
         </div>
       </div>
       <div class="quick-pos-grid" id="quick-pos-grid">
-        <div style="font-size:0.8rem;color:#64748b;padding:0.5rem;">Memuat daftar paket...</div>
+        <div class="loading-state">Memuat daftar paket voucher...</div>
       </div>
     </section>
 
     <!-- Settings Panel (Admin Only) -->
     <section class="panel admin-only" id="settings-panel">
       <div class="panel-header">
-        <h2>⚙️ Pengaturan Voucher, Kertas, Desain & Branding</h2>
+        <h2>⚙️ Desain Kartu, Jenis Kertas & Branding Toko</h2>
         <button class="btn btn-secondary btn-sm" id="btn-change-pin" title="Ubah PIN Keamanan Mode Admin">🔒 Ganti PIN Admin</button>
       </div>
       <div class="panel-body">
@@ -100,12 +107,12 @@
             </div>
             <!-- Background Image Upload -->
             <div class="bg-upload-btn-wrap">
-              <button class="btn btn-secondary btn-sm" id="btn-upload-bg" style="width:100%;font-size:0.68rem;">🖼️ Background</button>
+              <button class="btn btn-secondary btn-sm" id="btn-upload-bg" style="width:100%;font-size:0.72rem;">🖼️ Background</button>
               <input type="file" id="bg-upload" accept="image/*" hidden>
-              <div class="bg-opacity-control" id="bg-opacity-wrap" style="display:none;margin-top:4px;">
-                <label style="font-size:0.65rem;color:#64748b;">Opacity: <span id="bg-opacity-val">20%</span></label>
+              <div class="bg-opacity-control" id="bg-opacity-wrap" style="display:none;margin-top:5px;">
+                <label style="font-size:0.68rem;color:var(--text-secondary);">Opacity: <span id="bg-opacity-val">20%</span></label>
                 <input type="range" id="bg-opacity-slider" min="5" max="100" value="20" style="width:100%;">
-                <button class="btn-link-danger" id="btn-remove-bg" style="font-size:0.65rem;border:none;background:none;color:#ef4444;cursor:pointer;">Hapus BG</button>
+                <button class="btn-link-danger" id="btn-remove-bg" style="font-size:0.68rem;border:none;background:none;color:var(--danger);cursor:pointer;margin-top:2px;">Hapus BG</button>
               </div>
             </div>
           </div>
@@ -138,7 +145,7 @@
           <div class="setting-column">
             <div class="form-row-2">
               <div class="form-group">
-                <label for="layout-select">Jenis Kertas & Ukuran</label>
+                <label for="layout-select">Jenis Kertas & Layout</label>
                 <select id="layout-select" class="form-input">
                   <optgroup label="📄 Kertas A4 (Lembaran Hemat)">
                     <option value="50">A4: 50 voucher / hal (5×10 Super Hemat)</option>
@@ -159,7 +166,7 @@
                 </select>
               </div>
               <div class="form-group">
-                <label for="logo-pos-select">Posisi Logo</label>
+                <label for="logo-pos-select">Posisi Logo Header</label>
                 <select id="logo-pos-select" class="form-input">
                   <option value="center" selected>Logo Tengah (Memanjang / Banner)</option>
                   <option value="left">Logo Samping Kiri (Klasik / Kotak)</option>
@@ -197,19 +204,19 @@
             <div class="toggle-group">
               <label class="toggle-label" title="Tampilkan QR code scan langsung login">
                 <input type="checkbox" id="show-qr" checked>
-                📱 QR
+                📱 QR Code
               </label>
               <label class="toggle-label">
                 <input type="checkbox" id="show-speed" checked>
-                Speed
+                ⚡ Speed
               </label>
               <label class="toggle-label">
                 <input type="checkbox" id="show-quota" checked>
-                Kuota
+                📦 Kuota
               </label>
               <label class="toggle-label">
                 <input type="checkbox" id="show-hint" checked>
-                Petunjuk
+                💬 Petunjuk
               </label>
             </div>
           </div>
@@ -217,17 +224,17 @@
       </div>
     </section>
 
-    <!-- Filter & Search Toolbar -->
+    <!-- Toolbar: Search, Filters & Action Controls -->
     <div class="toolbar-panel">
       <div class="toolbar-search-row">
-        <!-- Live Search Box -->
+        <!-- Live Search Box with Keyboard Hint -->
         <div class="search-box-wrapper">
           <span class="search-icon">🔍</span>
-          <input type="text" id="search-input" class="search-input" placeholder="Cari Kode Voucher / Pelanggan / Paket / Reseller..." autocomplete="off">
+          <input type="text" id="search-input" class="search-input" placeholder="Cari Kode Voucher, Pelanggan, Paket, Reseller... (Tekan '/' untuk cari)" autocomplete="off">
           <button class="search-clear-btn" id="search-clear-btn" title="Hapus pencarian" style="display:none;">✕</button>
         </div>
 
-        <!-- Filter Reseller -->
+        <!-- Filter Reseller Dropdown -->
         <div class="filter-group admin-only">
           <select id="filter-reseller-select" class="form-input form-input-sm">
             <option value="all">Semua Reseller / Warung</option>
@@ -235,9 +242,9 @@
         </div>
 
         <!-- Auto Archive Toggle (>24 jam) -->
-        <label class="auto-archive-label" title="Sembunyikan voucher yang sudah dicetak lebih dari 24 jam agar tabel tetap super cepat">
+        <label class="auto-archive-label" title="Sembunyikan voucher yang sudah dicetak lebih dari 24 jam agar aplikasi tetap super kencang">
           <input type="checkbox" id="auto-archive-toggle" checked>
-          🧹 Sembunyikan > 24 Jam
+          <span>🧹 Sembunyikan > 24 Jam</span>
         </label>
       </div>
 
@@ -245,7 +252,7 @@
       <div class="action-bar">
         <div class="action-bar-left">
           <h2>
-            📋 Voucher
+            📋 Daftar Voucher
             <span class="badge" id="voucher-count">0</span>
           </h2>
           <span class="badge-selected" id="selected-info">0 dipilih</span>
@@ -259,15 +266,17 @@
         </div>
 
         <div class="actions">
-          <!-- Quick Select Buttons -->
+          <!-- Selection Controls -->
           <div class="btn-group-select">
             <button class="btn btn-secondary btn-sm" id="btn-select-unprinted" title="Pilih hanya voucher yang belum dicetak">🟢 Belum Dicetak</button>
             <button class="btn btn-secondary btn-sm" id="btn-select-all" title="Pilih Semua Voucher">✓ Semua</button>
-            <button class="btn btn-secondary btn-sm" id="btn-select-page" title="Pilih 1 Halaman / Batch voucher belum dicetak">📄 1 Hal / Batch</button>
+            <button class="btn btn-secondary btn-sm" id="btn-select-page" title="Pilih 1 Halaman / Batch voucher belum dicetak">📄 1 Batch</button>
             <button class="btn btn-secondary btn-sm" id="btn-deselect-all" title="Batalkan Pilihan">✕ Batal</button>
           </div>
-          <button class="btn btn-primary admin-only" id="btn-add">＋ Tambah</button>
-          <button class="btn btn-secondary admin-only" id="btn-import">📁 Import File</button>
+          
+          <!-- Primary Actions: Import Ruijie & Add -->
+          <button class="btn btn-primary admin-only" id="btn-import" title="Import file CSV / Excel langsung dari Ruijie Cloud">📁 Import File Ruijie</button>
+          <button class="btn btn-secondary admin-only" id="btn-add">＋ Tambah</button>
           <button class="btn btn-secondary admin-only" id="btn-assign-reseller" title="Titipkan voucher terpilih ke Reseller / Warung">🏪 Titip Warung</button>
           <button class="btn btn-secondary" id="btn-toggle-printed" title="Ubah status voucher terpilih (Belum / Sudah Dicetak)">🏷️ Ubah Status</button>
           <button class="btn btn-secondary" id="btn-export-png" title="Download Lembar Cetak sebagai Gambar PNG (Siap kirim ke tempat fotokopi)">🖼️ Export PNG</button>
@@ -278,10 +287,10 @@
       </div>
     </div>
 
-    <!-- 2-Column: Table + Preview -->
+    <!-- 2-Column Responsive Workspace: Table + Live Preview -->
     <div class="app-content">
 
-      <!-- Voucher Table -->
+      <!-- Voucher Data Table -->
       <section class="panel" id="voucher-panel">
         <div class="table-container">
           <table class="data-table">
@@ -301,20 +310,20 @@
             <tbody id="voucher-table"></tbody>
           </table>
           <div id="empty-state" class="empty-state">
-            <div class="icon">📭</div>
-            <p>Belum ada voucher</p>
-            <p class="hint">Klik "Tambah", "Generate Masal", atau "Import File" untuk mulai</p>
+            <div class="icon">📁</div>
+            <p>Belum ada data voucher</p>
+            <p class="hint">Klik tombol <strong>"📁 Import File Ruijie"</strong> atau <strong>"＋ Tambah"</strong> untuk mulai</p>
           </div>
         </div>
       </section>
 
-      <!-- Preview -->
+      <!-- Live Sheet Preview -->
       <section class="panel" id="preview-panel">
         <div class="panel-header">
-          <h2>👁 Preview Cetak (<span id="preview-layout-badge">A4 5×5</span>)</h2>
+          <h2>👁 Preview Lembar Cetak (<span id="preview-layout-badge">A4 5×5</span>)</h2>
         </div>
         <div class="preview-container" id="preview-grid">
-          <div class="preview-empty">Belum ada voucher.</div>
+          <div class="preview-empty">Belum ada voucher. Silakan import file atau tambah manual.</div>
         </div>
       </section>
 
@@ -322,10 +331,10 @@
 
   </main>
 
-  <!-- Print Area (hidden on screen via CSS, shown on print) -->
+  <!-- Hidden Print Area -->
   <div id="print-area"></div>
 
-  <!-- Modal Overlay -->
+  <!-- Accessible Modal Overlay -->
   <div id="modal-overlay" class="modal-overlay">
     <div id="modal-content" class="modal-content"></div>
   </div>
