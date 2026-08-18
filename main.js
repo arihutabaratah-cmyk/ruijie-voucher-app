@@ -1,9 +1,10 @@
 /**
  * Aplikasi Cetak Voucher Ruijie Cloud — POS & Print Studio Pro
- * Features: Database Google Spreadsheet, Settings Tabs, Live Dummy Preview,
- * Watermark / Stempel Agen, Direct Bluetooth Thermal (ESC/POS), Export PDF,
- * Visual Trend Bar Chart, Dark Mode, Shift Kasir, Reseller & Surat Jalan,
- * Tom & Jerry Sticker Labels, Anti-Deduplication.
+ * Features: Database Google Spreadsheet, 1-Click Theme Store Gallery,
+ * Audit Trail Kasir, Stock Alert System, Dual Analytics Charts,
+ * Streamlined Dropdown Navigation, Watermark / Stempel Agen,
+ * Direct Bluetooth Thermal (ESC/POS), Export PDF, Dark Mode, Shift Kasir,
+ * Reseller & Surat Jalan, Tom & Jerry Labels, Anti-Deduplication.
  */
 
 // ===== DEFAULT PRESETS & RESELLERS =====
@@ -21,7 +22,7 @@ const DEFAULT_RESELLERS = [
   { id: 'res_2', name: 'Toko Pak Budi', phone: '081987654321', address: 'Depan Lapangan Desa', note: 'Setoran tiap jumat' }
 ];
 
-// Sample Dummy Vouchers for Live Preview when user has not imported yet
+// Sample Dummy Vouchers for Live Preview
 const SAMPLE_DUMMY_VOUCHERS = [
   { code: 'RJ-7X9K2B', paket: 'Paket 1 Jam', harga: '3000', periode: '1 Jam', speed: '2M/5M', quota: 'Unlimited', printed: false, selected: true },
   { code: 'RJ-4M8P9Q', paket: 'Paket 3 Jam', harga: '5000', periode: '3 Jam', speed: '3M/7M', quota: 'Unlimited', printed: false, selected: true },
@@ -36,6 +37,7 @@ const state = {
   adminPin: '1234',
   vouchers: [],
   resellers: DEFAULT_RESELLERS,
+  auditLogs: [], // Audit Trail for Cashier & Security
   filter: 'all', // 'all' | 'unprinted' | 'printed'
   searchQuery: '',
   filterReseller: 'all',
@@ -81,15 +83,11 @@ const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 const $id = (id) => document.getElementById(id);
 
-// Safe Event Listener Binder
 const on = (idOrEl, event, handler) => {
   const el = typeof idOrEl === 'string' ? $id(idOrEl) : idOrEl;
-  if (el) {
-    el.addEventListener(event, handler);
-  }
+  if (el) el.addEventListener(event, handler);
 };
 
-// Safe Value Setters
 const setVal = (id, val) => {
   const el = $id(id);
   if (el) el.value = val;
@@ -111,16 +109,155 @@ document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   bindEvents();
   applyUIMode();
-  renderPresetSelect();
   renderResellerFilterSelect();
   restoreUI();
+  checkStockAlerts();
   renderQuickPOSGrid();
   renderTable();
   renderPreview();
   initPWA();
 });
 
-// ===== THEME ENGINE (DARK / LIGHT MODE) =====
+// ===== AUDIT TRAIL LOGGER =====
+function logActivity(type, detail, user) {
+  const cashier = user || (state.activeShift && state.activeShift.cashierName) || (state.uiMode === 'admin' ? 'Admin' : 'Kasir');
+  const entry = {
+    id: 'log_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+    timestamp: new Date().toISOString(),
+    cashier: cashier,
+    type: type, // 'PRINT_POS' | 'PRINT_BATCH' | 'STATUS_CHANGE' | 'DELETE' | 'SHIFT' | 'SYNC'
+    detail: detail
+  };
+
+  state.auditLogs.unshift(entry);
+  if (state.auditLogs.length > 500) {
+    state.auditLogs = state.auditLogs.slice(0, 500);
+  }
+  saveState();
+}
+
+function showAuditLogModal() {
+  const logs = state.auditLogs || [];
+  const rows = logs.slice(0, 80).map((l, idx) => {
+    const d = new Date(l.timestamp);
+    const timeStr = `${d.toLocaleDateString('id-ID')} ${d.toLocaleTimeString('id-ID')}`;
+    let badgeClass = 'badge-audit-print';
+    let typeLabel = '🖨️ Cetak';
+
+    if (l.type === 'STATUS_CHANGE') { badgeClass = 'badge-audit-status'; typeLabel = '🏷️ Status'; }
+    else if (l.type === 'DELETE') { badgeClass = 'badge-audit-delete'; typeLabel = '🗑 Hapus'; }
+    else if (l.type === 'SHIFT') { badgeClass = 'badge-audit-shift'; typeLabel = '🚪 Shift'; }
+    else if (l.type === 'SYNC') { badgeClass = 'badge-audit-status'; typeLabel = '📊 Cloud DB'; }
+
+    return `
+      <tr>
+        <td style="font-size:0.75rem;color:var(--text-muted);">${idx + 1}</td>
+        <td style="font-size:0.75rem;white-space:nowrap;">${timeStr}</td>
+        <td><strong>${esc(l.cashier)}</strong></td>
+        <td><span class="badge-audit ${badgeClass}">${typeLabel}</span></td>
+        <td style="font-size:0.8rem;">${esc(l.detail)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const html = `
+    <div class="modal-header">
+      <h3>📜 Log Aktivitas Kasir & Audit Trail</h3>
+      <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:0.85rem;">
+        Catatan riwayat lengkap seluruh aksi kasir (cetak, pembatalan, shift, & hapus) untuk mencegah kebocoran omset.
+      </p>
+
+      <div class="rekap-table-wrapper" style="max-height:360px;">
+        <table class="data-table" style="background:var(--surface);">
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>Waktu</th>
+              <th>Kasir / Petugas</th>
+              <th>Aksi</th>
+              <th>Rincian Aktivitas</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">Belum ada riwayat aktivitas tercatat.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between;">
+      <button class="btn btn-secondary btn-sm" id="btn-export-audit-csv">📥 Export Audit Log (CSV)</button>
+      <button class="btn btn-primary btn-sm" onclick="closeModal()">Tutup</button>
+    </div>
+  `;
+
+  openModal(html, 'modal-wide');
+
+  on('btn-export-audit-csv', 'click', () => {
+    if (logs.length === 0) {
+      showToast('Belum ada log untuk diekspor.', 'error');
+      return;
+    }
+    let csv = `AUDIT TRAIL LOG KASIR VOUCHER RUIJIE\nTanggal Export:,"${new Date().toLocaleString('id-ID')}"\n\n`;
+    csv += `No,Waktu,Petugas,Tipe Aksi,Rincian\n`;
+    logs.forEach((l, i) => {
+      csv += `${i + 1},"${new Date(l.timestamp).toLocaleString('id-ID')}","${l.cashier}","${l.type}","${l.detail.replace(/"/g, '""')}"\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `audit_log_kasir_${Date.now()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast('Log Audit Trail berhasil didownload!');
+  });
+}
+
+// ===== ⚠️ STOCK ALERT CHECKER =====
+function checkStockAlerts() {
+  const unprinted = state.vouchers.filter(v => !v.printed);
+  const totalUnprinted = unprinted.length;
+  
+  const stockPill = $id('header-stock-pill');
+  setText('header-stock-count', totalUnprinted);
+
+  if (stockPill) {
+    if (totalUnprinted <= 5 && state.vouchers.length > 0) {
+      stockPill.classList.add('low');
+    } else {
+      stockPill.classList.remove('low');
+    }
+  }
+
+  // Calculate per package
+  const pkgMap = {};
+  state.vouchers.forEach(v => {
+    const pkg = v.paket || 'Reguler';
+    if (!pkgMap[pkg]) pkgMap[pkg] = 0;
+    if (!v.printed) pkgMap[pkg]++;
+  });
+
+  const lowPkgs = Object.keys(pkgMap).filter(k => pkgMap[k] <= 3);
+  const banner = $id('stock-alert-banner');
+  const msg = $id('stock-alert-message');
+
+  if (banner && msg) {
+    if (state.vouchers.length > 0 && (totalUnprinted <= 5 || lowPkgs.length > 0)) {
+      const details = lowPkgs.map(k => `<strong>${esc(k)}</strong>: sisa ${pkgMap[k]} pcs`).join(', ');
+      msg.innerHTML = `Stok voucher hampir habis! (${details || `Total sisa hanya ${totalUnprinted} pcs`}). Segera import data baru.`;
+      banner.style.display = 'flex';
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+}
+
+// ===== THEME ENGINE & THEME STORE =====
 function initTheme() {
   const savedTheme = localStorage.getItem('ruijie_theme_mode') || 'light';
   state.themeMode = savedTheme;
@@ -145,49 +282,80 @@ function applyTheme() {
   }
 }
 
-// ===== PWA INSTALLATION & SERVICE WORKER =====
+function applyDesignPreset(presetName, fontName, borderName) {
+  state.settings.theme = presetName;
+  if (fontName) state.settings.fontFamily = fontName;
+  if (borderName) state.settings.borderStyle = borderName;
+
+  setVal('theme-select', state.settings.theme);
+  setVal('font-select', state.settings.fontFamily);
+  setVal('border-select', state.settings.borderStyle);
+
+  $$('.theme-preset-card').forEach(card => {
+    card.classList.toggle('active', card.dataset.themePreset === presetName);
+  });
+
+  applyUIMode();
+  saveState();
+  renderPreview();
+  showToast(`Tema diterapkan: ${presetName.replace('theme-', '').toUpperCase()}`);
+}
+
+// ===== PWA INSTALLATION =====
 let deferredPwaPrompt = null;
 
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js')
-      .then((reg) => {
-        console.log('PWA Service Worker registered:', reg.scope);
-      })
-      .catch((err) => {
-        console.warn('PWA Service Worker registration failed:', err);
-      });
+    navigator.serviceWorker.register('./sw.js').catch(err => console.warn('SW failed:', err));
   }
 
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPwaPrompt = e;
-    const installBtn = $id('btn-install-pwa');
-    if (installBtn) {
-      installBtn.style.display = 'inline-flex';
-      installBtn.addEventListener('click', async () => {
-        if (deferredPwaPrompt) {
-          deferredPwaPrompt.prompt();
-          const { outcome } = await deferredPwaPrompt.userChoice;
-          if (outcome === 'accepted') {
-            showToast('Aplikasi berhasil dipasang di layar utama!');
-            installBtn.style.display = 'none';
-          }
-          deferredPwaPrompt = null;
-        }
-      });
-    }
+    const menuPwa = $id('menu-item-install-pwa');
+    if (menuPwa) menuPwa.style.display = 'flex';
   });
 
-  window.addEventListener('appinstalled', () => {
-    const installBtn = $id('btn-install-pwa');
-    if (installBtn) installBtn.style.display = 'none';
-    showToast('Aplikasi Voucher Ruijie siap digunakan secara mandiri!');
+  on('menu-item-install-pwa', 'click', async () => {
+    if (deferredPwaPrompt) {
+      deferredPwaPrompt.prompt();
+      const { outcome } = await deferredPwaPrompt.userChoice;
+      if (outcome === 'accepted') {
+        showToast('Aplikasi berhasil dipasang di layar utama!');
+        const menuPwa = $id('menu-item-install-pwa');
+        if (menuPwa) menuPwa.style.display = 'none';
+      }
+      deferredPwaPrompt = null;
+    }
   });
 }
 
 // ===== EVENT BINDING =====
 function bindEvents() {
+  // Streamlined Header Dropdown Navigation
+  const menuBtn = $id('btn-header-menu');
+  const menuDropdown = $id('header-dropdown-menu');
+
+  if (menuBtn && menuDropdown) {
+    menuBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menuDropdown.classList.toggle('show');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!menuDropdown.contains(e.target) && e.target !== menuBtn) {
+        menuDropdown.classList.remove('show');
+      }
+    });
+  }
+
+  // Dropdown Items
+  on('menu-item-sheets', 'click', () => { menuDropdown?.classList.remove('show'); showGoogleSheetsModal(); });
+  on('menu-item-reseller', 'click', () => { menuDropdown?.classList.remove('show'); showResellerModal(); });
+  on('menu-item-audit', 'click', () => { menuDropdown?.classList.remove('show'); showAuditLogModal(); });
+  on('menu-item-presets', 'click', () => { menuDropdown?.classList.remove('show'); showStorePresetsModal(); });
+  on('menu-item-pro', 'click', () => { menuDropdown?.classList.remove('show'); showUpgradeProModal(); });
+
   // Settings Tab Navigation
   $$('.btn-setting-tab').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -200,13 +368,22 @@ function bindEvents() {
     });
   });
 
+  // 1-Click Theme Store Preset Gallery
+  $$('.theme-preset-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const themeName = card.dataset.themePreset;
+      const fontName = card.dataset.font;
+      const borderName = card.dataset.border;
+      applyDesignPreset(themeName, fontName, borderName);
+    });
+  });
+
   // Role Mode Switcher with PIN Lock
   on('btn-mode-admin', 'click', handleSwitchToAdmin);
   on('btn-mode-kasir', 'click', () => setUIMode('kasir'));
   on('btn-change-pin', 'click', showChangePinModal);
 
   // Google Spreadsheet Database Buttons
-  on('btn-sheets-modal', 'click', showGoogleSheetsModal);
   on('btn-open-sheets-guide-tab', 'click', showGoogleSheetsModal);
   on('btn-sync-from-sheets', 'click', syncFromGoogleSheets);
   on('btn-save-to-sheets', 'click', saveToGoogleSheets);
@@ -221,16 +398,9 @@ function bindEvents() {
   on('btn-connect-bluetooth', 'click', handleConnectBluetooth);
   on('btn-toggle-shift', 'click', showShiftModal);
 
-  // Preset Store Manager
-  on('preset-select', 'change', handlePresetChange);
-  on('btn-save-preset', 'click', saveCurrentPreset);
-  on('btn-add-preset', 'click', showAddPresetModal);
-
   // Reseller & Pro & Rekap Tools
-  on('btn-reseller', 'click', showResellerModal);
   on('btn-assign-reseller', 'click', showAssignResellerModal);
   on('btn-rekap', 'click', showRekapModal);
-  on('btn-upgrade-pro', 'click', showUpgradeProModal);
   on('btn-export-pdf', 'click', exportPDF);
   on('btn-export-png', 'click', exportPreviewAsPNG);
 
@@ -490,12 +660,10 @@ function resolveGoogleSheetsUrl(rawUrl) {
   if (!rawUrl) return null;
   const trimmed = rawUrl.trim();
 
-  // If it's a Google Apps Script Web App
   if (trimmed.includes('script.google.com')) {
     return { type: 'apps_script', url: trimmed };
   }
 
-  // If it's a direct Google Spreadsheet URL
   const match = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
   if (match && match[1]) {
     const sheetId = match[1];
@@ -505,7 +673,6 @@ function resolveGoogleSheetsUrl(rawUrl) {
     };
   }
 
-  // If it's already a CSV or direct URL
   return { type: 'csv', url: trimmed };
 }
 
@@ -531,11 +698,11 @@ async function syncFromGoogleSheets() {
       const json = await res.json();
       if (json.status === 'success' && Array.isArray(json.data)) {
         handleImportedSheetsVouchers(json.data);
+        logActivity('SYNC', `Sinkronisasi ${json.data.length} voucher dari Google Sheets`);
         return;
       }
     }
 
-    // Direct CSV Fetch fallback
     const res = await fetch(resolved.url);
     const csvText = await res.text();
     const parsedVouchers = parseRuijieCSV(csvText);
@@ -544,6 +711,7 @@ async function syncFromGoogleSheets() {
       return;
     }
     handleImportedSheetsVouchers(parsedVouchers);
+    logActivity('SYNC', `Tarik ${parsedVouchers.length} voucher dari Spreadsheet CSV`);
   } catch (err) {
     console.error('Google Sheets sync error:', err);
     showToast('Gagal menarik data dari Google Sheets. Pastikan akses disetel "Anyone".', 'error');
@@ -577,6 +745,7 @@ function handleImportedSheetsVouchers(importedList) {
   });
 
   saveState();
+  checkStockAlerts();
   renderQuickPOSGrid();
   renderTable();
   renderPreview();
@@ -611,6 +780,7 @@ async function saveToGoogleSheets() {
       })
     });
 
+    logActivity('SYNC', `Backup ${state.vouchers.length} voucher ke Google Sheets`);
     showToast(`✅ Berhasil! ${state.vouchers.length} voucher tersimpan di Google Sheets.`);
   } catch (err) {
     console.error('Save to sheets error:', err);
@@ -868,6 +1038,7 @@ function showShiftModal() {
       salesOmset: 0,
       closed: false
     };
+    logActivity('SHIFT', `Buka shift baru untuk kasir: ${state.activeShift.cashierName} (Modal Rp ${formatNumber(state.activeShift.startCash)})`);
     saveState();
     setText('pos-cashier-name', state.activeShift.cashierName);
     closeModal();
@@ -882,6 +1053,8 @@ function printCloseShiftReceipt() {
   const activePreset = state.presets.find(p => p.id === state.activePresetId) || DEFAULT_PRESET;
   const sDate = new Date(shift.startTime || Date.now());
   const now = new Date();
+
+  logActivity('SHIFT', `Tutup shift kasir: ${shift.cashierName} (Omset Rp ${formatNumber(shift.salesOmset)}, ${shift.salesCount} pcs)`);
 
   const receiptHtml = `
     <div style="font-family:monospace;font-size:12px;width:280px;margin:0 auto;padding:10px;line-height:1.4;color:#000;">
@@ -934,7 +1107,7 @@ function printCloseShiftReceipt() {
   }
 }
 
-// ===== 📄 EXPORT PDF (PRESISI UKURAN) =====
+// ===== 📄 EXPORT PDF =====
 function exportPDF() {
   const selected = getSelectedVouchers();
   if (selected.length === 0 && state.vouchers.length > 0) {
@@ -952,7 +1125,7 @@ function exportPDF() {
   }, 100);
 }
 
-// ===== 🖼️ EXPORT PREVIEW AS PNG (SIAP FOTOKOPI) =====
+// ===== 🖼️ EXPORT PNG =====
 function exportPreviewAsPNG() {
   const selected = getSelectedVouchers();
   if (selected.length === 0 && state.vouchers.length > 0) {
@@ -1046,15 +1219,26 @@ function renderQuickPOSGrid() {
     return;
   }
 
-  container.innerHTML = pkgs.map(p => `
-    <button class="btn-pos-pkg" data-pkg="${esc(p.name)}" ${p.unprintedCount === 0 ? 'disabled' : ''}>
-      <div class="pos-pkg-name">⚡ ${esc(p.name)}</div>
-      <div class="pos-pkg-price">Rp ${formatNumber(p.harga)}</div>
-      <div class="pos-pkg-stock-badge ${p.unprintedCount === 0 ? 'empty' : ''}">
-        ${p.unprintedCount > 0 ? `📦 Sisa: ${p.unprintedCount} pcs` : '❌ Habis'}
-      </div>
-    </button>
-  `).join('');
+  container.innerHTML = pkgs.map(p => {
+    let badgeClass = '';
+    let badgeText = `📦 Sisa: ${p.unprintedCount} pcs`;
+
+    if (p.unprintedCount === 0) {
+      badgeClass = 'empty';
+      badgeText = '❌ Habis';
+    } else if (p.unprintedCount <= 3) {
+      badgeClass = 'warning';
+      badgeText = `⚠️ Kritis: ${p.unprintedCount} pcs`;
+    }
+
+    return `
+      <button class="btn-pos-pkg" data-pkg="${esc(p.name)}" ${p.unprintedCount === 0 ? 'disabled' : ''}>
+        <div class="pos-pkg-name">⚡ ${esc(p.name)}</div>
+        <div class="pos-pkg-price">Rp ${formatNumber(p.harga)}</div>
+        <div class="pos-pkg-stock-badge ${badgeClass}">${badgeText}</div>
+      </button>
+    `;
+  }).join('');
 
   container.querySelectorAll('.btn-pos-pkg').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1081,12 +1265,14 @@ function quickPrintPackage(pkgName, qty = 1) {
       state.activeShift.salesCount = (state.activeShift.salesCount || 0) + 1;
       state.activeShift.salesOmset = (state.activeShift.salesOmset || 0) + priceVal;
     }
+    logActivity('PRINT_POS', `Cetak POS 1x [${v.code}] ${pkgName} (Rp ${formatNumber(v.harga)})`);
   });
 
   const layoutVal = state.settings.layout || 'thermal-58';
   buildPrintArea(toPrint, layoutVal);
 
   saveState();
+  checkStockAlerts();
 
   setTimeout(() => {
     window.print();
@@ -1274,11 +1460,12 @@ function showAssignResellerModal() {
       v.resellerName = targetRes ? targetRes.name : null;
     });
 
+    logActivity('STATUS_CHANGE', `Titipkan ${selected.length} voucher ke ${targetRes ? targetRes.name : 'Langsung'}`);
     saveState();
     renderTable();
     renderPreview();
     closeModal();
-    showToast(`${selected.length} voucher berhasil ditugaskan ke ${targetRes ? targetRes.name : 'Langsung (Tanpa Reseller)'}`);
+    showToast(`${selected.length} voucher berhasil ditugaskan ke ${targetRes ? targetRes.name : 'Langsung'}`);
   });
 }
 
@@ -1377,50 +1564,64 @@ function printSuratJalan(resellerId) {
   }
 }
 
-// ===== PRESET STORE MANAGER =====
-function renderPresetSelect() {
-  const select = $id('preset-select');
-  if (!select) return;
-  select.innerHTML = state.presets.map(p => `
-    <option value="${p.id}" ${p.id === state.activePresetId ? 'selected' : ''}>${esc(p.name)}</option>
+// ===== PRESET STORE / PROFIL TOKO MODAL =====
+function showStorePresetsModal() {
+  const optionsHtml = state.presets.map(p => `
+    <div style="display:flex;justify-content:space-between;align-items:center;background:var(--surface-alt);border:1px solid var(--border);padding:0.75rem;border-radius:var(--radius-xs);margin-bottom:0.5rem;">
+      <div>
+        <strong>🏪 ${esc(p.name)}</strong>
+        <div style="font-size:0.75rem;color:var(--text-secondary);">SSID: ${esc(p.ssid || '-')}</div>
+      </div>
+      <div style="display:flex;gap:0.35rem;">
+        <button class="btn btn-secondary btn-sm" onclick="switchPresetDirect('${p.id}')" ${p.id === state.activePresetId ? 'disabled' : ''}>
+          ${p.id === state.activePresetId ? '✓ Aktif' : 'Pilih'}
+        </button>
+      </div>
+    </div>
   `).join('');
+
+  const html = `
+    <div class="modal-header">
+      <h3>🏪 Kelola Profil / Cabang Toko</h3>
+      <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem;">
+        <p style="font-size:0.82rem;color:var(--text-secondary);">Ganti profil toko atau buat pengaturan cabang baru.</p>
+        <button class="btn btn-primary btn-sm" id="btn-modal-add-preset">＋ Tambah Toko</button>
+      </div>
+      ${optionsHtml}
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Tutup</button>
+    </div>
+  `;
+
+  openModal(html);
+  on('btn-modal-add-preset', 'click', showAddPresetModal);
 }
 
-function handlePresetChange(e) {
-  const selectedId = e.target.value;
-  const targetPreset = state.presets.find(p => p.id === selectedId);
-  if (!targetPreset) return;
-
-  state.activePresetId = selectedId;
-  state.settings.ssid = targetPreset.ssid || '';
-  state.settings.logo = targetPreset.logo || null;
-  state.settings.theme = targetPreset.theme || 'theme-blue';
-  state.settings.loginHint = targetPreset.loginHint || 'Buka browser utk login';
+function switchPresetDirect(id) {
+  const target = state.presets.find(p => p.id === id);
+  if (!target) return;
+  state.activePresetId = id;
+  state.settings.ssid = target.ssid || '';
+  state.settings.logo = target.logo || null;
+  state.settings.theme = target.theme || 'theme-blue';
+  state.settings.loginHint = target.loginHint || 'Buka browser utk login';
 
   restoreUI();
   saveState();
   renderPreview();
-  showToast(`Beralih ke profil: ${targetPreset.name}`);
-}
-
-function saveCurrentPreset() {
-  const active = state.presets.find(p => p.id === state.activePresetId);
-  if (!active) return;
-
-  active.ssid = state.settings.ssid;
-  active.logo = state.settings.logo;
-  active.theme = state.settings.theme;
-  active.loginHint = state.settings.loginHint;
-
-  saveState();
-  showToast(`Pengaturan profil "${active.name}" berhasil disimpan!`);
+  closeModal();
+  showToast(`Beralih ke profil: ${target.name}`);
 }
 
 function showAddPresetModal() {
   const html = `
     <div class="modal-header">
       <h3>Tambah Profil / Cabang Baru</h3>
-      <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
+      <button class="btn-icon" onclick="showStorePresetsModal()" title="Kembali">✕</button>
     </div>
     <div class="modal-body">
       <div class="modal-form">
@@ -1435,18 +1636,17 @@ function showAddPresetModal() {
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal()">Batal</button>
+      <button class="btn btn-secondary" onclick="showStorePresetsModal()">Batal</button>
       <button class="btn btn-primary" id="btn-confirm-add-preset">Simpan Profil Baru</button>
     </div>
   `;
 
   openModal(html);
 
-  const confirmAdd = () => {
+  on('btn-confirm-add-preset', 'click', () => {
     const name = ($id('m-preset-name')?.value || '').trim();
     if (!name) {
       showToast('Nama profil wajib diisi', 'error');
-      $id('m-preset-name')?.focus();
       return;
     }
 
@@ -1465,20 +1665,14 @@ function showAddPresetModal() {
     state.settings.ssid = newPreset.ssid;
 
     saveState();
-    renderPresetSelect();
     restoreUI();
     renderPreview();
-    closeModal();
     showToast(`Profil "${name}" berhasil dibuat`);
-  };
-
-  on('btn-confirm-add-preset', 'click', confirmAdd);
-  on('modal-content', 'keydown', (e) => {
-    if (e.key === 'Enter') confirmAdd();
+    showStorePresetsModal();
   });
 }
 
-// ===== REKAP OMSET DASHBOARD & VISUAL BAR CHART =====
+// ===== 📊 REKAP OMSET & DUAL VISUAL CHARTS =====
 let rekapFilter = {
   period: 'all',
   package: 'all',
@@ -1588,11 +1782,11 @@ function renderRekapModalContent() {
     }
   });
 
-  // Calculate Bar Chart Data (Top Packages Sales)
+  // Chart 1: Top Selling Packages (Comparative Share)
   const chartPkgs = Object.keys(packageStats);
   const maxPrintedCount = Math.max(1, ...chartPkgs.map(k => packageStats[k].printed));
   
-  const chartBarsHtml = chartPkgs.map(pkg => {
+  const pkgBarsHtml = chartPkgs.map(pkg => {
     const s = packageStats[pkg];
     const heightPercent = Math.max(8, Math.round((s.printed / maxPrintedCount) * 100));
     return `
@@ -1600,6 +1794,42 @@ function renderRekapModalContent() {
         <div class="chart-bar-value">${s.printed}</div>
         <div class="chart-bar-fill" style="height: ${heightPercent}%;"></div>
         <div class="chart-bar-label">${esc(pkg.substring(0, 8))}</div>
+      </div>
+    `;
+  }).join('');
+
+  // Chart 2: Timeline Omset (Last 7 Days Sales Trend)
+  const daysTrendMap = {};
+  const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+  const now = new Date();
+
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+    const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+    daysTrendMap[key] = { label: dayNames[d.getDay()], count: 0, omset: 0 };
+  }
+
+  printedList.forEach(v => {
+    const d = parseVoucherDate(v.printedAt || v.createdAt);
+    if (d) {
+      const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+      if (daysTrendMap[key]) {
+        daysTrendMap[key].count++;
+        daysTrendMap[key].omset += parseFloat(String(v.harga).replace(/[^\d.]/g, '')) || 0;
+      }
+    }
+  });
+
+  const timelineDays = Object.values(daysTrendMap);
+  const maxDayOmset = Math.max(1, ...timelineDays.map(t => t.omset));
+
+  const timelineBarsHtml = timelineDays.map(t => {
+    const heightPercent = Math.max(8, Math.round((t.omset / maxDayOmset) * 100));
+    return `
+      <div class="chart-bar-col" title="${t.label}: Rp ${formatNumber(t.omset)} (${t.count} pcs)">
+        <div class="chart-bar-value">${t.omset >= 1000 ? Math.round(t.omset/1000) + 'k' : t.omset}</div>
+        <div class="chart-bar-fill accent-gold" style="height: ${heightPercent}%;"></div>
+        <div class="chart-bar-label">${t.label}</div>
       </div>
     `;
   }).join('');
@@ -1619,7 +1849,7 @@ function renderRekapModalContent() {
     `;
   }).join('');
 
-  const maxList = 50;
+  const maxList = 40;
   const listSlice = filtered.slice(0, maxList);
   const detailRows = listSlice.map((v, idx) => {
     const rawDate = v.printedAt || v.createdAt;
@@ -1645,7 +1875,7 @@ function renderRekapModalContent() {
 
   const html = `
     <div class="modal-header">
-      <h3>📊 Laporan Penjualan & Rekap Omset</h3>
+      <h3>📊 Laporan Penjualan & Dashboard Omset</h3>
       <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
     </div>
     <div class="modal-body">
@@ -1692,30 +1922,41 @@ function renderRekapModalContent() {
       <!-- 3 Metrics KPI Cards -->
       <div class="rekap-card-grid-3">
         <div class="rekap-card rekap-card-accent-green">
-          <div class="rekap-label">Omset Voucher Dicetak</div>
+          <div class="rekap-label">Omset Voucher Terjual</div>
           <div class="rekap-val" style="color:var(--success);">Rp ${formatNumber(totalOmsetPrinted)}</div>
           <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:3px;">✨ <strong>${printedList.length}</strong> voucher terjual</div>
         </div>
         <div class="rekap-card rekap-card-accent-blue">
-          <div class="rekap-label">Sisa Stok (Belum Cetak)</div>
+          <div class="rekap-label">Sisa Nilai Stok</div>
           <div class="rekap-val" style="color:var(--primary);">Rp ${formatNumber(totalOmsetUnprinted)}</div>
           <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:3px;">📦 <strong>${unprintedList.length}</strong> voucher siap cetak</div>
         </div>
         <div class="rekap-card rekap-card-accent-purple">
-          <div class="rekap-label">Total Nilai Keseluruhan</div>
+          <div class="rekap-label">Total Potensi Nilai</div>
           <div class="rekap-val" style="color:#7c3aed;">Rp ${formatNumber(totalOmsetAll)}</div>
           <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:3px;">📋 <strong>${filtered.length}</strong> voucher terdata</div>
         </div>
       </div>
 
-      <!-- Section: Visual Trend Bar Chart -->
-      <div class="rekap-chart-card">
-        <div class="rekap-chart-title">
-          <span>📈 Grafik Tren Penjualan per Paket (Pcs Terjual)</span>
-          <span style="font-size:0.72rem;color:var(--text-muted);">Visualisasi Real-Time</span>
+      <!-- Section: Dual Visual Analytics Charts -->
+      <div class="rekap-charts-grid">
+        <div class="rekap-chart-box">
+          <div class="rekap-chart-title">
+            <span>📈 Tren Omset 7 Hari Terakhir</span>
+            <span style="font-size:0.7rem;color:var(--text-muted);">Harian (Rp)</span>
+          </div>
+          <div class="rekap-bars-grid">
+            ${timelineBarsHtml}
+          </div>
         </div>
-        <div class="rekap-bars-grid">
-          ${chartBarsHtml || '<div style="color:var(--text-muted);font-size:0.8rem;margin:auto;">Belum ada voucher yang terjual pada filter ini</div>'}
+        <div class="rekap-chart-box">
+          <div class="rekap-chart-title">
+            <span>🏆 Paket Paling Laku (Pcs Terjual)</span>
+            <span style="font-size:0.7rem;color:var(--text-muted);">Volume</span>
+          </div>
+          <div class="rekap-bars-grid">
+            ${pkgBarsHtml || '<div style="color:var(--text-muted);font-size:0.75rem;margin:auto;">Belum ada data</div>'}
+          </div>
         </div>
       </div>
 
@@ -1742,7 +1983,7 @@ function renderRekapModalContent() {
 
       <!-- Section: Rincian Voucher -->
       <div class="rekap-section-title">
-        <span>📋 Log & Riwayat Voucher (${filtered.length} voucher)</span>
+        <span>📋 Log & Riwayat Transaksi Voucher (${filtered.length} voucher)</span>
         <span style="font-size:0.74rem;color:var(--text-muted);">Menampilkan ${listSlice.length} baris</span>
       </div>
       <div class="rekap-table-wrapper">
@@ -1919,7 +2160,7 @@ function printRekapReceipt() {
   }
 }
 
-// ===== UPGRADE PRO PRICING MODAL =====
+// ===== UPGRADE PRO MODAL =====
 function showUpgradeProModal() {
   const html = `
     <div class="modal-header">
@@ -1939,11 +2180,11 @@ function showUpgradeProModal() {
             <div class="pricing-price">Rp 20.000 <span>/ bulan</span></div>
             <ul class="pricing-features">
               <li>✓ Database Google Spreadsheet Cloud</li>
-              <li>✓ Unlimited Cetak Voucher Ruijie</li>
-              <li>✓ Import File CSV/Excel Otomatis</li>
+              <li>✓ Theme Store & Galeri Desain 1-Click</li>
+              <li>✓ Audit Trail & Log Aktivitas Kasir</li>
+              <li>✓ Stock Alert & Notifikasi Kritis</li>
               <li>✓ 1-Click Quick POS Print & Shift Kasir</li>
               <li>✓ Direct Bluetooth Thermal Print (ESC/POS)</li>
-              <li>✓ Watermark / Stempel Toko & Export PDF</li>
             </ul>
           </div>
           <button class="btn btn-pro" style="width:100%;justify-content:center;" onclick="handleOrderPlan('Paket PRO Bulanan (Rp 20.000)')">Langganan PRO</button>
@@ -2312,7 +2553,9 @@ function importNewVouchersOnly(newVouchers) {
     tab.classList.toggle('active', tab.dataset.filter === 'unprinted');
   });
 
+  logActivity('SYNC', `Import ${newVouchers.length} voucher baru dari file`);
   saveState();
+  checkStockAlerts();
   renderQuickPOSGrid();
   renderTable();
   renderPreview();
@@ -2326,7 +2569,9 @@ function replaceAllVouchers(allVouchers) {
     tab.classList.toggle('active', tab.dataset.filter === 'all');
   });
 
+  logActivity('SYNC', `Ganti total database dengan ${allVouchers.length} voucher`);
   saveState();
+  checkStockAlerts();
   renderQuickPOSGrid();
   renderTable();
   renderPreview();
@@ -2404,7 +2649,9 @@ function showAddModal() {
       printedAt: null,
       selected: true
     });
+    logActivity('SYNC', `Tambah voucher manual [${code}]`);
     saveState();
+    checkStockAlerts();
     renderQuickPOSGrid();
     renderTable();
     renderPreview();
@@ -2551,9 +2798,12 @@ function handleTableClick(e) {
   if (statusBadge) {
     const index = parseInt(statusBadge.dataset.index, 10);
     if (!isNaN(index) && state.vouchers[index]) {
-      state.vouchers[index].printed = !state.vouchers[index].printed;
-      state.vouchers[index].printedAt = state.vouchers[index].printed ? new Date().toISOString() : null;
+      const v = state.vouchers[index];
+      v.printed = !v.printed;
+      v.printedAt = v.printed ? new Date().toISOString() : null;
+      logActivity('STATUS_CHANGE', `Ubah status [${v.code}] menjadi ${v.printed ? 'Sudah Dicetak' : 'Belum Dicetak'}`);
       saveState();
+      checkStockAlerts();
       renderQuickPOSGrid();
       renderTable();
       renderPreview();
@@ -2583,7 +2833,9 @@ function toggleSelectedPrintedStatus() {
     v.printedAt = targetStatus ? new Date().toISOString() : null;
   });
 
+  logActivity('STATUS_CHANGE', `Ubah status ${selected.length} voucher menjadi "${targetStatus ? 'Sudah Dicetak' : 'Belum Dicetak'}"`);
   saveState();
+  checkStockAlerts();
   renderQuickPOSGrid();
   renderTable();
   renderPreview();
@@ -2636,8 +2888,13 @@ function updateSelectionUI() {
 
 // ===== DELETE & CLEAR =====
 function deleteVoucher(index) {
+  const v = state.vouchers[index];
+  if (v) {
+    logActivity('DELETE', `Hapus 1 voucher [${v.code}]`);
+  }
   state.vouchers.splice(index, 1);
   saveState();
+  checkStockAlerts();
   renderQuickPOSGrid();
   renderTable();
   renderPreview();
@@ -2666,8 +2923,10 @@ function confirmDeleteSelected() {
 
   openModal(html);
   on('btn-confirm-delete-sel', 'click', () => {
+    logActivity('DELETE', `Hapus batch ${selected.length} voucher`);
     state.vouchers = state.vouchers.filter(v => v.selected === false);
     saveState();
+    checkStockAlerts();
     renderQuickPOSGrid();
     renderTable();
     renderPreview();
@@ -2764,7 +3023,7 @@ function renderTable() {
   updateSelectionUI();
 }
 
-// ===== RENDER PREVIEW (WITH DUMMY SAMPLE FALLBACK) =====
+// ===== RENDER PREVIEW =====
 function renderPreview() {
   const container = $id('preview-grid');
   if (!container) return;
@@ -2786,7 +3045,6 @@ function renderPreview() {
     else badge.textContent = `A4 ${layoutVal}/hal`;
   }
 
-  // If no vouchers exist yet, use Sample Vouchers so user sees live design!
   if (state.vouchers.length === 0) {
     vouchersToRender = SAMPLE_DUMMY_VOUCHERS;
     isDummyMode = true;
@@ -2924,7 +3182,6 @@ function buildCardHTML(v, num, settings, isPreview) {
     ? `background-image: url('${settings.bgImage}'); opacity: ${(settings.bgOpacity || 20) / 100};`
     : 'display:none;';
 
-  // Stempel / Watermark
   const watermarkHtml = settings.showWatermark && settings.watermarkText
     ? `<div class="v-card-watermark">${esc(settings.watermarkText)}</div>`
     : '';
@@ -3026,7 +3283,9 @@ function handlePrint() {
     v.selected = false;
   });
 
+  logActivity('PRINT_BATCH', `Cetak lembar ${selectedVouchers.length} voucher (Layout: ${layoutVal})`);
   saveState();
+  checkStockAlerts();
 
   setTimeout(() => {
     window.print();
@@ -3065,7 +3324,7 @@ function setFilter(filterName) {
 }
 
 // ===== LOCAL STORAGE PERSISTENCE =====
-const STORAGE_KEY = 'ruijie_voucher_app_v9_sheets';
+const STORAGE_KEY = 'ruijie_voucher_app_v10_pro';
 
 function saveState() {
   try {
@@ -3077,13 +3336,14 @@ function saveState() {
 
 function loadState() {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('ruijie_voucher_app_v8_pro') || localStorage.getItem('ruijie_voucher_app_v7_clean');
+    const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('ruijie_voucher_app_v9_sheets') || localStorage.getItem('ruijie_voucher_app_v8_pro');
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed.uiMode) state.uiMode = parsed.uiMode;
       if (parsed.themeMode) state.themeMode = parsed.themeMode;
       if (parsed.adminPin) state.adminPin = parsed.adminPin;
       if (parsed.activeShift) state.activeShift = parsed.activeShift;
+      if (Array.isArray(parsed.auditLogs)) state.auditLogs = parsed.auditLogs;
       if (Array.isArray(parsed.vouchers)) {
         state.vouchers = parsed.vouchers.map(v => ({
           ...v,
@@ -3126,6 +3386,10 @@ function restoreUI() {
   setVal('watermark-text', state.settings.watermarkText || '');
   setChecked('show-watermark', !!state.settings.showWatermark);
   
+  $$('.theme-preset-card').forEach(card => {
+    card.classList.toggle('active', card.dataset.themePreset === state.settings.theme);
+  });
+
   if (state.settings.bgImage) {
     const wrap = $id('bg-opacity-wrap');
     if (wrap) wrap.style.display = 'block';

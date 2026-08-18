@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Aplikasi Cetak Voucher WiFi Ruijie — Database Google Spreadsheet, Import Excel/CSV Ruijie Cloud, A4 Hemat (16-50/hal), Thermal POS (58mm/80mm), Stiker Label (Tom & Jerry), 1-Click POS Print, Direct Bluetooth & Shift Kasir">
-  <title>Cetak Voucher Ruijie Cloud — POS & Print Studio</title>
+  <meta name="description" content="Aplikasi Cetak Voucher WiFi Ruijie — Database Google Spreadsheet, Theme Store, Audit Trail Kasir, Stock Alert, A4 Hemat, Thermal POS, Stiker Label Tom & Jerry">
+  <title>Cetak Voucher Ruijie Cloud — POS & Print Studio Pro</title>
   <link rel="stylesheet" href="index.css">
   <link rel="stylesheet" href="print.css">
   <link rel="manifest" href="manifest.json">
@@ -18,53 +18,83 @@
 </head>
 <body class="mode-admin font-inter theme-light">
 
-  <!-- ===== APP NAVBAR ===== -->
+  <!-- ===== APP NAVBAR (CLEAN & STREAMLINED) ===== -->
   <header class="app-header">
     <div class="header-inner">
-      <div class="header-brand">
-        <div class="brand-icon-wrap">
-          <span class="icon">🎫</span>
+      <div class="header-left">
+        <div class="header-brand">
+          <div class="brand-icon-wrap">
+            <span class="icon">🎫</span>
+          </div>
+          <div class="brand-text">
+            <h1>Cetak Voucher Ruijie</h1>
+            <span class="header-badge">POS Studio Pro</span>
+          </div>
         </div>
-        <div class="brand-text">
-          <h1>Cetak Voucher Ruijie</h1>
-          <span class="header-badge">SaaS Studio</span>
+
+        <!-- Mode Switcher (Kasir vs Admin) -->
+        <div class="mode-switcher" title="Ganti Mode Tampilan (Kasir / Admin)">
+          <button class="btn-mode active" id="btn-mode-admin" data-mode="admin">🛡️ Admin</button>
+          <button class="btn-mode" id="btn-mode-kasir" data-mode="kasir">🛒 Kasir</button>
         </div>
       </div>
 
-      <!-- Mode Switcher (Kasir vs Admin) -->
-      <div class="mode-switcher" title="Ganti Mode Tampilan (Kasir / Admin)">
-        <button class="btn-mode active" id="btn-mode-admin" data-mode="admin">🛡️ Mode Admin</button>
-        <button class="btn-mode" id="btn-mode-kasir" data-mode="kasir">🛒 Mode Kasir</button>
-      </div>
-
-      <!-- Header Tools & Dark Mode Toggle -->
-      <div class="header-tools">
-        <!-- Preset Toko Selector -->
-        <div class="preset-manager" title="Kelola Profil / Cabang Toko Berbeda">
-          <span class="preset-label">🏪 Toko:</span>
-          <select id="preset-select" class="form-input form-input-sm"></select>
-          <button class="btn btn-secondary btn-sm admin-only" id="btn-save-preset" title="Simpan perubahan ke profil aktif">💾 Simpan</button>
-          <button class="btn btn-secondary btn-sm admin-only" id="btn-add-preset" title="Tambah profil / cabang baru">＋ Profil</button>
+      <!-- Header Right: Stock Indicator, Rekap, Theme Toggle & Menu Dropdown -->
+      <div class="header-right">
+        <!-- Stock Quick Pill -->
+        <div class="header-stock-pill" id="header-stock-pill" title="Total voucher yang belum dicetak (Stok siap jual)">
+          <span class="stock-dot"></span>
+          <span>Stok: <strong id="header-stock-count">0</strong> pcs</span>
         </div>
 
-        <button class="btn btn-secondary btn-sm admin-only" id="btn-sheets-modal" title="Setup Database Google Spreadsheet">📊 Spreadsheet DB</button>
-        <button class="btn btn-secondary btn-sm admin-only" id="btn-reseller" title="Kelola Titipan Warung & Agen">🏪 Reseller</button>
-        <button class="btn btn-secondary btn-sm" id="btn-rekap">📊 Rekap Omset</button>
-        
+        <!-- Rekap Omset Button -->
+        <button class="btn btn-secondary btn-sm" id="btn-rekap" title="Buka Rekap Penjualan & Grafik Omset">📊 Rekap Omset</button>
+
         <!-- Dark Mode Toggle Button -->
         <button class="btn-theme-toggle" id="btn-theme-toggle" title="Ganti Mode Gelap / Terang (Dark Mode)">
           <span class="theme-icon-light">🌙</span>
           <span class="theme-icon-dark">☀️</span>
         </button>
 
-        <button class="btn btn-secondary btn-sm" id="btn-install-pwa" style="display:none;" title="Install aplikasi ini ke Layar Utama HP / Komputer">📲 Install App</button>
-        <button class="btn btn-pro btn-sm admin-only" id="btn-upgrade-pro">💎 Upgrade PRO</button>
+        <!-- Streamlined Dropdown Navigation -->
+        <div class="header-menu-container">
+          <button class="btn btn-primary btn-sm" id="btn-header-menu" title="Buka Menu Konfigurasi & Database">
+            <span>☰ Menu & Tools</span>
+            <span style="font-size:0.65rem;">▼</span>
+          </button>
+          <div class="header-dropdown-menu" id="header-dropdown-menu">
+            <div class="dropdown-header">🛠️ Navigasi & Konfigurasi</div>
+            <a class="dropdown-item admin-only" id="menu-item-sheets">📊 Database Google Spreadsheet</a>
+            <a class="dropdown-item admin-only" id="menu-item-reseller">🏪 Manajemen Reseller & Agen</a>
+            <a class="dropdown-item" id="menu-item-audit">📜 Log Aktivitas Kasir (Audit Trail)</a>
+            <a class="dropdown-item admin-only" id="menu-item-presets">🏪 Ganti Profil Toko / SSID</a>
+            <div class="dropdown-divider admin-only"></div>
+            <a class="dropdown-item admin-only" id="menu-item-pro" style="color:var(--gold);font-weight:750;">💎 Upgrade Lisensi PRO</a>
+            <a class="dropdown-item" id="menu-item-install-pwa" style="display:none;">📲 Pasang Aplikasi (PWA)</a>
+          </div>
+        </div>
       </div>
     </div>
   </header>
 
   <!-- ===== MAIN APP CONTENT ===== -->
   <main class="app-main">
+
+    <!-- ⚠️ STOCK ALERT BANNER (PERINGATAN STOK MENIPIS) -->
+    <div class="stock-alert-banner" id="stock-alert-banner" style="display:none;">
+      <div class="stock-alert-content">
+        <span class="alert-icon">⚠️</span>
+        <div class="alert-text">
+          <strong>Peringatan Stok Voucher Menipis!</strong>
+          <span id="stock-alert-message">Beberapa paket voucher hampir habis. Segera import voucher baru agar operasional kasir tidak terganggu.</span>
+        </div>
+      </div>
+      <div class="stock-alert-actions">
+        <button class="btn btn-primary btn-sm" onclick="$id('csv-file').click()">📁 Import File Ruijie</button>
+        <button class="btn btn-secondary btn-sm" onclick="syncFromGoogleSheets()">📊 Sinkron Spreadsheet</button>
+        <button class="btn-icon" onclick="$id('stock-alert-banner').style.display='none'" title="Tutup">✕</button>
+      </div>
+    </div>
 
     <!-- ⚡ QUICK POS CASHIER PANEL (1-CLICK PRINT & SHIFT) -->
     <section class="panel quick-pos-panel" id="quick-pos-panel">
@@ -137,7 +167,7 @@
         <!-- TAB 2: GOOGLE SPREADSHEET DATABASE -->
         <div class="setting-tab-pane" id="pane-tab-sheets" style="display:none;">
           <div class="sheets-config-box">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.65rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.65rem;flex-wrap:wrap;gap:0.5rem;">
               <div>
                 <strong style="font-size:0.92rem;color:var(--text);">📊 Integrasi Database Google Spreadsheet</strong>
                 <p style="font-size:0.75rem;color:var(--text-secondary);">Gunakan Google Sheets gratis sebagai database cloud untuk simpan voucher dan rekap hasil export.</p>
@@ -158,9 +188,45 @@
           </div>
         </div>
 
-        <!-- TAB 3: TAMPILAN, LOGO & WATERMARK STEMPEL -->
+        <!-- TAB 3: TAMPILAN, LOGO & THEME STORE -->
         <div class="setting-tab-pane" id="pane-tab-design" style="display:none;">
-          <div class="settings-grid-tab">
+          
+          <!-- 🎨 1-Click Theme Store / Galeri Template -->
+          <div class="theme-store-section">
+            <div class="theme-store-title">
+              <span>🎨 Galeri Template Desain Voucher (1-Click Theme Store)</span>
+              <span style="font-size:0.72rem;color:var(--text-muted);">Pilih template siap pakai</span>
+            </div>
+            <div class="theme-preset-grid">
+              <div class="theme-preset-card active" data-theme-preset="theme-blue" data-font="font-inter" data-border="border-dashed">
+                <div class="preset-color-bar theme-blue-bar"></div>
+                <div class="preset-name">💎 Cyber Blue</div>
+                <div class="preset-desc">Modern SaaS, Dashed Border</div>
+              </div>
+              <div class="theme-preset-card" data-theme-preset="theme-purple" data-font="font-mono" data-border="border-solid">
+                <div class="preset-color-bar theme-gaming-bar"></div>
+                <div class="preset-name">🎮 Gaming & Esports</div>
+                <div class="preset-desc">Cyberpunk Tech, Solid Neon</div>
+              </div>
+              <div class="theme-preset-card" data-theme-preset="theme-gold" data-font="font-poppins" data-border="border-dashed">
+                <div class="preset-color-bar theme-cafe-bar"></div>
+                <div class="preset-name">☕ Warkop & Cafe</div>
+                <div class="preset-desc">Warm Amber, Rounded Font</div>
+              </div>
+              <div class="theme-preset-card" data-theme-preset="theme-mono" data-font="font-inter" data-border="border-solid">
+                <div class="preset-color-bar theme-mono-bar"></div>
+                <div class="preset-name">📄 Minimalis Hemat</div>
+                <div class="preset-desc">Hitam Putih, 0% Boros Tinta</div>
+              </div>
+              <div class="theme-preset-card" data-theme-preset="theme-emerald" data-font="font-roboto" data-border="border-dashed">
+                <div class="preset-color-bar theme-festive-bar"></div>
+                <div class="preset-name">🌙 Hari Raya Festive</div>
+                <div class="preset-desc">Emerald Green Royal Gold</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-grid-tab" style="margin-top:1.15rem;">
             <!-- Media Upload (Logo & Background) -->
             <div class="media-upload-column">
               <div class="logo-upload-area" id="logo-area" title="Klik untuk upload logo toko (PNG/JPG)">
@@ -191,7 +257,8 @@
                     <option value="theme-blue" selected>Modern Blue</option>
                     <option value="theme-mono">Hitam Putih (Hemat Tinta)</option>
                     <option value="theme-emerald">Emerald Green</option>
-                    <option value="theme-purple">Purple Royal</option>
+                    <option value="theme-purple">Purple Royal / Gaming</option>
+                    <option value="theme-gold">Golden Cafe / Warkop</option>
                   </select>
                 </div>
                 <div class="form-group">

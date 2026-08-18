@@ -7,7 +7,7 @@
   --surface: #ffffff;
   --surface-alt: #f8fafc;
   --surface-hover: #f1f5f9;
-  --surface-glass: rgba(255, 255, 255, 0.88);
+  --surface-glass: rgba(255, 255, 255, 0.92);
   
   --primary: #2563eb;
   --primary-hover: #1d4ed8;
@@ -61,7 +61,7 @@
   --surface: #131b2e;
   --surface-alt: #1a243b;
   --surface-hover: #22304e;
-  --surface-glass: rgba(19, 27, 46, 0.88);
+  --surface-glass: rgba(19, 27, 46, 0.92);
   
   --primary: #3b82f6;
   --primary-hover: #60a5fa;
@@ -141,11 +141,11 @@ body.mode-admin .quick-pos-panel {
   display: block;
 }
 
-/* ===== APP HEADER (GLASSMORPHIC NAVBAR) ===== */
+/* ===== APP HEADER (STREAMLINED & SPACIOUS NAVBAR) ===== */
 .app-header {
   background: var(--surface-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border);
   padding: 0.75rem 1.5rem;
   position: sticky;
@@ -162,7 +162,12 @@ body.mode-admin .quick-pos-panel {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  flex-wrap: wrap;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1.15rem;
 }
 
 .header-brand {
@@ -188,7 +193,7 @@ body.mode-admin .quick-pos-panel {
 
 .brand-text h1 {
   font-size: 1.12rem;
-  font-weight: 800;
+  font-weight: 850;
   letter-spacing: -0.02em;
   color: var(--text);
   line-height: 1.2;
@@ -243,11 +248,100 @@ body.mode-admin .quick-pos-panel {
   color: #ffffff;
 }
 
-.header-tools {
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+/* Stock Quick Pill */
+.header-stock-pill {
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  flex-wrap: wrap;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+}
+
+.header-stock-pill.low {
+  background: var(--danger-light);
+  border-color: var(--danger-border);
+  color: var(--danger);
+}
+
+.stock-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.header-stock-pill.low .stock-dot {
+  background: var(--danger);
+  animation: pulseGreen 1.5s infinite;
+}
+
+/* Dropdown Menu Container */
+.header-menu-container {
+  position: relative;
+}
+
+.header-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  min-width: 240px;
+  padding: 0.4rem 0;
+  display: none;
+  flex-direction: column;
+  z-index: 1000;
+  animation: modalIn 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.header-dropdown-menu.show {
+  display: flex;
+}
+
+.dropdown-header {
+  padding: 0.4rem 0.95rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.dropdown-item {
+  padding: 0.6rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all var(--transition);
+}
+
+.dropdown-item:hover {
+  background: var(--surface-hover);
+  color: var(--primary);
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: var(--border-light);
+  margin: 0.35rem 0;
 }
 
 /* Theme Toggle Button */
@@ -277,27 +371,44 @@ body.mode-admin .quick-pos-panel {
 [data-theme="dark"] .theme-icon-light { display: none; }
 [data-theme="dark"] .theme-icon-dark { display: block; }
 
-/* Preset Manager */
-.preset-manager {
+/* ===== ⚠️ STOCK ALERT BANNER ===== */
+.stock-alert-banner {
+  background: var(--warning-light);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1.15rem;
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  background: var(--surface);
-  padding: 0.25rem 0.5rem;
-  border-radius: var(--radius-xs);
-  border: 1px solid var(--border);
+  justify-content: space-between;
+  gap: 1rem;
+  animation: fadeIn 200ms ease;
 }
 
-.preset-label {
-  font-size: 0.75rem;
-  font-weight: 750;
-  color: var(--text-secondary);
+.stock-alert-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
-.form-input-sm {
-  font-size: 0.78rem;
-  padding: 0.25rem 0.5rem;
-  height: 30px;
+.alert-icon {
+  font-size: 1.4rem;
+}
+
+.alert-text {
+  font-size: 0.8rem;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+}
+
+.alert-text strong {
+  color: #b45309;
+}
+
+.stock-alert-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 /* ===== MAIN WORKSPACE ===== */
@@ -400,6 +511,82 @@ body.mode-admin .quick-pos-panel {
   border-radius: var(--radius-xs);
   padding: 1.15rem;
 }
+
+/* ===== 🎨 THEME STORE / TEMPLATE PRESET GALLERY ===== */
+.theme-store-section {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1rem 1.15rem;
+}
+
+.theme-store-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 0.85rem;
+}
+
+.theme-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.65rem;
+}
+
+.theme-preset-card {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-xs);
+  padding: 0.65rem 0.75rem;
+  cursor: pointer;
+  transition: all var(--transition);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.theme-preset-card:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.theme-preset-card.active {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  box-shadow: 0 0 0 2px var(--primary-ghost);
+}
+
+.preset-color-bar {
+  height: 6px;
+  border-radius: 4px;
+  width: 100%;
+}
+
+.theme-blue-bar { background: linear-gradient(90deg, #2563eb, #60a5fa); }
+.theme-gaming-bar { background: linear-gradient(90deg, #7c3aed, #ec4899); }
+.theme-cafe-bar { background: linear-gradient(90deg, #d97706, #fbbf24); }
+.theme-mono-bar { background: linear-gradient(90deg, #0f172a, #64748b); }
+.theme-festive-bar { background: linear-gradient(90deg, #059669, #34d399); }
+
+.preset-name {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.preset-desc {
+  font-size: 0.66rem;
+  color: var(--text-secondary);
+}
+
+/* Card Theme Classes */
+.theme-gold .v-sn-badge { background: #b45309 !important; }
+.theme-gold .v-code-box { background: #fef3c7 !important; border-color: #fde68a !important; }
+.theme-gold .v-meta-tag { color: #d97706 !important; }
 
 /* ===== ⚡ QUICK POS CASHIER PANEL ===== */
 .quick-pos-panel {
@@ -536,6 +723,12 @@ body.mode-admin .quick-pos-panel {
   background: var(--danger-light);
   color: var(--danger);
   border-color: var(--danger-border);
+}
+
+.pos-pkg-stock-badge.warning {
+  background: var(--warning-light);
+  color: #b45309;
+  border-color: rgba(245, 158, 11, 0.5);
 }
 
 /* Media Upload Elements */
@@ -888,7 +1081,7 @@ select.form-input {
   border-right: none;
 }
 
-/* ===== BUTTONS (VISUAL HIERARCHY) ===== */
+/* ===== BUTTONS ===== */
 .btn {
   font-family: var(--font-ui);
   font-size: 0.82rem;
@@ -1567,7 +1760,7 @@ select.form-input {
 }
 
 .modal-content.modal-wide { max-width: 720px; }
-.modal-content.modal-rekap { max-width: 900px; width: 95%; }
+.modal-content.modal-rekap { max-width: 920px; width: 95%; }
 
 @keyframes modalIn {
   from { opacity: 0; transform: translateY(12px) scale(0.98); }
@@ -1681,7 +1874,7 @@ select.form-input {
   margin-bottom: 1.15rem;
 }
 
-/* Rekap Dashboard & SVG Trend Chart */
+/* Rekap Dashboard & Dual Visual Charts */
 .rekap-period-tabs {
   display: flex;
   gap: 0.35rem;
@@ -1763,20 +1956,26 @@ select.form-input {
   letter-spacing: 0.04em;
 }
 
-/* Visualisasi Trend Bar Chart */
-.rekap-chart-card {
-  background: var(--surface-alt);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xs);
-  padding: 1rem 1.15rem;
+/* Dual Analytics Charts */
+.rekap-charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.95rem;
   margin-bottom: 1.15rem;
 }
 
+.rekap-chart-box {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  padding: 0.95rem 1.15rem;
+}
+
 .rekap-chart-title {
-  font-size: 0.8rem;
-  font-weight: 750;
+  font-size: 0.78rem;
+  font-weight: 800;
   color: var(--text);
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.65rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1785,9 +1984,9 @@ select.form-input {
 .rekap-bars-grid {
   display: flex;
   align-items: flex-end;
-  gap: 0.5rem;
-  height: 110px;
-  padding-top: 15px;
+  gap: 0.45rem;
+  height: 95px;
+  padding-top: 12px;
 }
 
 .chart-bar-col {
@@ -1801,22 +2000,26 @@ select.form-input {
 
 .chart-bar-fill {
   width: 100%;
-  max-width: 32px;
+  max-width: 28px;
   background: linear-gradient(180deg, var(--primary), var(--primary-hover));
   border-radius: 4px 4px 0 0;
   transition: height 300ms ease;
   min-height: 4px;
 }
 
+.chart-bar-fill.accent-gold {
+  background: linear-gradient(180deg, #f59e0b, #d97706);
+}
+
 .chart-bar-label {
-  font-size: 0.66rem;
+  font-size: 0.64rem;
   color: var(--text-secondary);
   margin-top: 4px;
   white-space: nowrap;
 }
 
 .chart-bar-value {
-  font-size: 0.64rem;
+  font-size: 0.62rem;
   font-weight: 750;
   color: var(--primary);
   margin-bottom: 2px;
@@ -1839,6 +2042,22 @@ select.form-input {
   border-radius: var(--radius-xs);
   margin-bottom: 0.6rem;
 }
+
+/* Audit Trail Modal */
+.badge-audit {
+  font-size: 0.68rem;
+  font-weight: 750;
+  padding: 0.15rem 0.5rem;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.badge-audit-print { background: var(--success-light); color: var(--success); }
+.badge-audit-status { background: var(--primary-light); color: var(--primary); }
+.badge-audit-delete { background: var(--danger-light); color: var(--danger); }
+.badge-audit-shift { background: var(--gold-light); color: var(--gold); }
 
 /* Reseller Cards */
 .reseller-card-grid {
@@ -1923,6 +2142,9 @@ select.form-input {
 /* ===== RESPONSIVE ===== */
 @media (max-width: 960px) {
   .app-content {
+    grid-template-columns: 1fr;
+  }
+  .rekap-charts-grid {
     grid-template-columns: 1fr;
   }
 }
