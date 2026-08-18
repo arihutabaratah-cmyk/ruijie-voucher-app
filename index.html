@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Aplikasi Cetak Voucher WiFi Ruijie — Import Excel/CSV Ruijie Cloud, A4 Hemat (16-50/hal), Thermal POS (58mm/80mm), Stiker Label (Tom & Jerry), 1-Click POS Print, Direct Bluetooth & Shift Kasir">
+  <meta name="description" content="Aplikasi Cetak Voucher WiFi Ruijie — Database Google Spreadsheet, Import Excel/CSV Ruijie Cloud, A4 Hemat (16-50/hal), Thermal POS (58mm/80mm), Stiker Label (Tom & Jerry), 1-Click POS Print, Direct Bluetooth & Shift Kasir">
   <title>Cetak Voucher Ruijie Cloud — POS & Print Studio</title>
   <link rel="stylesheet" href="index.css">
   <link rel="stylesheet" href="print.css">
@@ -47,6 +47,7 @@
           <button class="btn btn-secondary btn-sm admin-only" id="btn-add-preset" title="Tambah profil / cabang baru">＋ Profil</button>
         </div>
 
+        <button class="btn btn-secondary btn-sm admin-only" id="btn-sheets-modal" title="Setup Database Google Spreadsheet">📊 Spreadsheet DB</button>
         <button class="btn btn-secondary btn-sm admin-only" id="btn-reseller" title="Kelola Titipan Warung & Agen">🏪 Reseller</button>
         <button class="btn btn-secondary btn-sm" id="btn-rekap">📊 Rekap Omset</button>
         
@@ -93,14 +94,15 @@
         <!-- Settings Tab Navigation -->
         <div class="setting-tab-nav">
           <button class="btn-setting-tab active" data-tab="tab-info">📶 1. Informasi WiFi</button>
-          <button class="btn-setting-tab" data-tab="tab-design">🎨 2. Desain & Branding</button>
-          <button class="btn-setting-tab" data-tab="tab-paper">📄 3. Kertas & Layout</button>
+          <button class="btn-setting-tab" data-tab="tab-sheets">📊 2. Database Spreadsheet</button>
+          <button class="btn-setting-tab" data-tab="tab-design">🎨 3. Desain & Branding</button>
+          <button class="btn-setting-tab" data-tab="tab-paper">📄 4. Kertas & Layout</button>
         </div>
         <button class="btn btn-secondary btn-sm" id="btn-change-pin" title="Ubah PIN Keamanan Mode Admin">🔒 Ganti PIN Admin</button>
       </div>
 
       <div class="panel-body">
-        <!-- TAB 1: INFORMASI WIFI & QR -->
+        <!-- TAB 1: INFORMASI WIFI -->
         <div class="setting-tab-pane active" id="pane-tab-info">
           <div class="form-row-2">
             <div class="form-group">
@@ -112,21 +114,11 @@
               <input type="number" id="start-number" class="form-input" value="1" min="1" placeholder="1">
             </div>
           </div>
-          <div class="form-row-2" style="margin-top:0.75rem;">
-            <div class="form-group">
-              <label for="login-hint">Petunjuk Login di Kartu</label>
-              <input type="text" id="login-hint" class="form-input" placeholder="Contoh: Buka browser utk login">
-            </div>
-            <div class="form-group">
-              <label for="qr-url-template">Format URL QR Code Auto Login</label>
-              <input type="text" id="qr-url-template" class="form-input" placeholder="http://login.ruijie.com/?code={CODE}">
-            </div>
+          <div class="form-group" style="margin-top:0.75rem;">
+            <label for="login-hint">Petunjuk Login di Kartu Voucher</label>
+            <input type="text" id="login-hint" class="form-input" placeholder="Contoh: Buka browser utk login">
           </div>
           <div class="toggle-group" style="margin-top:0.85rem;border-top:1px dashed var(--border);padding-top:0.65rem;">
-            <label class="toggle-label" title="Tampilkan QR code scan langsung login">
-              <input type="checkbox" id="show-qr" checked>
-              📱 Tampilkan QR Code
-            </label>
             <label class="toggle-label">
               <input type="checkbox" id="show-speed" checked>
               ⚡ Kecepatan (Speed)
@@ -142,7 +134,31 @@
           </div>
         </div>
 
-        <!-- TAB 2: TAMPILAN, LOGO & WATERMARK STEMPEL -->
+        <!-- TAB 2: GOOGLE SPREADSHEET DATABASE -->
+        <div class="setting-tab-pane" id="pane-tab-sheets" style="display:none;">
+          <div class="sheets-config-box">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.65rem;">
+              <div>
+                <strong style="font-size:0.92rem;color:var(--text);">📊 Integrasi Database Google Spreadsheet</strong>
+                <p style="font-size:0.75rem;color:var(--text-secondary);">Gunakan Google Sheets gratis sebagai database cloud untuk simpan voucher dan rekap hasil export.</p>
+              </div>
+              <button class="btn btn-secondary btn-sm" id="btn-open-sheets-guide-tab">📖 Panduan Script (Gratis)</button>
+            </div>
+
+            <div class="form-group">
+              <label for="sheets-url-input">Link Google Spreadsheet / Web App URL</label>
+              <input type="url" id="sheets-url-input" class="form-input" placeholder="https://docs.google.com/spreadsheets/d/... ATAU https://script.google.com/macros/s/.../exec">
+            </div>
+
+            <div class="sheets-actions-row" style="margin-top:0.85rem;display:flex;gap:0.55rem;flex-wrap:wrap;">
+              <button class="btn btn-primary btn-sm" id="btn-sync-from-sheets">📥 Tarik Data dari Spreadsheet</button>
+              <button class="btn btn-secondary btn-sm" id="btn-save-to-sheets">📤 Simpan / Backup ke Spreadsheet</button>
+              <button class="btn btn-secondary btn-sm" id="btn-save-sheets-config">💾 Simpan Link</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: TAMPILAN, LOGO & WATERMARK STEMPEL -->
         <div class="setting-tab-pane" id="pane-tab-design" style="display:none;">
           <div class="settings-grid-tab">
             <!-- Media Upload (Logo & Background) -->
@@ -213,7 +229,7 @@
           </div>
         </div>
 
-        <!-- TAB 3: KERTAS & LAYOUT -->
+        <!-- TAB 4: KERTAS & LAYOUT -->
         <div class="setting-tab-pane" id="pane-tab-paper" style="display:none;">
           <div class="form-row-2">
             <div class="form-group">
@@ -340,10 +356,11 @@
           <div id="empty-state" class="empty-state">
             <div class="icon">📁</div>
             <p>Belum Ada Data Voucher Hotspot</p>
-            <p class="hint">Import file dari Ruijie Cloud atau tambah voucher manual untuk mulai mencetak</p>
+            <p class="hint">Import file dari Ruijie Cloud, sinkronkan Google Sheets, atau tambah voucher manual untuk mulai mencetak</p>
             <div class="empty-state-cta-wrap">
               <button class="btn btn-primary" onclick="$id('csv-file').click()">📁 Import File Ruijie (Excel/CSV)</button>
-              <button class="btn btn-secondary" onclick="showAddModal()">＋ Tambah Voucher Manual</button>
+              <button class="btn btn-secondary" id="btn-empty-sheets" onclick="showGoogleSheetsModal()">📊 Sinkron Spreadsheet DB</button>
+              <button class="btn btn-secondary" onclick="showAddModal()">＋ Tambah Manual</button>
             </div>
           </div>
         </div>
@@ -371,7 +388,6 @@
     <div id="modal-content" class="modal-content"></div>
   </div>
 
-  <script src="qrcode.min.js"></script>
   <script src="xlsx.mini.min.js"></script>
   <script src="main.js"></script>
 </body>

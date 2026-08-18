@@ -351,6 +351,7 @@ body.mode-admin .quick-pos-panel {
   padding: 0.25rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
+  flex-wrap: wrap;
 }
 
 .btn-setting-tab {
@@ -390,6 +391,14 @@ body.mode-admin .quick-pos-panel {
   grid-template-columns: auto 1fr;
   gap: 1.35rem;
   align-items: center;
+}
+
+/* Google Sheets Box */
+.sheets-config-box {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  padding: 1.15rem;
 }
 
 /* ===== ⚡ QUICK POS CASHIER PANEL ===== */
@@ -479,7 +488,7 @@ body.mode-admin .quick-pos-panel {
   position: relative;
   text-align: left;
   box-shadow: var(--shadow-sm);
-  min-height: 52px; /* Accessible Touch Target */
+  min-height: 52px;
 }
 
 .btn-pos-pkg:hover:not(:disabled) {
@@ -639,7 +648,6 @@ body.mode-admin .quick-pos-panel {
 select.form-input {
   cursor: pointer;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8.825a.5.5 0 0 1-.354-.146L2.146 5.179a.5.5 0 1 1 .708-.708L6 7.617l3.146-3.146a.5.5 0 1 1 .708.708L6.354 8.679A.5.5 0 0 1 6 8.825z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.65rem center;
   padding-right: 1.8rem;
@@ -1026,7 +1034,7 @@ select.form-input {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.84rem;
-  min-width: 620px; /* Horizontal scroll on mobile */
+  min-width: 620px;
 }
 
 .data-table thead {
@@ -1126,7 +1134,7 @@ select.form-input {
 .empty-state .hint {
   font-size: 0.8rem;
   color: var(--text-secondary);
-  max-width: 420px;
+  max-width: 440px;
   margin: 0 auto 1.25rem;
 }
 
@@ -1227,7 +1235,7 @@ select.form-input {
   border: 0.5px dashed #94a3b8;
   background: #ffffff;
   color: #0f172a;
-  padding: 3px 3.5px;
+  padding: 3.5px 4px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -1390,29 +1398,28 @@ select.form-input {
   text-overflow: ellipsis;
 }
 
-/* Hero Row */
+/* Full Width Bold Hero Code Box (Without QR) */
 .v-card-preview .v-hero-row {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 2px;
   width: 100%;
-  margin: 1px 0;
+  margin: 2px 0;
 }
 
 .v-card-preview .v-code-box {
   text-align: center;
-  border: 0.6px solid #cbd5e1;
-  border-radius: 2px;
+  border: 0.8px solid #cbd5e1;
+  border-radius: 2.5px;
   background: #f8fafc;
-  padding: 1.5px 1px;
-  flex: 1;
+  padding: 2.5px 2px;
+  width: 100%;
 }
 
 .v-card-preview .v-code-label {
-  font-size: 3.8px;
+  font-size: 4px;
   font-weight: 800;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   color: #64748b;
   text-transform: uppercase;
   line-height: 1;
@@ -1420,25 +1427,12 @@ select.form-input {
 
 .v-card-preview .v-code-value {
   font-family: var(--font-mono);
-  font-weight: 800;
-  font-size: 7.5px;
+  font-weight: 900;
+  font-size: 8.8px;
   color: #000000;
-  letter-spacing: 0.06em;
-  line-height: 1.15;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
   word-break: break-all;
-}
-
-.v-card-preview .v-qr-box {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.v-card-preview .v-qr-img {
-  width: 12px;
-  height: 12px;
-  object-fit: contain;
 }
 
 /* Meta Grid */
@@ -1448,7 +1442,7 @@ select.form-input {
   align-items: center;
   gap: 1px;
   border-top: 0.5px solid #e2e8f0;
-  padding-top: 1px;
+  padding-top: 1.5px;
   font-size: 4.8px;
 }
 
@@ -1488,7 +1482,7 @@ select.form-input {
 .v-card-preview .v-footer {
   text-align: center;
   color: #64748b;
-  font-size: 4px;
+  font-size: 4.2px;
   border-top: 0.4px dashed #e2e8f0;
   padding-top: 1px;
 }
@@ -1971,7 +1965,7 @@ select.form-input {
     flex: 1;
     justify-content: center;
     min-width: 85px;
-    min-height: 44px; /* Big Tap Target on Mobile */
+    min-height: 44px;
   }
 
   .pricing-grid,

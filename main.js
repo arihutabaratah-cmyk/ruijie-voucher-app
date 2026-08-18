@@ -1,6 +1,6 @@
 /**
  * Aplikasi Cetak Voucher Ruijie Cloud — POS & Print Studio Pro
- * Features: Settings Tabs (Anti-Clutter), Live Dummy Preview Fallback,
+ * Features: Database Google Spreadsheet, Settings Tabs, Live Dummy Preview,
  * Watermark / Stempel Agen, Direct Bluetooth Thermal (ESC/POS), Export PDF,
  * Visual Trend Bar Chart, Dark Mode, Shift Kasir, Reseller & Surat Jalan,
  * Tom & Jerry Sticker Labels, Anti-Deduplication.
@@ -60,12 +60,11 @@ const state = {
     bgOpacity: 20,
     watermarkText: '',
     showWatermark: false,
+    sheetsUrl: '',
     fontFamily: 'font-inter',
     borderStyle: 'border-dashed',
     layout: '25', // '50' | '30' | '25' | '20' | '16' | 'thermal-58' | 'thermal-80' | 'label-103' | 'label-108' | 'label-121'
     theme: 'theme-blue',
-    showQr: true,
-    qrUrlTemplate: '',
     showSpeed: true,
     showQuota: true,
     showHint: true,
@@ -187,9 +186,9 @@ function initPWA() {
   });
 }
 
-// ===== EVENT BINDING (100% DEFENSIVE & SAFE) =====
+// ===== EVENT BINDING =====
 function bindEvents() {
-  // Settings Tab Navigation (Anti-Clutter)
+  // Settings Tab Navigation
   $$('.btn-setting-tab').forEach(btn => {
     btn.addEventListener('click', () => {
       const tabId = btn.dataset.tab;
@@ -205,6 +204,18 @@ function bindEvents() {
   on('btn-mode-admin', 'click', handleSwitchToAdmin);
   on('btn-mode-kasir', 'click', () => setUIMode('kasir'));
   on('btn-change-pin', 'click', showChangePinModal);
+
+  // Google Spreadsheet Database Buttons
+  on('btn-sheets-modal', 'click', showGoogleSheetsModal);
+  on('btn-open-sheets-guide-tab', 'click', showGoogleSheetsModal);
+  on('btn-sync-from-sheets', 'click', syncFromGoogleSheets);
+  on('btn-save-to-sheets', 'click', saveToGoogleSheets);
+  on('btn-save-sheets-config', 'click', () => {
+    const url = ($id('sheets-url-input')?.value || '').trim();
+    state.settings.sheetsUrl = url;
+    saveState();
+    showToast('Link Google Spreadsheet berhasil disimpan!');
+  });
 
   // Bluetooth Direct Printing & POS Shift Management
   on('btn-connect-bluetooth', 'click', handleConnectBluetooth);
@@ -294,14 +305,12 @@ function bindEvents() {
   on('logo-area', 'click', () => { const el = $id('logo-upload'); if (el) el.click(); });
   on('ssid-name', 'input', onSettingChange);
   on('login-hint', 'input', onSettingChange);
-  on('qr-url-template', 'input', onSettingChange);
   on('start-number', 'input', onSettingChange);
   on('layout-select', 'change', onSettingChange);
   on('logo-pos-select', 'change', onSettingChange);
   on('theme-select', 'change', onSettingChange);
   on('font-select', 'change', onSettingChange);
   on('border-select', 'change', onSettingChange);
-  on('show-qr', 'change', onSettingChange);
   on('show-speed', 'change', onSettingChange);
   on('show-quota', 'change', onSettingChange);
   on('show-hint', 'change', onSettingChange);
@@ -336,6 +345,277 @@ function bindEvents() {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeModal();
   });
+}
+
+// ===== 📊 GOOGLE SPREADSHEET DATABASE ENGINE =====
+const GOOGLE_APPS_SCRIPT_CODE = `function doGet(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var data = sheet.getDataRange().getValues();
+  var rows = [];
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (row[0]) {
+      rows.push({
+        code: String(row[0]),
+        paket: String(row[1] || 'Reguler'),
+        harga: String(row[2] || ''),
+        periode: String(row[3] || ''),
+        speed: String(row[4] || ''),
+        quota: String(row[5] || ''),
+        printed: row[6] === 'Sudah Dicetak' || row[6] === true,
+        resellerName: String(row[7] || ''),
+        printedAt: String(row[8] || '')
+      });
+    }
+  }
+  return ContentService.createTextOutput(JSON.stringify({ status: 'success', data: rows }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var body = JSON.parse(e.postData.contents);
+    if (body.action === 'save_vouchers' && body.vouchers) {
+      sheet.clear();
+      sheet.appendRow(['Kode Voucher', 'Paket', 'Harga', 'Periode', 'Speed', 'Kuota', 'Status', 'Reseller', 'Waktu']);
+      body.vouchers.forEach(function(v) {
+        sheet.appendRow([
+          v.code,
+          v.paket || 'Reguler',
+          v.harga || '',
+          v.periode || '',
+          v.speed || '',
+          v.quota || '',
+          v.printed ? 'Sudah Dicetak' : 'Belum Dicetak',
+          v.resellerName || '',
+          v.printedAt || v.createdAt || ''
+        ]);
+      });
+      return ContentService.createTextOutput(JSON.stringify({ status: 'success', count: body.vouchers.length }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Unknown action' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}`;
+
+function showGoogleSheetsModal() {
+  const currentUrl = state.settings.sheetsUrl || '';
+  const html = `
+    <div class="modal-header">
+      <h3>📊 Setup Database Google Spreadsheet</h3>
+      <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:0.84rem;color:var(--text-secondary);margin-bottom:1rem;">
+        Hubungkan Google Sheets sebagai database cloud Anda. Anda dapat menarik voucher dan menyimpan hasil rekap penjualan secara otomatis.
+      </p>
+
+      <div class="form-group" style="margin-bottom:1rem;">
+        <label for="m-sheets-url">Link Spreadsheet / Web App Script URL *</label>
+        <input type="url" id="m-sheets-url" class="form-input" value="${esc(currentUrl)}" placeholder="https://script.google.com/macros/s/.../exec ATAU https://docs.google.com/spreadsheets/d/...">
+      </div>
+
+      <div style="background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.85rem;margin-bottom:1.15rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+          <strong style="font-size:0.82rem;color:var(--primary);">💡 Panduan 2 Menit Setup Database Gratis:</strong>
+          <button class="btn btn-secondary btn-sm" id="btn-copy-gas-code">📋 Salin Script Google</button>
+        </div>
+        <ol style="font-size:0.76rem;color:var(--text-secondary);padding-left:1.2rem;line-height:1.6;">
+          <li>Buka <strong>Google Sheets</strong> baru di browser Anda.</li>
+          <li>Klik menu <strong>Ekstensi (Extensions)</strong> ➔ <strong>Apps Script</strong>.</li>
+          <li>Hapus kode bawaan, lalu paste kode dari tombol <strong>"Salin Script Google"</strong> di atas.</li>
+          <li>Klik <strong>Deploy (Terapkan)</strong> ➔ <strong>New Deployment (Penerapan Baru)</strong> ➔ pilih <strong>Web App</strong>.</li>
+          <li>Setel <em>"Who has access"</em> menjadi <strong>"Anyone" (Siapa saja)</strong>, lalu klik <strong>Deploy</strong>.</li>
+          <li>Salin <strong>Web App URL</strong> yang dihasilkan ke kotak di atas!</li>
+        </ol>
+      </div>
+
+      <div style="display:flex;gap:0.55rem;flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" id="btn-modal-sync-sheets">📥 Tarik Data dari Spreadsheet</button>
+        <button class="btn btn-secondary btn-sm" id="btn-modal-save-sheets">📤 Simpan / Ekspor ke Spreadsheet</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Tutup</button>
+      <button class="btn btn-primary" id="btn-modal-save-sheets-config">Simpan Link Spreadsheet</button>
+    </div>
+  `;
+
+  openModal(html, 'modal-wide');
+
+  on('btn-copy-gas-code', 'click', () => {
+    navigator.clipboard.writeText(GOOGLE_APPS_SCRIPT_CODE).then(() => {
+      showToast('Kode Google Apps Script berhasil disalin ke clipboard!');
+    }).catch(() => {
+      showToast('Gagal menyalin. Silakan copy manual.', 'error');
+    });
+  });
+
+  on('btn-modal-save-sheets-config', 'click', () => {
+    const url = ($id('m-sheets-url')?.value || '').trim();
+    state.settings.sheetsUrl = url;
+    setVal('sheets-url-input', url);
+    saveState();
+    closeModal();
+    showToast('Link Google Spreadsheet berhasil disimpan!');
+  });
+
+  on('btn-modal-sync-sheets', 'click', () => {
+    const url = ($id('m-sheets-url')?.value || '').trim();
+    if (url) {
+      state.settings.sheetsUrl = url;
+      setVal('sheets-url-input', url);
+      saveState();
+    }
+    syncFromGoogleSheets();
+  });
+
+  on('btn-modal-save-sheets', 'click', () => {
+    const url = ($id('m-sheets-url')?.value || '').trim();
+    if (url) {
+      state.settings.sheetsUrl = url;
+      setVal('sheets-url-input', url);
+      saveState();
+    }
+    saveToGoogleSheets();
+  });
+}
+
+function resolveGoogleSheetsUrl(rawUrl) {
+  if (!rawUrl) return null;
+  const trimmed = rawUrl.trim();
+
+  // If it's a Google Apps Script Web App
+  if (trimmed.includes('script.google.com')) {
+    return { type: 'apps_script', url: trimmed };
+  }
+
+  // If it's a direct Google Spreadsheet URL
+  const match = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (match && match[1]) {
+    const sheetId = match[1];
+    return {
+      type: 'csv',
+      url: `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`
+    };
+  }
+
+  // If it's already a CSV or direct URL
+  return { type: 'csv', url: trimmed };
+}
+
+async function syncFromGoogleSheets() {
+  const rawUrl = state.settings.sheetsUrl || $id('sheets-url-input')?.value;
+  if (!rawUrl) {
+    showToast('Masukkan link Google Spreadsheet / Apps Script terlebih dahulu.', 'error');
+    showGoogleSheetsModal();
+    return;
+  }
+
+  const resolved = resolveGoogleSheetsUrl(rawUrl);
+  if (!resolved) {
+    showToast('Format link Spreadsheet tidak valid.', 'error');
+    return;
+  }
+
+  showToast('Menghubungkan ke Google Spreadsheet...');
+
+  try {
+    if (resolved.type === 'apps_script') {
+      const res = await fetch(resolved.url, { method: 'GET' });
+      const json = await res.json();
+      if (json.status === 'success' && Array.isArray(json.data)) {
+        handleImportedSheetsVouchers(json.data);
+        return;
+      }
+    }
+
+    // Direct CSV Fetch fallback
+    const res = await fetch(resolved.url);
+    const csvText = await res.text();
+    const parsedVouchers = parseRuijieCSV(csvText);
+    if (parsedVouchers.length === 0) {
+      showToast('Tidak ada data voucher ditemukan di Spreadsheet.', 'error');
+      return;
+    }
+    handleImportedSheetsVouchers(parsedVouchers);
+  } catch (err) {
+    console.error('Google Sheets sync error:', err);
+    showToast('Gagal menarik data dari Google Sheets. Pastikan akses disetel "Anyone".', 'error');
+  }
+}
+
+function handleImportedSheetsVouchers(importedList) {
+  const existingMap = new Set(state.vouchers.map(v => (v.code || '').toLowerCase().trim()));
+  let newCount = 0;
+
+  importedList.forEach(item => {
+    const code = (item.code || '').trim();
+    if (code && !existingMap.has(code.toLowerCase())) {
+      state.vouchers.push({
+        code: code,
+        paket: item.paket || 'Reguler',
+        harga: item.harga || '',
+        periode: item.periode || '',
+        speed: item.speed || '',
+        quota: item.quota || '',
+        resellerName: item.resellerName || null,
+        resellerId: null,
+        createdAt: item.createdAt || new Date().toISOString(),
+        printed: !!item.printed,
+        printedAt: item.printedAt || null,
+        selected: true
+      });
+      existingMap.add(code.toLowerCase());
+      newCount++;
+    }
+  });
+
+  saveState();
+  renderQuickPOSGrid();
+  renderTable();
+  renderPreview();
+  showToast(`✨ Sukses! ${newCount} voucher baru disinkronkan dari Google Sheets.`);
+}
+
+async function saveToGoogleSheets() {
+  const rawUrl = state.settings.sheetsUrl || $id('sheets-url-input')?.value;
+  if (!rawUrl) {
+    showToast('Masukkan link Google Apps Script Web App terlebih dahulu.', 'error');
+    showGoogleSheetsModal();
+    return;
+  }
+
+  const resolved = resolveGoogleSheetsUrl(rawUrl);
+  if (!resolved || resolved.type !== 'apps_script') {
+    showToast('Untuk menyimpan otomatis, gunakan link Web App Google Apps Script (lihat panduan).', 'error');
+    showGoogleSheetsModal();
+    return;
+  }
+
+  showToast('Mengunggah data ke Google Spreadsheet...');
+
+  try {
+    await fetch(resolved.url, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'save_vouchers',
+        vouchers: state.vouchers
+      })
+    });
+
+    showToast(`✅ Berhasil! ${state.vouchers.length} voucher tersimpan di Google Sheets.`);
+  } catch (err) {
+    console.error('Save to sheets error:', err);
+    showToast('Gagal menyimpan ke Google Sheets.', 'error');
+  }
 }
 
 // ===== ROLE MODE & ADMIN PIN SECURITY =====
@@ -1658,12 +1938,12 @@ function showUpgradeProModal() {
             <div class="pricing-title">⚡ Paket PRO Unlimited</div>
             <div class="pricing-price">Rp 20.000 <span>/ bulan</span></div>
             <ul class="pricing-features">
-              <li>✓ Unlimited Cetak Voucher</li>
-              <li>✓ Import File CSV/Excel Ruijie Otomatis</li>
+              <li>✓ Database Google Spreadsheet Cloud</li>
+              <li>✓ Unlimited Cetak Voucher Ruijie</li>
+              <li>✓ Import File CSV/Excel Otomatis</li>
               <li>✓ 1-Click Quick POS Print & Shift Kasir</li>
               <li>✓ Direct Bluetooth Thermal Print (ESC/POS)</li>
               <li>✓ Watermark / Stempel Toko & Export PDF</li>
-              <li>✓ Manajemen Reseller & Surat Jalan</li>
             </ul>
           </div>
           <button class="btn btn-pro" style="width:100%;justify-content:center;" onclick="handleOrderPlan('Paket PRO Bulanan (Rp 20.000)')">Langganan PRO</button>
@@ -2441,7 +2721,7 @@ function renderTable() {
       const p = empty.querySelector('p');
       const hint = empty.querySelector('.hint');
       if (p) p.textContent = 'Belum Ada Data Voucher Hotspot';
-      if (hint) hint.textContent = 'Import file dari Ruijie Cloud atau tambah voucher manual untuk mulai mencetak';
+      if (hint) hint.textContent = 'Import file dari Ruijie Cloud, sinkronkan Google Sheets, atau tambah voucher manual untuk mulai mencetak';
     }
     updateSelectionUI();
     return;
@@ -2517,7 +2797,7 @@ function renderPreview() {
 
   const startNum = parseInt(settings.startNumber, 10) || 1;
   const dummyBanner = isDummyMode
-    ? '<div class="preview-dummy-banner">✨ Pratinjau Desain Aktif (Data Contoh — Silakan Import File Ruijie)</div>'
+    ? '<div class="preview-dummy-banner">✨ Pratinjau Desain Aktif (Data Contoh — Silakan Import File Ruijie / Spreadsheet)</div>'
     : '';
 
   if (isThermal) {
@@ -2561,7 +2841,7 @@ function renderPreview() {
   container.innerHTML = dummyBanner + html;
 }
 
-// ===== CARD TEMPLATE BUILDER =====
+// ===== CARD TEMPLATE BUILDER (CLEAN HERO CODE WITHOUT QR) =====
 function buildCardHTML(v, num, settings, isPreview) {
   const prefix = isPreview ? 'v-card-preview' : 'v-card';
   const themeClass = settings.theme || 'theme-blue';
@@ -2614,31 +2894,12 @@ function buildCardHTML(v, num, settings, isPreview) {
     `;
   }
 
-  let qrHtml = '';
-  if (settings.showQr && typeof QRCode !== 'undefined') {
-    let qrContent = v.code;
-    if (settings.qrUrlTemplate && settings.qrUrlTemplate.includes('{CODE}')) {
-      qrContent = settings.qrUrlTemplate.replace(/\{CODE\}/g, encodeURIComponent(v.code));
-    } else if (settings.qrUrlTemplate) {
-      qrContent = settings.qrUrlTemplate + encodeURIComponent(v.code);
-    }
-    const qrSvgDataUri = QRCode.generateSVG(qrContent, 100);
-    if (qrSvgDataUri) {
-      qrHtml = `
-        <div class="v-qr-box" title="Scan QR Code untuk login">
-          <img class="v-qr-img" src="${qrSvgDataUri}" alt="QR">
-        </div>
-      `;
-    }
-  }
-
   const heroRowHtml = `
     <div class="v-hero-row">
       <div class="v-code-box">
-        <div class="v-code-label">KODE VOUCHER</div>
+        <div class="v-code-label">KODE VOUCHER / PASSWORD</div>
         <div class="v-code-value">${esc(v.code)}</div>
       </div>
-      ${qrHtml}
     </div>
   `;
 
@@ -2779,14 +3040,12 @@ function handlePrint() {
 function onSettingChange() {
   state.settings.ssid = $id('ssid-name')?.value || '';
   state.settings.loginHint = $id('login-hint')?.value || '';
-  state.settings.qrUrlTemplate = ($id('qr-url-template')?.value || '').trim();
   state.settings.startNumber = Math.max(1, parseInt($id('start-number')?.value, 10) || 1);
   state.settings.layout = $id('layout-select')?.value || '25';
   state.settings.logoPos = $id('logo-pos-select')?.value || 'center';
   state.settings.theme = $id('theme-select')?.value || 'theme-blue';
   state.settings.fontFamily = $id('font-select')?.value || 'font-inter';
   state.settings.borderStyle = $id('border-select')?.value || 'border-dashed';
-  state.settings.showQr = $id('show-qr')?.checked !== false;
   state.settings.showSpeed = $id('show-speed')?.checked !== false;
   state.settings.showQuota = $id('show-quota')?.checked !== false;
   state.settings.showHint = $id('show-hint')?.checked !== false;
@@ -2806,7 +3065,7 @@ function setFilter(filterName) {
 }
 
 // ===== LOCAL STORAGE PERSISTENCE =====
-const STORAGE_KEY = 'ruijie_voucher_app_v8_pro';
+const STORAGE_KEY = 'ruijie_voucher_app_v9_sheets';
 
 function saveState() {
   try {
@@ -2818,7 +3077,7 @@ function saveState() {
 
 function loadState() {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('ruijie_voucher_app_v7_clean') || localStorage.getItem('ruijie_voucher_app_v6_cloud_enterprise');
+    const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('ruijie_voucher_app_v8_pro') || localStorage.getItem('ruijie_voucher_app_v7_clean');
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed.uiMode) state.uiMode = parsed.uiMode;
@@ -2854,14 +3113,13 @@ function loadState() {
 function restoreUI() {
   setVal('ssid-name', state.settings.ssid || '');
   setVal('login-hint', state.settings.loginHint || '');
-  setVal('qr-url-template', state.settings.qrUrlTemplate || '');
   setVal('start-number', state.settings.startNumber || 1);
   setVal('layout-select', state.settings.layout || '25');
   setVal('logo-pos-select', state.settings.logoPos || 'center');
   setVal('theme-select', state.settings.theme || 'theme-blue');
   setVal('font-select', state.settings.fontFamily || 'font-inter');
   setVal('border-select', state.settings.borderStyle || 'border-dashed');
-  setChecked('show-qr', state.settings.showQr !== false);
+  setVal('sheets-url-input', state.settings.sheetsUrl || '');
   setChecked('show-speed', state.settings.showSpeed !== false);
   setChecked('show-quota', state.settings.showQuota !== false);
   setChecked('show-hint', state.settings.showHint !== false);
