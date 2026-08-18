@@ -77,10 +77,34 @@ const state = {
 
 let lastCheckedIndex = null;
 
-// ===== DOM HELPERS =====
+// ===== DOM HELPERS (NULL-SAFE) =====
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 const $id = (id) => document.getElementById(id);
+
+// Safe Event Listener Binder
+const on = (idOrEl, event, handler) => {
+  const el = typeof idOrEl === 'string' ? $id(idOrEl) : idOrEl;
+  if (el) {
+    el.addEventListener(event, handler);
+  }
+};
+
+// Safe Value Setters
+const setVal = (id, val) => {
+  const el = $id(id);
+  if (el) el.value = val;
+};
+
+const setChecked = (id, val) => {
+  const el = $id(id);
+  if (el) el.checked = !!val;
+};
+
+const setText = (id, text) => {
+  const el = $id(id);
+  if (el) el.textContent = text;
+};
 
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', () => {
@@ -103,15 +127,12 @@ function initTheme() {
   state.themeMode = savedTheme;
   applyTheme();
 
-  const themeToggle = $id('btn-theme-toggle');
-  if (themeToggle) {
-    themeToggle.addEventListener('click', () => {
-      state.themeMode = state.themeMode === 'light' ? 'dark' : 'light';
-      localStorage.setItem('ruijie_theme_mode', state.themeMode);
-      applyTheme();
-      showToast(`Mode: ${state.themeMode === 'dark' ? '🌙 Dark Mode' : '☀️ Light Mode'}`);
-    });
-  }
+  on('btn-theme-toggle', 'click', () => {
+    state.themeMode = state.themeMode === 'light' ? 'dark' : 'light';
+    localStorage.setItem('ruijie_theme_mode', state.themeMode);
+    applyTheme();
+    showToast(`Mode: ${state.themeMode === 'dark' ? '🌙 Dark Mode' : '☀️ Light Mode'}`);
+  });
 }
 
 function applyTheme() {
@@ -166,7 +187,7 @@ function initPWA() {
   });
 }
 
-// ===== EVENT BINDING =====
+// ===== EVENT BINDING (100% DEFENSIVE & SAFE) =====
 function bindEvents() {
   // Settings Tab Navigation (Anti-Clutter)
   $$('.btn-setting-tab').forEach(btn => {
@@ -181,45 +202,45 @@ function bindEvents() {
   });
 
   // Role Mode Switcher with PIN Lock
-  $id('btn-mode-admin').addEventListener('click', handleSwitchToAdmin);
-  $id('btn-mode-kasir').addEventListener('click', () => setUIMode('kasir'));
-  $id('btn-change-pin').addEventListener('click', showChangePinModal);
+  on('btn-mode-admin', 'click', handleSwitchToAdmin);
+  on('btn-mode-kasir', 'click', () => setUIMode('kasir'));
+  on('btn-change-pin', 'click', showChangePinModal);
 
   // Bluetooth Direct Printing & POS Shift Management
-  $id('btn-connect-bluetooth').addEventListener('click', handleConnectBluetooth);
-  $id('btn-toggle-shift').addEventListener('click', showShiftModal);
+  on('btn-connect-bluetooth', 'click', handleConnectBluetooth);
+  on('btn-toggle-shift', 'click', showShiftModal);
 
   // Preset Store Manager
-  $id('preset-select').addEventListener('change', handlePresetChange);
-  $id('btn-save-preset').addEventListener('click', saveCurrentPreset);
-  $id('btn-add-preset').addEventListener('click', showAddPresetModal);
+  on('preset-select', 'change', handlePresetChange);
+  on('btn-save-preset', 'click', saveCurrentPreset);
+  on('btn-add-preset', 'click', showAddPresetModal);
 
   // Reseller & Pro & Rekap Tools
-  $id('btn-reseller').addEventListener('click', showResellerModal);
-  $id('btn-assign-reseller').addEventListener('click', showAssignResellerModal);
-  $id('btn-rekap').addEventListener('click', showRekapModal);
-  $id('btn-upgrade-pro').addEventListener('click', showUpgradeProModal);
-  $id('btn-export-pdf').addEventListener('click', exportPDF);
-  $id('btn-export-png').addEventListener('click', exportPreviewAsPNG);
+  on('btn-reseller', 'click', showResellerModal);
+  on('btn-assign-reseller', 'click', showAssignResellerModal);
+  on('btn-rekap', 'click', showRekapModal);
+  on('btn-upgrade-pro', 'click', showUpgradeProModal);
+  on('btn-export-pdf', 'click', exportPDF);
+  on('btn-export-png', 'click', exportPreviewAsPNG);
 
   // Background Image Upload & Opacity
-  $id('btn-upload-bg').addEventListener('click', () => $id('bg-upload').click());
-  $id('bg-upload').addEventListener('change', handleBgUpload);
-  $id('bg-opacity-slider').addEventListener('input', (e) => {
+  on('btn-upload-bg', 'click', () => { const el = $id('bg-upload'); if (el) el.click(); });
+  on('bg-upload', 'change', handleBgUpload);
+  on('bg-opacity-slider', 'input', (e) => {
     state.settings.bgOpacity = parseInt(e.target.value, 10);
-    $id('bg-opacity-val').textContent = `${state.settings.bgOpacity}%`;
+    setText('bg-opacity-val', `${state.settings.bgOpacity}%`);
     saveState();
     renderPreview();
   });
-  $id('btn-remove-bg').addEventListener('click', removeBackground);
+  on('btn-remove-bg', 'click', removeBackground);
 
   // Watermark / Stempel
-  $id('watermark-text').addEventListener('input', (e) => {
+  on('watermark-text', 'input', (e) => {
     state.settings.watermarkText = e.target.value.trim();
     saveState();
     renderPreview();
   });
-  $id('show-watermark').addEventListener('change', (e) => {
+  on('show-watermark', 'change', (e) => {
     state.settings.showWatermark = e.target.checked;
     saveState();
     renderPreview();
@@ -228,82 +249,88 @@ function bindEvents() {
   // Live Search & Toolbar Filters
   const searchInput = $id('search-input');
   const searchClear = $id('search-clear-btn');
-  searchInput.addEventListener('input', (e) => {
-    state.searchQuery = e.target.value.trim().toLowerCase();
-    searchClear.style.display = state.searchQuery ? 'block' : 'none';
-    renderTable();
-    renderPreview();
-  });
-  searchClear.addEventListener('click', () => {
-    searchInput.value = '';
-    state.searchQuery = '';
-    searchClear.style.display = 'none';
-    renderTable();
-    renderPreview();
-  });
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      state.searchQuery = e.target.value.trim().toLowerCase();
+      if (searchClear) searchClear.style.display = state.searchQuery ? 'block' : 'none';
+      renderTable();
+      renderPreview();
+    });
+  }
+  if (searchClear) {
+    searchClear.addEventListener('click', () => {
+      if (searchInput) searchInput.value = '';
+      state.searchQuery = '';
+      searchClear.style.display = 'none';
+      renderTable();
+      renderPreview();
+    });
+  }
 
   // Global search shortcut '/'
   document.addEventListener('keydown', (e) => {
-    if (e.key === '/' && document.activeElement !== searchInput && !$('#modal-overlay').classList.contains('active')) {
+    const modalOverlay = $id('modal-overlay');
+    const isModalOpen = modalOverlay && modalOverlay.classList.contains('active');
+    if (e.key === '/' && document.activeElement !== searchInput && !isModalOpen && searchInput) {
       e.preventDefault();
       searchInput.focus();
     }
   });
 
-  $id('filter-reseller-select').addEventListener('change', (e) => {
+  on('filter-reseller-select', 'change', (e) => {
     state.filterReseller = e.target.value;
     renderTable();
     renderPreview();
   });
 
-  $id('auto-archive-toggle').addEventListener('change', (e) => {
+  on('auto-archive-toggle', 'change', (e) => {
     state.autoArchive24h = e.target.checked;
     renderTable();
     renderPreview();
   });
 
   // Settings & Branding
-  $id('logo-upload').addEventListener('change', handleLogoUpload);
-  $id('logo-area').addEventListener('click', () => $id('logo-upload').click());
-  $id('ssid-name').addEventListener('input', onSettingChange);
-  $id('login-hint').addEventListener('input', onSettingChange);
-  $id('qr-url-template').addEventListener('input', onSettingChange);
-  $id('start-number').addEventListener('input', onSettingChange);
-  $id('layout-select').addEventListener('change', onSettingChange);
-  $id('logo-pos-select').addEventListener('change', onSettingChange);
-  $id('theme-select').addEventListener('change', onSettingChange);
-  $id('font-select').addEventListener('change', onSettingChange);
-  $id('border-select').addEventListener('change', onSettingChange);
-  $id('show-qr').addEventListener('change', onSettingChange);
-  $id('show-speed').addEventListener('change', onSettingChange);
-  $id('show-quota').addEventListener('change', onSettingChange);
-  $id('show-hint').addEventListener('change', onSettingChange);
+  on('logo-upload', 'change', handleLogoUpload);
+  on('logo-area', 'click', () => { const el = $id('logo-upload'); if (el) el.click(); });
+  on('ssid-name', 'input', onSettingChange);
+  on('login-hint', 'input', onSettingChange);
+  on('qr-url-template', 'input', onSettingChange);
+  on('start-number', 'input', onSettingChange);
+  on('layout-select', 'change', onSettingChange);
+  on('logo-pos-select', 'change', onSettingChange);
+  on('theme-select', 'change', onSettingChange);
+  on('font-select', 'change', onSettingChange);
+  on('border-select', 'change', onSettingChange);
+  on('show-qr', 'change', onSettingChange);
+  on('show-speed', 'change', onSettingChange);
+  on('show-quota', 'change', onSettingChange);
+  on('show-hint', 'change', onSettingChange);
 
   // Actions & File Import
-  $id('btn-add').addEventListener('click', showAddModal);
-  $id('btn-import').addEventListener('click', () => $id('csv-file').click());
-  $id('csv-file').addEventListener('change', handleFileInput);
-  $id('btn-toggle-printed').addEventListener('click', toggleSelectedPrintedStatus);
-  $id('btn-delete-selected').addEventListener('click', confirmDeleteSelected);
-  $id('btn-print').addEventListener('click', handlePrint);
+  on('btn-add', 'click', showAddModal);
+  on('btn-import', 'click', () => { const el = $id('csv-file'); if (el) el.click(); });
+  on('csv-file', 'change', handleFileInput);
+  on('btn-toggle-printed', 'click', toggleSelectedPrintedStatus);
+  on('btn-delete-selected', 'click', confirmDeleteSelected);
+  on('btn-print', 'click', handlePrint);
 
   // Filter Tabs
-  $id('tab-all').addEventListener('click', () => setFilter('all'));
-  $id('tab-unprinted').addEventListener('click', () => setFilter('unprinted'));
-  $id('tab-printed').addEventListener('click', () => setFilter('printed'));
+  on('tab-all', 'click', () => setFilter('all'));
+  on('tab-unprinted', 'click', () => setFilter('unprinted'));
+  on('tab-printed', 'click', () => setFilter('printed'));
 
   // Checkbox Selection Controls
-  $id('check-all').addEventListener('change', handleCheckAll);
-  $id('btn-select-unprinted').addEventListener('click', selectUnprintedOnly);
-  $id('btn-select-all').addEventListener('click', () => selectAll(true));
-  $id('btn-deselect-all').addEventListener('click', () => selectAll(false));
-  $id('btn-select-page').addEventListener('click', selectOnePageUnprinted);
+  on('check-all', 'change', handleCheckAll);
+  on('btn-select-unprinted', 'click', selectUnprintedOnly);
+  on('btn-select-all', 'click', () => selectAll(true));
+  on('btn-deselect-all', 'click', () => selectAll(false));
+  on('btn-select-page', 'click', selectOnePageUnprinted);
 
   // Table row click delegation
-  $id('voucher-table').addEventListener('click', handleTableClick);
+  on('voucher-table', 'click', handleTableClick);
 
   // Modal close
-  $id('modal-overlay').addEventListener('click', (e) => {
+  on('modal-overlay', 'click', (e) => {
     if (e.target.id === 'modal-overlay') closeModal();
   });
   document.addEventListener('keydown', (e) => {
@@ -332,8 +359,11 @@ function applyUIMode() {
   const borderClass = state.settings.borderStyle || 'border-dashed';
   const darkClass = state.themeMode === 'dark' ? 'dark-mode' : 'theme-light';
   document.body.className = `mode-${state.uiMode} ${fontClass} ${borderClass} ${darkClass}`;
-  $id('btn-mode-admin').classList.toggle('active', state.uiMode === 'admin');
-  $id('btn-mode-kasir').classList.toggle('active', state.uiMode === 'kasir');
+  
+  const btnAdmin = $id('btn-mode-admin');
+  const btnKasir = $id('btn-mode-kasir');
+  if (btnAdmin) btnAdmin.classList.toggle('active', state.uiMode === 'admin');
+  if (btnKasir) btnKasir.classList.toggle('active', state.uiMode === 'kasir');
 }
 
 function showPinPromptModal(onSuccess) {
@@ -360,19 +390,22 @@ function showPinPromptModal(onSuccess) {
   openModal(html);
 
   const verify = () => {
-    const entered = $id('m-pin-input').value.trim();
+    const entered = ($id('m-pin-input')?.value || '').trim();
     if (entered === (state.adminPin || '1234')) {
       closeModal();
       onSuccess();
     } else {
       showToast('PIN Admin salah!', 'error');
-      $id('m-pin-input').value = '';
-      $id('m-pin-input').focus();
+      const input = $id('m-pin-input');
+      if (input) {
+        input.value = '';
+        input.focus();
+      }
     }
   };
 
-  $id('btn-verify-pin').addEventListener('click', verify);
-  $id('m-pin-input').addEventListener('keydown', (e) => {
+  on('btn-verify-pin', 'click', verify);
+  on('m-pin-input', 'keydown', (e) => {
     if (e.key === 'Enter') verify();
   });
 }
@@ -407,10 +440,10 @@ function showChangePinModal() {
 
   openModal(html);
 
-  $id('btn-save-new-pin').addEventListener('click', () => {
-    const oldPin = $id('m-old-pin').value.trim();
-    const newPin = $id('m-new-pin').value.trim();
-    const confirmPin = $id('m-confirm-pin').value.trim();
+  on('btn-save-new-pin', 'click', () => {
+    const oldPin = ($id('m-old-pin')?.value || '').trim();
+    const newPin = ($id('m-new-pin')?.value || '').trim();
+    const confirmPin = ($id('m-confirm-pin')?.value || '').trim();
 
     if (oldPin !== (state.adminPin || '1234')) {
       showToast('PIN lama tidak cocok!', 'error');
@@ -435,7 +468,7 @@ function showChangePinModal() {
 // ===== DIRECT WEB BLUETOOTH PRINTING (ESC/POS) =====
 async function handleConnectBluetooth() {
   if (!navigator.bluetooth) {
-    showToast('Browser ini belum mendukung Web Bluetooth (Gunakan Google Chrome di Android / Laptop).', 'error');
+    showToast('Web Bluetooth API belum aktif di browser ini (Gunakan Google Chrome / Android).', 'error');
     return;
   }
 
@@ -447,8 +480,11 @@ async function handleConnectBluetooth() {
     });
 
     state.bluetoothDevice = device;
-    $id('btn-connect-bluetooth').textContent = `📶 ${device.name || 'Printer Terhubung'}`;
-    $id('btn-connect-bluetooth').classList.add('btn-primary');
+    const btn = $id('btn-connect-bluetooth');
+    if (btn) {
+      btn.textContent = `📶 ${device.name || 'Printer Terhubung'}`;
+      btn.classList.add('btn-primary');
+    }
     showToast(`Berhasil terhubung ke: ${device.name || 'Printer Bluetooth'}`);
   } catch (err) {
     console.warn('Bluetooth connect error:', err);
@@ -466,7 +502,8 @@ function handleBgUpload(e) {
   const reader = new FileReader();
   reader.onload = (evt) => {
     state.settings.bgImage = evt.target.result;
-    $id('bg-opacity-wrap').style.display = 'block';
+    const wrap = $id('bg-opacity-wrap');
+    if (wrap) wrap.style.display = 'block';
     saveState();
     renderPreview();
     showToast('Background gambar berhasil diterapkan!');
@@ -477,7 +514,8 @@ function handleBgUpload(e) {
 
 function removeBackground() {
   state.settings.bgImage = null;
-  $id('bg-opacity-wrap').style.display = 'none';
+  const wrap = $id('bg-opacity-wrap');
+  if (wrap) wrap.style.display = 'none';
   saveState();
   renderPreview();
   showToast('Background gambar dihapus');
@@ -540,23 +578,23 @@ function showShiftModal() {
 
   openModal(html);
 
-  $id('btn-save-open-shift').addEventListener('click', () => {
+  on('btn-save-open-shift', 'click', () => {
     state.activeShift = {
       id: 'shift_' + Date.now(),
-      cashierName: $id('m-shift-cashier').value.trim() || 'Kasir',
+      cashierName: ($id('m-shift-cashier')?.value || '').trim() || 'Kasir',
       startTime: new Date().toISOString(),
-      startCash: parseFloat($id('m-shift-start-cash').value) || 0,
+      startCash: parseFloat($id('m-shift-start-cash')?.value) || 0,
       salesCount: 0,
       salesOmset: 0,
       closed: false
     };
     saveState();
-    if ($id('pos-cashier-name')) $id('pos-cashier-name').textContent = state.activeShift.cashierName;
+    setText('pos-cashier-name', state.activeShift.cashierName);
     closeModal();
     showToast(`Shift dibuka untuk kasir: ${state.activeShift.cashierName}`);
   });
 
-  $id('btn-print-close-shift').addEventListener('click', printCloseShiftReceipt);
+  on('btn-print-close-shift', 'click', printCloseShiftReceipt);
 }
 
 function printCloseShiftReceipt() {
@@ -610,8 +648,10 @@ function printCloseShiftReceipt() {
   `;
 
   const printArea = $id('print-area');
-  printArea.innerHTML = receiptHtml;
-  window.print();
+  if (printArea) {
+    printArea.innerHTML = receiptHtml;
+    window.print();
+  }
 }
 
 // ===== 📄 EXPORT PDF (PRESISI UKURAN) =====
@@ -712,11 +752,9 @@ function renderQuickPOSGrid() {
     }
   });
 
-  $id('pos-today-count').textContent = todayCount;
-  $id('pos-today-omset').textContent = `Rp ${formatNumber(todayOmset)}`;
-  if ($id('pos-cashier-name')) {
-    $id('pos-cashier-name').textContent = (state.activeShift && state.activeShift.cashierName) || 'Umum';
-  }
+  setText('pos-today-count', todayCount);
+  setText('pos-today-omset', `Rp ${formatNumber(todayOmset)}`);
+  setText('pos-cashier-name', (state.activeShift && state.activeShift.cashierName) || 'Umum');
 
   const pkgs = Object.values(pkgMap);
   if (pkgs.length === 0) {
@@ -850,7 +888,7 @@ function showResellerModal() {
   `;
 
   openModal(html, 'modal-wide');
-  $id('btn-add-new-reseller').addEventListener('click', showAddResellerForm);
+  on('btn-add-new-reseller', 'click', showAddResellerForm);
 }
 
 function showAddResellerForm() {
@@ -889,20 +927,20 @@ function showAddResellerForm() {
 
   openModal(html);
 
-  $id('btn-save-reseller').addEventListener('click', () => {
-    const name = $id('m-res-name').value.trim();
+  on('btn-save-reseller', 'click', () => {
+    const name = ($id('m-res-name')?.value || '').trim();
     if (!name) {
       showToast('Nama reseller wajib diisi', 'error');
-      $id('m-res-name').focus();
+      $id('m-res-name')?.focus();
       return;
     }
 
     const newRes = {
       id: 'res_' + Date.now(),
       name: name,
-      phone: $id('m-res-phone').value.trim(),
-      address: $id('m-res-address').value.trim(),
-      note: $id('m-res-note').value.trim()
+      phone: ($id('m-res-phone')?.value || '').trim(),
+      address: ($id('m-res-address')?.value || '').trim(),
+      note: ($id('m-res-note')?.value || '').trim()
     };
 
     state.resellers.push(newRes);
@@ -947,8 +985,8 @@ function showAssignResellerModal() {
 
   openModal(html);
 
-  $id('btn-confirm-assign-reseller').addEventListener('click', () => {
-    const resId = $id('m-assign-reseller-select').value;
+  on('btn-confirm-assign-reseller', 'click', () => {
+    const resId = $id('m-assign-reseller-select')?.value;
     const targetRes = state.resellers.find(r => r.id === resId);
 
     selected.forEach(v => {
@@ -1053,13 +1091,16 @@ function printSuratJalan(resellerId) {
   `;
 
   const printArea = $id('print-area');
-  printArea.innerHTML = html;
-  window.print();
+  if (printArea) {
+    printArea.innerHTML = html;
+    window.print();
+  }
 }
 
 // ===== PRESET STORE MANAGER =====
 function renderPresetSelect() {
   const select = $id('preset-select');
+  if (!select) return;
   select.innerHTML = state.presets.map(p => `
     <option value="${p.id}" ${p.id === state.activePresetId ? 'selected' : ''}>${esc(p.name)}</option>
   `).join('');
@@ -1122,10 +1163,10 @@ function showAddPresetModal() {
   openModal(html);
 
   const confirmAdd = () => {
-    const name = $id('m-preset-name').value.trim();
+    const name = ($id('m-preset-name')?.value || '').trim();
     if (!name) {
       showToast('Nama profil wajib diisi', 'error');
-      $id('m-preset-name').focus();
+      $id('m-preset-name')?.focus();
       return;
     }
 
@@ -1133,7 +1174,7 @@ function showAddPresetModal() {
     const newPreset = {
       id: newId,
       name: name,
-      ssid: $id('m-preset-ssid').value.trim() || name,
+      ssid: ($id('m-preset-ssid')?.value || '').trim() || name,
       logo: state.settings.logo || null,
       theme: state.settings.theme || 'theme-blue',
       loginHint: state.settings.loginHint || 'Buka browser utk login'
@@ -1151,8 +1192,8 @@ function showAddPresetModal() {
     showToast(`Profil "${name}" berhasil dibuat`);
   };
 
-  $id('btn-confirm-add-preset').addEventListener('click', confirmAdd);
-  $id('modal-content').addEventListener('keydown', (e) => {
+  on('btn-confirm-add-preset', 'click', confirmAdd);
+  on('modal-content', 'keydown', (e) => {
     if (e.key === 'Enter') confirmAdd();
   });
 }
@@ -1452,7 +1493,8 @@ function renderRekapModalContent() {
     </div>
   `;
 
-  $id('modal-content').innerHTML = html;
+  const modalContent = $id('modal-content');
+  if (modalContent) modalContent.innerHTML = html;
 
   $$('.rekap-period-tab').forEach(tab => {
     tab.addEventListener('click', () => {
@@ -1461,43 +1503,28 @@ function renderRekapModalContent() {
     });
   });
 
-  const pkgSelect = $id('rekap-pkg-select');
-  if (pkgSelect) {
-    pkgSelect.addEventListener('change', (e) => {
-      rekapFilter.package = e.target.value;
-      renderRekapModalContent();
-    });
-  }
+  on('rekap-pkg-select', 'change', (e) => {
+    rekapFilter.package = e.target.value;
+    renderRekapModalContent();
+  });
 
-  const statusSelect = $id('rekap-status-select');
-  if (statusSelect) {
-    statusSelect.addEventListener('change', (e) => {
-      rekapFilter.status = e.target.value;
-      renderRekapModalContent();
-    });
-  }
+  on('rekap-status-select', 'change', (e) => {
+    rekapFilter.status = e.target.value;
+    renderRekapModalContent();
+  });
 
-  const startDateInput = $id('rekap-start-date');
-  if (startDateInput) {
-    startDateInput.addEventListener('change', (e) => {
-      rekapFilter.startDate = e.target.value;
-      renderRekapModalContent();
-    });
-  }
+  on('rekap-start-date', 'change', (e) => {
+    rekapFilter.startDate = e.target.value;
+    renderRekapModalContent();
+  });
 
-  const endDateInput = $id('rekap-end-date');
-  if (endDateInput) {
-    endDateInput.addEventListener('change', (e) => {
-      rekapFilter.endDate = e.target.value;
-      renderRekapModalContent();
-    });
-  }
+  on('rekap-end-date', 'change', (e) => {
+    rekapFilter.endDate = e.target.value;
+    renderRekapModalContent();
+  });
 
-  const btnExport = $id('btn-export-rekap-csv');
-  if (btnExport) btnExport.addEventListener('click', exportRekapCSV);
-
-  const btnPrintRec = $id('btn-print-rekap-receipt');
-  if (btnPrintRec) btnPrintRec.addEventListener('click', printRekapReceipt);
+  on('btn-export-rekap-csv', 'click', exportRekapCSV);
+  on('btn-print-rekap-receipt', 'click', printRekapReceipt);
 }
 
 function exportRekapCSV() {
@@ -1606,8 +1633,10 @@ function printRekapReceipt() {
   `;
 
   const printArea = $id('print-area');
-  printArea.innerHTML = receiptHtml;
-  window.print();
+  if (printArea) {
+    printArea.innerHTML = receiptHtml;
+    window.print();
+  }
 }
 
 // ===== UPGRADE PRO PRICING MODAL =====
@@ -1726,6 +1755,7 @@ function handleLogoUpload(e) {
 function updateLogoUI() {
   const preview = $id('logo-preview');
   const placeholder = $id('logo-placeholder');
+  if (!preview || !placeholder) return;
   if (state.settings.logo) {
     preview.src = state.settings.logo;
     preview.style.display = 'block';
@@ -1975,14 +2005,12 @@ function showImportPreview(uploadedVouchers) {
 
   openModal(html);
 
-  if ($id('btn-confirm-import-new')) {
-    $id('btn-confirm-import-new').addEventListener('click', () => {
-      importNewVouchersOnly(newVouchers);
-      closeModal();
-    });
-  }
+  on('btn-confirm-import-new', 'click', () => {
+    importNewVouchersOnly(newVouchers);
+    closeModal();
+  });
 
-  $id('btn-confirm-replace-all').addEventListener('click', () => {
+  on('btn-confirm-replace-all', 'click', () => {
     replaceAllVouchers(uploadedVouchers);
     closeModal();
   });
@@ -2069,10 +2097,10 @@ function showAddModal() {
   openModal(html);
 
   const confirmAdd = () => {
-    const code = $id('m-code').value.trim();
+    const code = ($id('m-code')?.value || '').trim();
     if (!code) {
       showToast('Kode voucher wajib diisi', 'error');
-      $id('m-code').focus();
+      $id('m-code')?.focus();
       return;
     }
 
@@ -2084,10 +2112,10 @@ function showAddModal() {
 
     state.vouchers.push({
       code: code,
-      paket: $id('m-paket').value.trim() || 'Reguler',
-      harga: $id('m-harga').value.trim(),
-      periode: $id('m-periode').value.trim(),
-      speed: $id('m-speed').value.trim(),
+      paket: ($id('m-paket')?.value || '').trim() || 'Reguler',
+      harga: ($id('m-harga')?.value || '').trim(),
+      periode: ($id('m-periode')?.value || '').trim(),
+      speed: ($id('m-speed')?.value || '').trim(),
       quota: '',
       resellerId: null,
       resellerName: null,
@@ -2104,8 +2132,8 @@ function showAddModal() {
     showToast('Voucher baru berhasil ditambahkan');
   };
 
-  $id('btn-confirm-add').addEventListener('click', confirmAdd);
-  $id('modal-content').addEventListener('keydown', (e) => {
+  on('btn-confirm-add', 'click', confirmAdd);
+  on('modal-content', 'keydown', (e) => {
     if (e.key === 'Enter') confirmAdd();
   });
 }
@@ -2288,37 +2316,41 @@ function updateSelectionUI() {
   const printedCount = total - unprintedCount;
   const selectedCount = getSelectedVouchers().length;
 
-  $id('voucher-count').textContent = total;
-  $id('count-all').textContent = total;
-  $id('count-unprinted').textContent = unprintedCount;
-  $id('count-printed').textContent = printedCount;
+  setText('voucher-count', total);
+  setText('count-all', total);
+  setText('count-unprinted', unprintedCount);
+  setText('count-printed', printedCount);
 
-  $id('selected-info').textContent = `${selectedCount} dari ${total} dipilih`;
-  $id('btn-print-count').textContent = selectedCount;
+  setText('selected-info', `${selectedCount} dari ${total} dipilih`);
+  setText('btn-print-count', selectedCount);
 
   const filtered = getFilteredVouchersWithIndices();
   const filteredSelectedCount = filtered.filter(({ voucher }) => voucher.selected).length;
 
   const checkAllBox = $id('check-all');
-  if (filtered.length === 0) {
-    checkAllBox.checked = false;
-    checkAllBox.indeterminate = false;
-  } else if (filteredSelectedCount === filtered.length) {
-    checkAllBox.checked = true;
-    checkAllBox.indeterminate = false;
-  } else if (filteredSelectedCount === 0) {
-    checkAllBox.checked = false;
-    checkAllBox.indeterminate = false;
-  } else {
-    checkAllBox.checked = false;
-    checkAllBox.indeterminate = true;
+  if (checkAllBox) {
+    if (filtered.length === 0) {
+      checkAllBox.checked = false;
+      checkAllBox.indeterminate = false;
+    } else if (filteredSelectedCount === filtered.length) {
+      checkAllBox.checked = true;
+      checkAllBox.indeterminate = false;
+    } else if (filteredSelectedCount === 0) {
+      checkAllBox.checked = false;
+      checkAllBox.indeterminate = false;
+    } else {
+      checkAllBox.checked = false;
+      checkAllBox.indeterminate = true;
+    }
   }
 
   const printBtn = $id('btn-print');
-  if (selectedCount === 0 && total > 0) {
-    printBtn.style.opacity = '0.5';
-  } else {
-    printBtn.style.opacity = '1';
+  if (printBtn) {
+    if (selectedCount === 0 && total > 0) {
+      printBtn.style.opacity = '0.5';
+    } else {
+      printBtn.style.opacity = '1';
+    }
   }
 }
 
@@ -2353,7 +2385,7 @@ function confirmDeleteSelected() {
   `;
 
   openModal(html);
-  $id('btn-confirm-delete-sel').addEventListener('click', () => {
+  on('btn-confirm-delete-sel', 'click', () => {
     state.vouchers = state.vouchers.filter(v => v.selected === false);
     saveState();
     renderQuickPOSGrid();
@@ -2367,17 +2399,21 @@ function confirmDeleteSelected() {
 // ===== MODAL UTILS =====
 function openModal(html, extraClass = '') {
   const content = $id('modal-content');
-  content.className = 'modal-content' + (extraClass ? ' ' + extraClass : '');
-  if (html) content.innerHTML = html;
-  $id('modal-overlay').classList.add('active');
+  if (content) {
+    content.className = 'modal-content' + (extraClass ? ' ' + extraClass : '');
+    if (html) content.innerHTML = html;
+  }
+  const overlay = $id('modal-overlay');
+  if (overlay) overlay.classList.add('active');
   setTimeout(() => {
-    const input = content.querySelector('input');
+    const input = content?.querySelector('input');
     if (input) input.focus();
   }, 100);
 }
 
 function closeModal() {
-  $id('modal-overlay').classList.remove('active');
+  const overlay = $id('modal-overlay');
+  if (overlay) overlay.classList.remove('active');
   const content = $id('modal-content');
   if (content) {
     content.className = 'modal-content';
@@ -2388,6 +2424,8 @@ function closeModal() {
 function renderTable() {
   const tbody = $id('voucher-table');
   const empty = $id('empty-state');
+  if (!tbody || !empty) return;
+
   const filtered = getFilteredVouchersWithIndices();
   const total = state.vouchers.length;
 
@@ -2395,11 +2433,15 @@ function renderTable() {
     tbody.innerHTML = '';
     empty.style.display = 'block';
     if (total > 0 && filtered.length === 0) {
-      empty.querySelector('p').textContent = 'Tidak ada voucher yang cocok dengan filter / pencarian ini';
-      empty.querySelector('.hint').textContent = 'Coba bersihkan kolom pencarian atau ubah filter';
+      const p = empty.querySelector('p');
+      const hint = empty.querySelector('.hint');
+      if (p) p.textContent = 'Tidak ada voucher yang cocok dengan filter / pencarian ini';
+      if (hint) hint.textContent = 'Coba bersihkan kolom pencarian atau ubah filter';
     } else {
-      empty.querySelector('p').textContent = 'Belum Ada Data Voucher Hotspot';
-      empty.querySelector('.hint').textContent = 'Import file dari Ruijie Cloud atau tambah voucher manual untuk mulai mencetak';
+      const p = empty.querySelector('p');
+      const hint = empty.querySelector('.hint');
+      if (p) p.textContent = 'Belum Ada Data Voucher Hotspot';
+      if (hint) hint.textContent = 'Import file dari Ruijie Cloud atau tambah voucher manual untuk mulai mencetak';
     }
     updateSelectionUI();
     return;
@@ -2445,6 +2487,8 @@ function renderTable() {
 // ===== RENDER PREVIEW (WITH DUMMY SAMPLE FALLBACK) =====
 function renderPreview() {
   const container = $id('preview-grid');
+  if (!container) return;
+
   const badge = $id('preview-layout-badge');
   const { settings } = state;
   let vouchersToRender = getSelectedVouchers();
@@ -2652,6 +2696,7 @@ function buildCardHTML(v, num, settings, isPreview) {
 // ===== PRINT BUILDER =====
 function buildPrintArea(selectedVouchers, layoutVal) {
   const printArea = $id('print-area');
+  if (!printArea) return;
   printArea.innerHTML = '';
 
   const fragment = document.createDocumentFragment();
@@ -2732,19 +2777,19 @@ function handlePrint() {
 }
 
 function onSettingChange() {
-  state.settings.ssid = $id('ssid-name').value;
-  state.settings.loginHint = $id('login-hint').value;
-  state.settings.qrUrlTemplate = $id('qr-url-template').value.trim();
-  state.settings.startNumber = Math.max(1, parseInt($id('start-number').value, 10) || 1);
-  state.settings.layout = $id('layout-select').value || '25';
-  state.settings.logoPos = $id('logo-pos-select').value || 'center';
-  state.settings.theme = $id('theme-select').value || 'theme-blue';
-  state.settings.fontFamily = $id('font-select').value || 'font-inter';
-  state.settings.borderStyle = $id('border-select').value || 'border-dashed';
-  state.settings.showQr = $id('show-qr').checked;
-  state.settings.showSpeed = $id('show-speed').checked;
-  state.settings.showQuota = $id('show-quota').checked;
-  state.settings.showHint = $id('show-hint').checked;
+  state.settings.ssid = $id('ssid-name')?.value || '';
+  state.settings.loginHint = $id('login-hint')?.value || '';
+  state.settings.qrUrlTemplate = ($id('qr-url-template')?.value || '').trim();
+  state.settings.startNumber = Math.max(1, parseInt($id('start-number')?.value, 10) || 1);
+  state.settings.layout = $id('layout-select')?.value || '25';
+  state.settings.logoPos = $id('logo-pos-select')?.value || 'center';
+  state.settings.theme = $id('theme-select')?.value || 'theme-blue';
+  state.settings.fontFamily = $id('font-select')?.value || 'font-inter';
+  state.settings.borderStyle = $id('border-select')?.value || 'border-dashed';
+  state.settings.showQr = $id('show-qr')?.checked !== false;
+  state.settings.showSpeed = $id('show-speed')?.checked !== false;
+  state.settings.showQuota = $id('show-quota')?.checked !== false;
+  state.settings.showHint = $id('show-hint')?.checked !== false;
 
   applyUIMode();
   saveState();
@@ -2807,26 +2852,27 @@ function loadState() {
 }
 
 function restoreUI() {
-  $id('ssid-name').value = state.settings.ssid || '';
-  $id('login-hint').value = state.settings.loginHint || '';
-  $id('qr-url-template').value = state.settings.qrUrlTemplate || '';
-  $id('start-number').value = state.settings.startNumber || 1;
-  $id('layout-select').value = state.settings.layout || '25';
-  $id('logo-pos-select').value = state.settings.logoPos || 'center';
-  $id('theme-select').value = state.settings.theme || 'theme-blue';
-  $id('font-select').value = state.settings.fontFamily || 'font-inter';
-  $id('border-select').value = state.settings.borderStyle || 'border-dashed';
-  $id('show-qr').checked = state.settings.showQr !== false;
-  $id('show-speed').checked = state.settings.showSpeed !== false;
-  $id('show-quota').checked = state.settings.showQuota !== false;
-  $id('show-hint').checked = state.settings.showHint !== false;
-  $id('watermark-text').value = state.settings.watermarkText || '';
-  $id('show-watermark').checked = !!state.settings.showWatermark;
+  setVal('ssid-name', state.settings.ssid || '');
+  setVal('login-hint', state.settings.loginHint || '');
+  setVal('qr-url-template', state.settings.qrUrlTemplate || '');
+  setVal('start-number', state.settings.startNumber || 1);
+  setVal('layout-select', state.settings.layout || '25');
+  setVal('logo-pos-select', state.settings.logoPos || 'center');
+  setVal('theme-select', state.settings.theme || 'theme-blue');
+  setVal('font-select', state.settings.fontFamily || 'font-inter');
+  setVal('border-select', state.settings.borderStyle || 'border-dashed');
+  setChecked('show-qr', state.settings.showQr !== false);
+  setChecked('show-speed', state.settings.showSpeed !== false);
+  setChecked('show-quota', state.settings.showQuota !== false);
+  setChecked('show-hint', state.settings.showHint !== false);
+  setVal('watermark-text', state.settings.watermarkText || '');
+  setChecked('show-watermark', !!state.settings.showWatermark);
   
   if (state.settings.bgImage) {
-    $id('bg-opacity-wrap').style.display = 'block';
-    $id('bg-opacity-slider').value = state.settings.bgOpacity || 20;
-    $id('bg-opacity-val').textContent = `${state.settings.bgOpacity || 20}%`;
+    const wrap = $id('bg-opacity-wrap');
+    if (wrap) wrap.style.display = 'block';
+    setVal('bg-opacity-slider', state.settings.bgOpacity || 20);
+    setText('bg-opacity-val', `${state.settings.bgOpacity || 20}%`);
   }
   updateLogoUI();
 }
