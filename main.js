@@ -1,8 +1,9 @@
 /**
- * Aplikasi Cetak Voucher Ruijie Cloud — POS & Print Studio
- * Features: Dark Mode, 1-Click POS Print & Shift Kasir, Import Ruijie (Excel/CSV),
- * Anti-Deduplication, Manajemen Reseller & Surat Jalan, Kertas Stiker Label TJ,
- * Thermal 58mm/80mm, Lembaran A4 (16-50/hal), QR Code, Export PNG Siap Cetak
+ * Aplikasi Cetak Voucher Ruijie Cloud — POS & Print Studio Pro
+ * Features: Settings Tabs (Anti-Clutter), Live Dummy Preview Fallback,
+ * Watermark / Stempel Agen, Direct Bluetooth Thermal (ESC/POS), Export PDF,
+ * Visual Trend Bar Chart, Dark Mode, Shift Kasir, Reseller & Surat Jalan,
+ * Tom & Jerry Sticker Labels, Anti-Deduplication.
  */
 
 // ===== DEFAULT PRESETS & RESELLERS =====
@@ -20,6 +21,14 @@ const DEFAULT_RESELLERS = [
   { id: 'res_2', name: 'Toko Pak Budi', phone: '081987654321', address: 'Depan Lapangan Desa', note: 'Setoran tiap jumat' }
 ];
 
+// Sample Dummy Vouchers for Live Preview when user has not imported yet
+const SAMPLE_DUMMY_VOUCHERS = [
+  { code: 'RJ-7X9K2B', paket: 'Paket 1 Jam', harga: '3000', periode: '1 Jam', speed: '2M/5M', quota: 'Unlimited', printed: false, selected: true },
+  { code: 'RJ-4M8P9Q', paket: 'Paket 3 Jam', harga: '5000', periode: '3 Jam', speed: '3M/7M', quota: 'Unlimited', printed: false, selected: true },
+  { code: 'RJ-2W5E8R', paket: 'Paket 1 Hari', harga: '10000', periode: '24 Jam', speed: '5M/10M', quota: '2 GB', printed: false, selected: true },
+  { code: 'RJ-9L3N6V', paket: 'Paket Mingguan', harga: '25000', periode: '7 Hari', speed: '5M/15M', quota: '5 GB', printed: false, selected: true }
+];
+
 // ===== APP STATE =====
 const state = {
   uiMode: 'admin', // 'admin' | 'kasir'
@@ -33,6 +42,7 @@ const state = {
   autoArchive24h: true,
   presets: [DEFAULT_PRESET],
   activePresetId: 'preset_default',
+  bluetoothDevice: null,
   activeShift: {
     id: 'shift_init',
     cashierName: 'Kasir 1',
@@ -48,6 +58,8 @@ const state = {
     logoPos: 'center', // 'center' | 'left'
     bgImage: null,
     bgOpacity: 20,
+    watermarkText: '',
+    showWatermark: false,
     fontFamily: 'font-inter',
     borderStyle: 'border-dashed',
     layout: '25', // '50' | '30' | '25' | '20' | '16' | 'thermal-58' | 'thermal-80' | 'label-103' | 'label-108' | 'label-121'
@@ -156,12 +168,25 @@ function initPWA() {
 
 // ===== EVENT BINDING =====
 function bindEvents() {
+  // Settings Tab Navigation (Anti-Clutter)
+  $$('.btn-setting-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tabId = btn.dataset.tab;
+      $$('.btn-setting-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      $$('.setting-tab-pane').forEach(pane => {
+        pane.style.display = pane.id === `pane-${tabId}` ? 'block' : 'none';
+      });
+    });
+  });
+
   // Role Mode Switcher with PIN Lock
   $id('btn-mode-admin').addEventListener('click', handleSwitchToAdmin);
   $id('btn-mode-kasir').addEventListener('click', () => setUIMode('kasir'));
   $id('btn-change-pin').addEventListener('click', showChangePinModal);
 
-  // POS Shift Management
+  // Bluetooth Direct Printing & POS Shift Management
+  $id('btn-connect-bluetooth').addEventListener('click', handleConnectBluetooth);
   $id('btn-toggle-shift').addEventListener('click', showShiftModal);
 
   // Preset Store Manager
@@ -174,6 +199,7 @@ function bindEvents() {
   $id('btn-assign-reseller').addEventListener('click', showAssignResellerModal);
   $id('btn-rekap').addEventListener('click', showRekapModal);
   $id('btn-upgrade-pro').addEventListener('click', showUpgradeProModal);
+  $id('btn-export-pdf').addEventListener('click', exportPDF);
   $id('btn-export-png').addEventListener('click', exportPreviewAsPNG);
 
   // Background Image Upload & Opacity
@@ -186,6 +212,18 @@ function bindEvents() {
     renderPreview();
   });
   $id('btn-remove-bg').addEventListener('click', removeBackground);
+
+  // Watermark / Stempel
+  $id('watermark-text').addEventListener('input', (e) => {
+    state.settings.watermarkText = e.target.value.trim();
+    saveState();
+    renderPreview();
+  });
+  $id('show-watermark').addEventListener('change', (e) => {
+    state.settings.showWatermark = e.target.checked;
+    saveState();
+    renderPreview();
+  });
 
   // Live Search & Toolbar Filters
   const searchInput = $id('search-input');
@@ -394,6 +432,32 @@ function showChangePinModal() {
   });
 }
 
+// ===== DIRECT WEB BLUETOOTH PRINTING (ESC/POS) =====
+async function handleConnectBluetooth() {
+  if (!navigator.bluetooth) {
+    showToast('Browser ini belum mendukung Web Bluetooth (Gunakan Google Chrome di Android / Laptop).', 'error');
+    return;
+  }
+
+  try {
+    showToast('Mencari printer Bluetooth thermal...');
+    const device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', 0xFFE0]
+    });
+
+    state.bluetoothDevice = device;
+    $id('btn-connect-bluetooth').textContent = `📶 ${device.name || 'Printer Terhubung'}`;
+    $id('btn-connect-bluetooth').classList.add('btn-primary');
+    showToast(`Berhasil terhubung ke: ${device.name || 'Printer Bluetooth'}`);
+  } catch (err) {
+    console.warn('Bluetooth connect error:', err);
+    if (err.name !== 'NotFoundError') {
+      showToast('Gagal menghubungkan printer Bluetooth.', 'error');
+    }
+  }
+}
+
 // ===== BACKGROUND CARD IMAGE =====
 function handleBgUpload(e) {
   const file = e.target.files[0];
@@ -550,10 +614,28 @@ function printCloseShiftReceipt() {
   window.print();
 }
 
+// ===== 📄 EXPORT PDF (PRESISI UKURAN) =====
+function exportPDF() {
+  const selected = getSelectedVouchers();
+  if (selected.length === 0 && state.vouchers.length > 0) {
+    showToast('Pilih voucher dengan mencentang kotak ceklis terlebih dahulu.', 'error');
+    return;
+  }
+
+  showToast('Membuka dialog Export PDF (Pilih "Save as PDF" di printer dialog)...');
+  const layoutVal = state.settings.layout || '25';
+  const toPrint = selected.length > 0 ? selected : state.vouchers;
+  buildPrintArea(toPrint, layoutVal);
+
+  setTimeout(() => {
+    window.print();
+  }, 100);
+}
+
 // ===== 🖼️ EXPORT PREVIEW AS PNG (SIAP FOTOKOPI) =====
 function exportPreviewAsPNG() {
   const selected = getSelectedVouchers();
-  if (selected.length === 0) {
+  if (selected.length === 0 && state.vouchers.length > 0) {
     showToast('Pilih minimal 1 voucher untuk diekspor ke gambar.', 'error');
     return;
   }
@@ -1075,7 +1157,7 @@ function showAddPresetModal() {
   });
 }
 
-// ===== REKAP OMSET DASHBOARD =====
+// ===== REKAP OMSET DASHBOARD & VISUAL BAR CHART =====
 let rekapFilter = {
   period: 'all',
   package: 'all',
@@ -1185,7 +1267,23 @@ function renderRekapModalContent() {
     }
   });
 
-  const packageRows = Object.keys(packageStats).map(pkg => {
+  // Calculate Bar Chart Data (Top Packages Sales)
+  const chartPkgs = Object.keys(packageStats);
+  const maxPrintedCount = Math.max(1, ...chartPkgs.map(k => packageStats[k].printed));
+  
+  const chartBarsHtml = chartPkgs.map(pkg => {
+    const s = packageStats[pkg];
+    const heightPercent = Math.max(8, Math.round((s.printed / maxPrintedCount) * 100));
+    return `
+      <div class="chart-bar-col" title="${esc(pkg)}: ${s.printed} pcs terjual (Rp ${formatNumber(s.omsetPrinted)})">
+        <div class="chart-bar-value">${s.printed}</div>
+        <div class="chart-bar-fill" style="height: ${heightPercent}%;"></div>
+        <div class="chart-bar-label">${esc(pkg.substring(0, 8))}</div>
+      </div>
+    `;
+  }).join('');
+
+  const packageRows = chartPkgs.map(pkg => {
     const s = packageStats[pkg];
     const contrib = totalOmsetPrinted > 0 ? ((s.omsetPrinted / totalOmsetPrinted) * 100).toFixed(1) : '0';
     return `
@@ -1289,10 +1387,21 @@ function renderRekapModalContent() {
         </div>
       </div>
 
+      <!-- Section: Visual Trend Bar Chart -->
+      <div class="rekap-chart-card">
+        <div class="rekap-chart-title">
+          <span>📈 Grafik Tren Penjualan per Paket (Pcs Terjual)</span>
+          <span style="font-size:0.72rem;color:var(--text-muted);">Visualisasi Real-Time</span>
+        </div>
+        <div class="rekap-bars-grid">
+          ${chartBarsHtml || '<div style="color:var(--text-muted);font-size:0.8rem;margin:auto;">Belum ada voucher yang terjual pada filter ini</div>'}
+        </div>
+      </div>
+
       <!-- Section: Rincian Paket -->
       <div class="rekap-section-title">
         <span>📦 Rincian Omset per Paket Hotspot</span>
-        <span style="font-size:0.74rem;color:var(--text-muted);">${Object.keys(packageStats).length} Paket</span>
+        <span style="font-size:0.74rem;color:var(--text-muted);">${chartPkgs.length} Paket</span>
       </div>
       <table class="data-table" style="margin-bottom:1rem;background:var(--surface);">
         <thead>
@@ -1523,9 +1632,9 @@ function showUpgradeProModal() {
               <li>✓ Unlimited Cetak Voucher</li>
               <li>✓ Import File CSV/Excel Ruijie Otomatis</li>
               <li>✓ 1-Click Quick POS Print & Shift Kasir</li>
+              <li>✓ Direct Bluetooth Thermal Print (ESC/POS)</li>
+              <li>✓ Watermark / Stempel Toko & Export PDF</li>
               <li>✓ Manajemen Reseller & Surat Jalan</li>
-              <li>✓ Kertas Stiker Label & Thermal POS</li>
-              <li>✓ QR Code Auto Login Scanner</li>
             </ul>
           </div>
           <button class="btn btn-pro" style="width:100%;justify-content:center;" onclick="handleOrderPlan('Paket PRO Bulanan (Rp 20.000)')">Langganan PRO</button>
@@ -2206,12 +2315,10 @@ function updateSelectionUI() {
   }
 
   const printBtn = $id('btn-print');
-  if (selectedCount === 0) {
+  if (selectedCount === 0 && total > 0) {
     printBtn.style.opacity = '0.5';
-    printBtn.style.pointerEvents = 'none';
   } else {
     printBtn.style.opacity = '1';
-    printBtn.style.pointerEvents = 'auto';
   }
 }
 
@@ -2291,8 +2398,8 @@ function renderTable() {
       empty.querySelector('p').textContent = 'Tidak ada voucher yang cocok dengan filter / pencarian ini';
       empty.querySelector('.hint').textContent = 'Coba bersihkan kolom pencarian atau ubah filter';
     } else {
-      empty.querySelector('p').textContent = 'Belum ada data voucher';
-      empty.querySelector('.hint').textContent = 'Klik tombol "📁 Import File Ruijie" atau "＋ Tambah" untuk mulai';
+      empty.querySelector('p').textContent = 'Belum Ada Data Voucher Hotspot';
+      empty.querySelector('.hint').textContent = 'Import file dari Ruijie Cloud atau tambah voucher manual untuk mulai mencetak';
     }
     updateSelectionUI();
     return;
@@ -2335,12 +2442,13 @@ function renderTable() {
   updateSelectionUI();
 }
 
-// ===== RENDER PREVIEW =====
+// ===== RENDER PREVIEW (WITH DUMMY SAMPLE FALLBACK) =====
 function renderPreview() {
   const container = $id('preview-grid');
   const badge = $id('preview-layout-badge');
   const { settings } = state;
-  const selectedVouchers = getSelectedVouchers();
+  let vouchersToRender = getSelectedVouchers();
+  let isDummyMode = false;
 
   const layoutVal = settings.layout || '25';
   const isThermal = layoutVal.startsWith('thermal');
@@ -2354,25 +2462,27 @@ function renderPreview() {
     else badge.textContent = `A4 ${layoutVal}/hal`;
   }
 
+  // If no vouchers exist yet, use Sample Vouchers so user sees live design!
   if (state.vouchers.length === 0) {
-    container.innerHTML = '<div class="preview-empty">Belum ada voucher. Silakan import file atau tambah manual.</div>';
-    return;
-  }
-
-  if (selectedVouchers.length === 0) {
+    vouchersToRender = SAMPLE_DUMMY_VOUCHERS;
+    isDummyMode = true;
+  } else if (vouchersToRender.length === 0) {
     container.innerHTML = '<div class="preview-empty">⚠️ Tidak ada voucher yang dicentang.<br>Klik tombol <strong>"🟢 Belum Dicetak"</strong> atau centang kotak pada tabel untuk mencetak.</div>';
     return;
   }
 
   const startNum = parseInt(settings.startNumber, 10) || 1;
+  const dummyBanner = isDummyMode
+    ? '<div class="preview-dummy-banner">✨ Pratinjau Desain Aktif (Data Contoh — Silakan Import File Ruijie)</div>'
+    : '';
 
   if (isThermal) {
-    const cards = selectedVouchers.map((v, vi) => {
+    const cards = vouchersToRender.map((v, vi) => {
       const num = startNum + vi;
       return buildCardHTML(v, num, settings, true);
     }).join('');
 
-    container.innerHTML = `<div class="preview-page layout-${layoutVal}">${cards}</div>`;
+    container.innerHTML = `${dummyBanner}<div class="preview-page layout-${layoutVal}">${cards}</div>`;
     return;
   }
 
@@ -2382,7 +2492,7 @@ function renderPreview() {
   else if (layoutVal === 'label-121') perPage = 10;
   else perPage = Math.max(1, parseInt(layoutVal, 10) || 25);
 
-  const pages = chunkArray(selectedVouchers, perPage);
+  const pages = chunkArray(vouchersToRender, perPage);
   const layoutClass = `layout-${layoutVal}`;
 
   const maxPreviewPages = Math.min(pages.length, 2);
@@ -2400,11 +2510,11 @@ function renderPreview() {
     return `<div class="preview-page ${layoutClass}">${cards}${empties}</div>`;
   }).join('');
 
-  if (pages.length > maxPreviewPages) {
-    html += `<div class="preview-more">➕ ${pages.length - maxPreviewPages} halaman berikutnya siap dicetak (Total ${pages.length} lembar / ${selectedVouchers.length} voucher terpilih)</div>`;
+  if (pages.length > maxPreviewPages && !isDummyMode) {
+    html += `<div class="preview-more">➕ ${pages.length - maxPreviewPages} halaman berikutnya siap dicetak (Total ${pages.length} lembar / ${vouchersToRender.length} voucher terpilih)</div>`;
   }
 
-  container.innerHTML = html;
+  container.innerHTML = dummyBanner + html;
 }
 
 // ===== CARD TEMPLATE BUILDER =====
@@ -2509,9 +2619,15 @@ function buildCardHTML(v, num, settings, isPreview) {
     ? `background-image: url('${settings.bgImage}'); opacity: ${(settings.bgOpacity || 20) / 100};`
     : 'display:none;';
 
+  // Stempel / Watermark
+  const watermarkHtml = settings.showWatermark && settings.watermarkText
+    ? `<div class="v-card-watermark">${esc(settings.watermarkText)}</div>`
+    : '';
+
   return `
     <div class="${prefix} ${themeClass}">
       <div class="v-card-bg-layer" style="${bgStyle}"></div>
+      ${watermarkHtml}
       <div class="v-card-content">
         ${headerHtml}
         ${heroRowHtml}
@@ -2645,7 +2761,7 @@ function setFilter(filterName) {
 }
 
 // ===== LOCAL STORAGE PERSISTENCE =====
-const STORAGE_KEY = 'ruijie_voucher_app_v7_clean';
+const STORAGE_KEY = 'ruijie_voucher_app_v8_pro';
 
 function saveState() {
   try {
@@ -2657,7 +2773,7 @@ function saveState() {
 
 function loadState() {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('ruijie_voucher_app_v6_cloud_enterprise') || localStorage.getItem('ruijie_voucher_app_v5_enterprise');
+    const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('ruijie_voucher_app_v7_clean') || localStorage.getItem('ruijie_voucher_app_v6_cloud_enterprise');
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed.uiMode) state.uiMode = parsed.uiMode;
@@ -2704,6 +2820,8 @@ function restoreUI() {
   $id('show-speed').checked = state.settings.showSpeed !== false;
   $id('show-quota').checked = state.settings.showQuota !== false;
   $id('show-hint').checked = state.settings.showHint !== false;
+  $id('watermark-text').value = state.settings.watermarkText || '';
+  $id('show-watermark').checked = !!state.settings.showWatermark;
   
   if (state.settings.bgImage) {
     $id('bg-opacity-wrap').style.display = 'block';
