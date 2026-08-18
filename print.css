@@ -1,0 +1,578 @@
+/* =============================================
+   PRINT STYLESHEET — Voucher Cetak Ruijie
+   Supports: A4 (16, 20, 25, 30, 50) + Thermal POS (58mm & 80mm)
+   Header: Centered Wide Logo + Clean WiFi SSID + QR Code
+   ============================================= */
+
+@media print {
+  /* Reset */
+  *, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  @page {
+    margin: 4mm;
+  }
+
+  html, body {
+    width: 100%;
+    height: auto;
+    background: #ffffff !important;
+    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Hide app UI completely */
+  body > *:not(#print-area) {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  #print-area {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* ===== PAGE WRAPPER (A4) ===== */
+  .print-page {
+    width: 200mm;
+    height: 287mm;
+    display: grid;
+    gap: 0;
+    page-break-after: always;
+    break-after: page;
+    background: #ffffff;
+    box-sizing: border-box;
+  }
+
+  .print-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  /* ===== GRID LAYOUTS (A4) ===== */
+  .print-page.layout-16 {
+    grid-template-columns: repeat(4, 50mm);
+    grid-template-rows: repeat(4, 71.75mm);
+  }
+
+  .print-page.layout-20 {
+    grid-template-columns: repeat(4, 50mm);
+    grid-template-rows: repeat(5, 57.4mm);
+  }
+
+  .print-page.layout-25 {
+    grid-template-columns: repeat(5, 40mm);
+    grid-template-rows: repeat(5, 57.4mm);
+  }
+
+  .print-page.layout-30 {
+    grid-template-columns: repeat(5, 40mm);
+    grid-template-rows: repeat(6, 47.83mm);
+  }
+
+  .print-page.layout-50 {
+    grid-template-columns: repeat(5, 40mm);
+    grid-template-rows: repeat(10, 28.7mm);
+  }
+
+  /* ===== THERMAL POS PRINTER LAYOUTS ===== */
+  .print-page.layout-thermal-58 {
+    width: 54mm !important;
+    height: auto !important;
+    display: block !important;
+    margin: 0 auto;
+    page-break-after: auto;
+  }
+
+  .print-page.layout-thermal-58 .v-card {
+    width: 52mm;
+    margin: 0 auto 3mm;
+    padding: 2mm 1.5mm;
+    border: none;
+    border-bottom: 0.8pt dashed #000000;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .print-page.layout-thermal-80 {
+    width: 76mm !important;
+    height: auto !important;
+    display: block !important;
+    margin: 0 auto;
+    page-break-after: auto;
+  }
+
+  .print-page.layout-thermal-80 .v-card {
+    width: 74mm;
+    margin: 0 auto 3.5mm;
+    padding: 2.5mm 2mm;
+    border: none;
+    border-bottom: 0.8pt dashed #000000;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* ===== VOUCHER CARD (COMMON) ===== */
+  .v-card {
+    border: 0.4pt dashed #94a3b8;
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+    position: relative;
+    box-sizing: border-box;
+  }
+
+  .v-card.v-card-empty {
+    border: 0.4pt dashed #e2e8f0;
+    background: transparent;
+  }
+
+  /* ===== HEADER: CENTERED OR LEFT LOGO ===== */
+  .v-card .v-top {
+    border-bottom: 0.5pt solid #cbd5e1;
+    position: relative;
+    width: 100%;
+  }
+
+  .v-card .v-top.v-header-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .v-card .v-top.v-header-left {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5mm;
+  }
+
+  .v-card .v-left-brand {
+    display: flex;
+    align-items: center;
+    gap: 1.5mm;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .v-card .v-logo-side {
+    object-fit: contain;
+    flex-shrink: 0;
+    display: block;
+  }
+
+  .v-card .v-ssid-inline {
+    font-weight: 750;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.15;
+  }
+
+  .v-card .v-logo-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .v-card .v-logo-wide {
+    margin: 0 auto;
+    object-fit: contain;
+    display: block;
+  }
+
+  .v-card .v-sn-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 0.5mm;
+    font-weight: 800;
+    border-radius: 0.8mm;
+    line-height: 1;
+    background: #0f172a;
+    color: #ffffff !important;
+  }
+
+  .v-card .v-top.v-header-left .v-sn-badge {
+    position: static;
+    flex-shrink: 0;
+  }
+
+  .v-card .v-sn-label {
+    opacity: 0.8;
+  }
+
+  .v-card .v-ssid-bar {
+    width: 100%;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.15;
+    font-weight: 700;
+    color: #1e293b;
+  }
+
+  /* When no logo is uploaded */
+  .v-card .v-no-logo-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1mm;
+  }
+
+  .v-card .v-no-logo-ssid {
+    font-weight: 800;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ===== HERO ROW: CODE BOX + OPTIONAL QR CODE ===== */
+  .v-card .v-hero-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5mm;
+    width: 100%;
+  }
+
+  .v-card .v-code-box {
+    text-align: center;
+    border: 0.6pt solid #cbd5e1;
+    border-radius: 1mm;
+    background: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex: 1;
+  }
+
+  .v-card .v-code-label {
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+
+  .v-card .v-code-value {
+    font-family: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
+    font-weight: 800;
+    color: #000000;
+    letter-spacing: 0.08em;
+    line-height: 1.15;
+    word-break: break-all;
+  }
+
+  /* QR Code */
+  .v-card .v-qr-box {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .v-card .v-qr-img {
+    object-fit: contain;
+    display: block;
+  }
+
+  /* ===== META INFO GRID ===== */
+  .v-card .v-meta-grid {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1mm;
+    border-top: 0.4pt solid #e2e8f0;
+  }
+
+  .v-card .v-meta-tag {
+    font-weight: 700;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .v-card .v-meta-val {
+    font-weight: 600;
+    color: #334155;
+    white-space: nowrap;
+  }
+
+  .v-card .v-meta-price .v-meta-val {
+    font-weight: 800;
+    color: #0f172a;
+  }
+
+  /* Sub Grid: Speed & Quota */
+  .v-card .v-sub-grid {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1mm;
+    color: #475569;
+    line-height: 1.1;
+    font-weight: 500;
+  }
+
+  .v-card .v-sub-item {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Footer Hint */
+  .v-card .v-footer {
+    text-align: center;
+    color: #64748b;
+    border-top: 0.3pt dashed #e2e8f0;
+    line-height: 1.1;
+  }
+
+  .v-card .v-hint {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+  }
+
+  /* ===== THEMES (PRINT) ===== */
+  .v-card.theme-blue .v-sn-badge {
+    background: #1e40af;
+    color: #ffffff !important;
+  }
+  .v-card.theme-blue .v-code-box {
+    background: #f0f7ff;
+    border-color: #93c5fd;
+  }
+  .v-card.theme-blue .v-meta-tag {
+    color: #1d4ed8;
+  }
+
+  .v-card.theme-mono .v-sn-badge {
+    background: #000000;
+    color: #ffffff !important;
+  }
+  .v-card.theme-mono .v-code-box {
+    background: #ffffff;
+    border: 0.8pt solid #000000;
+  }
+  .v-card.theme-mono .v-meta-tag {
+    color: #000000;
+  }
+
+  .v-card.theme-emerald .v-sn-badge {
+    background: #047857;
+    color: #ffffff !important;
+  }
+  .v-card.theme-emerald .v-code-box {
+    background: #ecfdf5;
+    border-color: #6ee7b7;
+  }
+  .v-card.theme-emerald .v-meta-tag {
+    color: #059669;
+  }
+
+  .v-card.theme-purple .v-sn-badge {
+    background: #6d28d9;
+    color: #ffffff !important;
+  }
+  .v-card.theme-purple .v-code-box {
+    background: #f5f3ff;
+    border-color: #c4b5fd;
+  }
+  .v-card.theme-purple .v-meta-tag {
+    color: #7c3aed;
+  }
+
+
+  /* ===== FONT SIZES & SPACING PER LAYOUT ===== */
+
+  /* Layout 16 (4×4) — 50mm × 71.75mm */
+  .print-page.layout-16 .v-card { padding: 3mm 3.5mm; }
+  .print-page.layout-16 .v-logo-wide { height: 16mm; max-width: 90%; }
+  .print-page.layout-16 .v-logo-side { width: 14mm; height: 14mm; }
+  .print-page.layout-16 .v-ssid-bar { font-size: 8pt; margin-top: 0.8mm; }
+  .print-page.layout-16 .v-ssid-inline { font-size: 8pt; }
+  .print-page.layout-16 .v-no-logo-ssid { font-size: 10.5pt; }
+  .print-page.layout-16 .v-sn-badge { font-size: 7.5pt; padding: 0.8mm 1.6mm; }
+  .print-page.layout-16 .v-top { padding-bottom: 1.6mm; }
+  .print-page.layout-16 .v-code-box { padding: 2mm 1mm; margin: 1.2mm 0; }
+  .print-page.layout-16 .v-code-label { font-size: 6pt; margin-bottom: 0.5mm; }
+  .print-page.layout-16 .v-code-value { font-size: 13pt; }
+  .print-page.layout-16 .v-qr-img { width: 14mm; height: 14mm; }
+  .print-page.layout-16 .v-meta-grid { font-size: 8pt; padding-top: 1.2mm; }
+  .print-page.layout-16 .v-sub-grid { font-size: 7pt; padding-top: 0.8mm; }
+  .print-page.layout-16 .v-footer { font-size: 6.5pt; padding-top: 0.8mm; margin-top: 0.5mm; }
+
+  /* Layout 20 (4×5) — 50mm × 57.4mm */
+  .print-page.layout-20 .v-card { padding: 2.2mm 2.8mm; }
+  .print-page.layout-20 .v-logo-wide { height: 13.5mm; max-width: 88%; }
+  .print-page.layout-20 .v-logo-side { width: 11.5mm; height: 11.5mm; }
+  .print-page.layout-20 .v-ssid-bar { font-size: 7.5pt; margin-top: 0.6mm; }
+  .print-page.layout-20 .v-ssid-inline { font-size: 7.5pt; }
+  .print-page.layout-20 .v-no-logo-ssid { font-size: 9.5pt; }
+  .print-page.layout-20 .v-sn-badge { font-size: 6.8pt; padding: 0.7mm 1.4mm; }
+  .print-page.layout-20 .v-top { padding-bottom: 1.2mm; }
+  .print-page.layout-20 .v-code-box { padding: 1.4mm 0.8mm; margin: 0.8mm 0; }
+  .print-page.layout-20 .v-code-label { font-size: 5.2pt; margin-bottom: 0.3mm; }
+  .print-page.layout-20 .v-code-value { font-size: 11.5pt; }
+  .print-page.layout-20 .v-qr-img { width: 11.5mm; height: 11.5mm; }
+  .print-page.layout-20 .v-meta-grid { font-size: 7.2pt; padding-top: 0.8mm; }
+  .print-page.layout-20 .v-sub-grid { font-size: 6.2pt; padding-top: 0.5mm; }
+  .print-page.layout-20 .v-footer { font-size: 5.8pt; padding-top: 0.5mm; margin-top: 0.3mm; }
+
+  /* Layout 25 (5×5) — 40mm × 57.4mm (Rekomendasi Utama) */
+  .print-page.layout-25 .v-card { padding: 2mm 2.2mm; }
+  .print-page.layout-25 .v-logo-wide { height: 12mm; max-width: 86%; }
+  .print-page.layout-25 .v-logo-side { width: 10mm; height: 10mm; }
+  .print-page.layout-25 .v-ssid-bar { font-size: 6.8pt; margin-top: 0.5mm; }
+  .print-page.layout-25 .v-ssid-inline { font-size: 6.8pt; }
+  .print-page.layout-25 .v-no-logo-ssid { font-size: 8.5pt; }
+  .print-page.layout-25 .v-sn-badge { font-size: 6.2pt; padding: 0.5mm 1.2mm; }
+  .print-page.layout-25 .v-top { padding-bottom: 1mm; }
+  .print-page.layout-25 .v-code-box { padding: 1.2mm 0.6mm; margin: 0.6mm 0; }
+  .print-page.layout-25 .v-code-label { font-size: 4.8pt; margin-bottom: 0.2mm; }
+  .print-page.layout-25 .v-code-value { font-size: 10pt; }
+  .print-page.layout-25 .v-qr-img { width: 10mm; height: 10mm; }
+  .print-page.layout-25 .v-meta-grid { font-size: 6.5pt; padding-top: 0.6mm; }
+  .print-page.layout-25 .v-sub-grid { font-size: 5.5pt; padding-top: 0.4mm; }
+  .print-page.layout-25 .v-footer { font-size: 5.2pt; padding-top: 0.4mm; margin-top: 0.3mm; }
+
+  /* Layout 30 (5×6) — 40mm × 47.83mm */
+  .print-page.layout-30 .v-card { padding: 1.5mm 1.8mm; }
+  .print-page.layout-30 .v-logo-wide { height: 10mm; max-width: 84%; }
+  .print-page.layout-30 .v-logo-side { width: 8.5mm; height: 8.5mm; }
+  .print-page.layout-30 .v-ssid-bar { font-size: 6pt; margin-top: 0.4mm; }
+  .print-page.layout-30 .v-ssid-inline { font-size: 6pt; }
+  .print-page.layout-30 .v-no-logo-ssid { font-size: 7.5pt; }
+  .print-page.layout-30 .v-sn-badge { font-size: 5.5pt; padding: 0.4mm 1mm; }
+  .print-page.layout-30 .v-top { padding-bottom: 0.8mm; }
+  .print-page.layout-30 .v-code-box { padding: 0.9mm 0.4mm; margin: 0.5mm 0; }
+  .print-page.layout-30 .v-code-label { font-size: 4.2pt; margin-bottom: 0.1mm; }
+  .print-page.layout-30 .v-code-value { font-size: 8.8pt; }
+  .print-page.layout-30 .v-qr-img { width: 8.5mm; height: 8.5mm; }
+  .print-page.layout-30 .v-meta-grid { font-size: 5.8pt; padding-top: 0.5mm; }
+  .print-page.layout-30 .v-sub-grid { font-size: 5pt; padding-top: 0.3mm; }
+  .print-page.layout-30 .v-footer { font-size: 4.8pt; padding-top: 0.3mm; margin-top: 0.2mm; }
+
+  /* Layout 50 (5×10) — 40mm × 28.7mm (Super Hemat Kertas) */
+  .print-page.layout-50 .v-card { padding: 0.8mm 1.2mm; justify-content: space-evenly; }
+  .print-page.layout-50 .v-logo-wide { height: 5.2mm; max-width: 78%; }
+  .print-page.layout-50 .v-logo-side { width: 5.5mm; height: 5.5mm; }
+  .print-page.layout-50 .v-ssid-bar { font-size: 4.6pt; margin-top: 0.15mm; line-height: 1; }
+  .print-page.layout-50 .v-ssid-inline { font-size: 4.6pt; }
+  .print-page.layout-50 .v-no-logo-ssid { font-size: 5.8pt; }
+  .print-page.layout-50 .v-sn-badge { font-size: 4.2pt; padding: 0.2mm 0.6mm; border-radius: 0.4mm; }
+  .print-page.layout-50 .v-top { padding-bottom: 0.3mm; }
+  .print-page.layout-50 .v-code-box { padding: 0.4mm 0.2mm; margin: 0.2mm 0; border-width: 0.4pt; }
+  .print-page.layout-50 .v-code-label { font-size: 3.2pt; margin-bottom: 0.05mm; }
+  .print-page.layout-50 .v-code-value { font-size: 7.2pt; }
+  .print-page.layout-50 .v-qr-img { width: 6.5mm; height: 6.5mm; }
+  .print-page.layout-50 .v-meta-grid { font-size: 4.5pt; padding-top: 0.2mm; border-top-width: 0.3pt; }
+  .print-page.layout-50 .v-sub-grid { font-size: 3.8pt; padding-top: 0.15mm; }
+  .print-page.layout-50 .v-footer { font-size: 3.6pt; padding-top: 0.15mm; margin-top: 0.05mm; border-top-width: 0.2pt; }
+
+  /* Thermal 58mm POS Receipt */
+  .print-page.layout-thermal-58 .v-card { padding: 2mm 1.5mm; }
+  .print-page.layout-thermal-58 .v-logo-wide { height: 12mm; max-width: 85%; }
+  .print-page.layout-thermal-58 .v-logo-side { width: 12mm; height: 12mm; }
+  .print-page.layout-thermal-58 .v-ssid-bar { font-size: 8pt; margin-top: 0.8mm; }
+  .print-page.layout-thermal-58 .v-ssid-inline { font-size: 8pt; }
+  .print-page.layout-thermal-58 .v-no-logo-ssid { font-size: 10pt; }
+  .print-page.layout-thermal-58 .v-sn-badge { font-size: 7.5pt; padding: 0.6mm 1.5mm; }
+  .print-page.layout-thermal-58 .v-code-box { padding: 1.5mm 1mm; margin: 1mm 0; }
+  .print-page.layout-thermal-58 .v-code-label { font-size: 6pt; }
+  .print-page.layout-thermal-58 .v-code-value { font-size: 12pt; }
+  .print-page.layout-thermal-58 .v-qr-img { width: 22mm; height: 22mm; margin: 1mm auto; }
+  .print-page.layout-thermal-58 .v-meta-grid { font-size: 7.5pt; padding-top: 1mm; }
+  .print-page.layout-thermal-58 .v-sub-grid { font-size: 6.5pt; padding-top: 0.8mm; }
+  .print-page.layout-thermal-58 .v-footer { font-size: 6pt; padding-top: 0.8mm; margin-top: 0.5mm; }
+
+  /* Thermal 80mm POS Receipt */
+  .print-page.layout-thermal-80 .v-card { padding: 3mm 2.5mm; }
+  .print-page.layout-thermal-80 .v-logo-wide { height: 15mm; max-width: 85%; }
+  .print-page.layout-thermal-80 .v-logo-side { width: 15mm; height: 15mm; }
+  .print-page.layout-thermal-80 .v-ssid-bar { font-size: 9pt; margin-top: 1mm; }
+  .print-page.layout-thermal-80 .v-ssid-inline { font-size: 9pt; }
+  .print-page.layout-thermal-80 .v-no-logo-ssid { font-size: 12pt; }
+  .print-page.layout-thermal-80 .v-sn-badge { font-size: 8.5pt; padding: 0.8mm 1.8mm; }
+  .print-page.layout-thermal-80 .v-code-box { padding: 2mm 1.5mm; margin: 1.2mm 0; }
+  .print-page.layout-thermal-80 .v-code-label { font-size: 7pt; }
+  .print-page.layout-thermal-80 .v-code-value { font-size: 14pt; }
+  .print-page.layout-thermal-80 .v-qr-img { width: 28mm; height: 28mm; margin: 1.5mm auto; }
+  .print-page.layout-thermal-80 .v-meta-grid { font-size: 8.5pt; padding-top: 1.2mm; }
+  .print-page.layout-thermal-80 .v-sub-grid { font-size: 7.5pt; padding-top: 1mm; }
+  .print-page.layout-thermal-80 .v-footer { font-size: 7pt; padding-top: 1mm; margin-top: 0.8mm; }
+
+  /* ===== KERTAS STIKER LABEL (TOM & JERRY / FOX) ===== */
+
+  /* Label TJ 103 (3×4 — 12 Label / Lembar • 32mm × 64mm) */
+  .print-page.layout-label-103 {
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+    gap: 2mm 3mm;
+    padding: 6mm 7mm;
+  }
+  .print-page.layout-label-103 .v-card { padding: 2.2mm 2.8mm; border-radius: 1.5mm; }
+  .print-page.layout-label-103 .v-logo-wide { height: 12mm; max-width: 86%; }
+  .print-page.layout-label-103 .v-logo-side { width: 11mm; height: 11mm; }
+  .print-page.layout-label-103 .v-ssid-bar { font-size: 7.2pt; }
+  .print-page.layout-label-103 .v-code-value { font-size: 11pt; }
+  .print-page.layout-label-103 .v-qr-img { width: 11mm; height: 11mm; }
+
+  /* Label TJ 108 (5×8 — 40 Label / Lembar • 18mm × 38mm) */
+  .print-page.layout-label-108 {
+    grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: repeat(8, 1fr);
+    gap: 1.2mm 1.5mm;
+    padding: 4mm 5mm;
+  }
+  .print-page.layout-label-108 .v-card { padding: 1mm 1.4mm; border-radius: 1mm; justify-content: space-evenly; }
+  .print-page.layout-label-108 .v-logo-wide { height: 6mm; max-width: 80%; }
+  .print-page.layout-label-108 .v-logo-side { width: 6.5mm; height: 6.5mm; }
+  .print-page.layout-label-108 .v-ssid-bar { font-size: 5pt; }
+  .print-page.layout-label-108 .v-ssid-inline { font-size: 5pt; }
+  .print-page.layout-label-108 .v-code-value { font-size: 8pt; }
+  .print-page.layout-label-108 .v-code-label { font-size: 3.5pt; }
+  .print-page.layout-label-108 .v-qr-img { width: 7.5mm; height: 7.5mm; }
+  .print-page.layout-label-108 .v-meta-grid { font-size: 4.8pt; }
+
+  /* Label TJ 121 (2×5 — 10 Label / Lembar • 38mm × 75mm) */
+  .print-page.layout-label-121 {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(5, 1fr);
+    gap: 3mm 4mm;
+    padding: 7mm 8mm;
+  }
+  .print-page.layout-label-121 .v-card { padding: 3mm 3.5mm; border-radius: 2mm; }
+  .print-page.layout-label-121 .v-logo-wide { height: 14mm; max-width: 88%; }
+  .print-page.layout-label-121 .v-logo-side { width: 13mm; height: 13mm; }
+  .print-page.layout-label-121 .v-ssid-bar { font-size: 8pt; }
+  .print-page.layout-label-121 .v-code-value { font-size: 13pt; }
+  .print-page.layout-label-121 .v-qr-img { width: 14mm; height: 14mm; }
+}
