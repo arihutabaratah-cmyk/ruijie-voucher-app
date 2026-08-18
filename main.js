@@ -1,13 +1,18 @@
 /**
  * Aplikasi Cetak Voucher Ruijie Cloud — POS & Print Studio Pro
- * Features: Database Google Spreadsheet, 1-Click Theme Store Gallery,
+ * Features: Manual E-Wallet / QRIS Payment & WhatsApp Order,
+ * Cryptographic License Key Engine & Secret Admin Key Generator,
+ * Database Google Spreadsheet, 1-Click Theme Store Gallery,
  * Audit Trail Kasir, Stock Alert System, Dual Analytics Charts,
- * Streamlined Dropdown Navigation, Watermark / Stempel Agen,
- * Direct Bluetooth Thermal (ESC/POS), Export PDF, Dark Mode, Shift Kasir,
- * Reseller & Surat Jalan, Tom & Jerry Labels, Anti-Deduplication.
+ * Streamlined Dropdown Navigation, Direct Bluetooth Thermal (ESC/POS),
+ * Export PDF, Dark Mode, Shift Kasir, Reseller & Surat Jalan.
  */
 
-// ===== DEFAULT PRESETS & RESELLERS =====
+// ===== CONSTANTS & ADMIN LICENSE CRYPTO SALT =====
+const ADMIN_SECRET_SALT = 'RUIJIE_PRO_OFFLINE_SECRET_2026_CMYK';
+const OWNER_WHATSAPP = '082248381836';
+const OWNER_EWALLET = '082248381836';
+
 const DEFAULT_PRESET = {
   id: 'preset_default',
   name: 'Warkop Utama',
@@ -35,6 +40,8 @@ const state = {
   uiMode: 'admin', // 'admin' | 'kasir'
   themeMode: 'light', // 'light' | 'dark'
   adminPin: '1234',
+  isPro: false,
+  proLicense: null, // { key, plan, activatedAt, expiresAt }
   vouchers: [],
   resellers: DEFAULT_RESELLERS,
   auditLogs: [], // Audit Trail for Cashier & Security
@@ -107,8 +114,10 @@ const setText = (id, text) => {
 document.addEventListener('DOMContentLoaded', () => {
   loadState();
   initTheme();
+  checkLicenseValidity();
   bindEvents();
   applyUIMode();
+  updateProBadgeUI();
   renderResellerFilterSelect();
   restoreUI();
   checkStockAlerts();
@@ -118,6 +127,119 @@ document.addEventListener('DOMContentLoaded', () => {
   initPWA();
 });
 
+// ===== 🔑 CRYPTOGRAPHIC LICENSE ENGINE =====
+function hashString(str) {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) + str.charCodeAt(i);
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(36).toUpperCase().padStart(6, 'X');
+}
+
+function generateLicenseKey(plan = '1MONTH', customerId = 'USER') {
+  const cleanPlan = (plan || '1MONTH').toUpperCase();
+  const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
+  const raw = `${cleanPlan}-${customerId.toUpperCase()}-${randomPart}-${ADMIN_SECRET_SALT}`;
+  const checksum = hashString(raw).substring(0, 6);
+  return `RJPRO-${cleanPlan}-${randomPart}-${checksum}`;
+}
+
+function verifyLicenseKey(key) {
+  if (!key || typeof key !== 'string') return { valid: false };
+  const parts = key.trim().toUpperCase().split('-');
+  if (parts.length !== 4 || parts[0] !== 'RJPRO') return { valid: false };
+
+  const plan = parts[1]; // '1MONTH' | '1YEAR' | 'LIFETIME'
+  const randomPart = parts[2];
+  const checksum = parts[3];
+
+  const expectedRaw = `${plan}-USER-${randomPart}-${ADMIN_SECRET_SALT}`;
+  const expectedChecksum = hashString(expectedRaw).substring(0, 6);
+
+  if (checksum === expectedChecksum) {
+    let days = 30;
+    if (plan === '1YEAR') days = 365;
+    if (plan === 'LIFETIME') days = 36500;
+    return { valid: true, plan: plan, days: days };
+  }
+  return { valid: false };
+}
+
+function checkLicenseValidity() {
+  if (state.proLicense && state.proLicense.key) {
+    const res = verifyLicenseKey(state.proLicense.key);
+    if (res.valid) {
+      if (state.proLicense.expiresAt) {
+        const expDate = new Date(state.proLicense.expiresAt);
+        if (new Date() > expDate) {
+          state.isPro = false;
+          state.proLicense = null;
+          saveState();
+          return;
+        }
+      }
+      state.isPro = true;
+      return;
+    }
+  }
+  state.isPro = false;
+}
+
+function activateLicense(key) {
+  const res = verifyLicenseKey(key);
+  if (!res.valid) {
+    showToast('Kunci Lisensi tidak valid! Periksa kembali kode Anda.', 'error');
+    return false;
+  }
+
+  const now = new Date();
+  const expiresAt = res.plan === 'LIFETIME' ? null : new Date(now.getTime() + res.days * 24 * 60 * 60 * 1000).toISOString();
+
+  state.isPro = true;
+  state.proLicense = {
+    key: key.trim().toUpperCase(),
+    plan: res.plan,
+    activatedAt: now.toISOString(),
+    expiresAt: expiresAt
+  };
+
+  logActivity('SHIFT', `Aktivasi Lisensi PRO [${res.plan}] berhasil`);
+  saveState();
+  updateProBadgeUI();
+  renderPreview();
+  showToast(`🎉 Selamat! Lisensi PRO (${res.plan}) Berhasil Diaktifkan!`);
+  return true;
+}
+
+function updateProBadgeUI() {
+  const proBtn = $id('btn-header-pro');
+  const proText = $id('header-pro-text');
+  const appBadge = $id('app-badge-status');
+
+  if (state.isPro) {
+    if (proBtn) {
+      proBtn.className = 'btn btn-pro-badge btn-sm active-pro';
+      proBtn.title = 'Lisensi PRO Aktif • Klik untuk info lisensi';
+    }
+    if (proText) proText.textContent = '👑 PRO Aktif';
+    if (appBadge) {
+      appBadge.textContent = 'PRO Studio';
+      appBadge.className = 'header-badge pro-badge';
+    }
+  } else {
+    if (proBtn) {
+      proBtn.className = 'btn btn-pro-badge btn-sm';
+      proBtn.title = 'Aktivasi Lisensi PRO Tanpa Batas';
+    }
+    if (proText) proText.textContent = '💎 Upgrade PRO';
+    if (appBadge) {
+      appBadge.textContent = 'SaaS Studio';
+      appBadge.className = 'header-badge';
+    }
+  }
+}
+
 // ===== AUDIT TRAIL LOGGER =====
 function logActivity(type, detail, user) {
   const cashier = user || (state.activeShift && state.activeShift.cashierName) || (state.uiMode === 'admin' ? 'Admin' : 'Kasir');
@@ -125,7 +247,7 @@ function logActivity(type, detail, user) {
     id: 'log_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
     timestamp: new Date().toISOString(),
     cashier: cashier,
-    type: type, // 'PRINT_POS' | 'PRINT_BATCH' | 'STATUS_CHANGE' | 'DELETE' | 'SHIFT' | 'SYNC'
+    type: type,
     detail: detail
   };
 
@@ -234,7 +356,6 @@ function checkStockAlerts() {
     }
   }
 
-  // Calculate per package
   const pkgMap = {};
   state.vouchers.forEach(v => {
     const pkg = v.paket || 'Reguler';
@@ -349,12 +470,14 @@ function bindEvents() {
     });
   }
 
-  // Dropdown Items
+  // Header PRO Button & Dropdown Items
+  on('btn-header-pro', 'click', showUpgradeProModal);
+  on('menu-item-pro', 'click', () => { menuDropdown?.classList.remove('show'); showUpgradeProModal(); });
+  on('menu-item-license-gen', 'click', () => { menuDropdown?.classList.remove('show'); showSecretLicenseGenModal(); });
   on('menu-item-sheets', 'click', () => { menuDropdown?.classList.remove('show'); showGoogleSheetsModal(); });
   on('menu-item-reseller', 'click', () => { menuDropdown?.classList.remove('show'); showResellerModal(); });
   on('menu-item-audit', 'click', () => { menuDropdown?.classList.remove('show'); showAuditLogModal(); });
   on('menu-item-presets', 'click', () => { menuDropdown?.classList.remove('show'); showStorePresetsModal(); });
-  on('menu-item-pro', 'click', () => { menuDropdown?.classList.remove('show'); showUpgradeProModal(); });
 
   // Settings Tab Navigation
   $$('.btn-setting-tab').forEach(btn => {
@@ -514,6 +637,237 @@ function bindEvents() {
   });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeModal();
+  });
+}
+
+// ===== 💎 UPGRADE PRO & MANUAL PAYMENT MODAL =====
+function showUpgradeProModal() {
+  const isCurrentlyPro = state.isPro;
+  const licenseInfo = state.proLicense;
+  let expText = 'Permanen (Selamanya)';
+  if (licenseInfo && licenseInfo.expiresAt) {
+    const d = new Date(licenseInfo.expiresAt);
+    expText = `Berlaku hingga: ${d.toLocaleDateString('id-ID')}`;
+  }
+
+  const html = `
+    <div class="modal-header">
+      <h3>💎 Lisensi Cetak Voucher PRO</h3>
+      <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
+    </div>
+    <div class="modal-body">
+      ${isCurrentlyPro ? `
+        <div style="background:var(--success-light);border:2px solid var(--success-border);border-radius:var(--radius-xs);padding:1.15rem;text-align:center;margin-bottom:1.15rem;">
+          <div style="font-size:2rem;margin-bottom:0.3rem;">👑</div>
+          <h4 style="font-size:1.15rem;font-weight:900;color:var(--success);margin-bottom:0.25rem;">Lisensi PRO Anda Aktif!</h4>
+          <p style="font-size:0.8rem;color:var(--text-secondary);">${expText}</p>
+          <div style="font-family:var(--font-mono);font-weight:800;font-size:0.9rem;background:var(--surface);border:1px dashed var(--success);padding:0.4rem 0.8rem;border-radius:var(--radius-xs);margin-top:0.65rem;display:inline-block;">
+            ${esc(licenseInfo ? licenseInfo.key : 'ACTIVE')}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- 3-Tier Pricing Cards -->
+      <div class="pricing-grid-3">
+        <div class="pricing-card">
+          <div>
+            <div class="pricing-title">⚡ 1 Bulan</div>
+            <div class="pricing-price">Rp 20.000 <span>/ bln</span></div>
+            <ul class="pricing-features">
+              <li>✓ Cloud Google Sheets</li>
+              <li>✓ Bluetooth POS Print</li>
+              <li>✓ Audit Trail Kasir</li>
+            </ul>
+          </div>
+          <button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;" onclick="handleOrderPackage('Paket 1 Bulan (Rp 20.000)')">Pilih 1 Bulan</button>
+        </div>
+
+        <div class="pricing-card featured">
+          <div class="pricing-badge">HEMAT 38%</div>
+          <div>
+            <div class="pricing-title">🏢 1 Tahun (Teknisi)</div>
+            <div class="pricing-price">Rp 150.000 <span>/ thn</span></div>
+            <ul class="pricing-features">
+              <li>✓ Semua Fitur PRO</li>
+              <li>✓ Multi-Toko & SSID</li>
+              <li>✓ Prioritas Update</li>
+            </ul>
+          </div>
+          <button class="btn btn-primary btn-sm" style="width:100%;justify-content:center;" onclick="handleOrderPackage('Paket Teknisi 1 Tahun (Rp 150.000)')">Pilih 1 Tahun</button>
+        </div>
+
+        <div class="pricing-card lifetime">
+          <div class="pricing-badge">POPULER</div>
+          <div>
+            <div class="pricing-title">👑 Lifetime</div>
+            <div class="pricing-price">Rp 299.000 <span>/ sekali</span></div>
+            <ul class="pricing-features">
+              <li>✓ Lisensi Selamanya</li>
+              <li>✓ Bebas Biaya Bulanan</li>
+              <li>✓ Support Selamanya</li>
+            </ul>
+          </div>
+          <button class="btn btn-pro btn-sm" style="width:100%;justify-content:center;" onclick="handleOrderPackage('Paket Lifetime Selamanya (Rp 299.000)')">Pilih Lifetime</button>
+        </div>
+      </div>
+
+      <!-- Payment Details Box -->
+      <div class="payment-methods-box">
+        <div style="font-size:0.84rem;font-weight:800;color:var(--text);margin-bottom:0.4rem;">
+          💳 Rekening Pembayaran & E-Wallet:
+        </div>
+        
+        <div class="payment-method-card">
+          <div>
+            <strong style="font-size:0.88rem;">📱 E-Wallet & QRIS (Dana / GoPay / OVO / ShopeePay)</strong>
+            <div style="font-family:var(--font-mono);font-size:0.96rem;font-weight:900;color:var(--primary);margin-top:2px;">
+              ${OWNER_EWALLET}
+            </div>
+            <div style="font-size:0.72rem;color:var(--text-secondary);">a.n. Ari Hutabarat</div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText('${OWNER_EWALLET}');showToast('Nomor E-Wallet disalin!')">📋 Salin</button>
+        </div>
+
+        <div style="margin-top:0.85rem;text-align:center;">
+          <button class="btn btn-primary" style="width:100%;justify-content:center;background:#25D366;border-color:#25D366;font-weight:800;" onclick="handleOrderPackage('Konfirmasi Pembayaran PRO')">
+            💬 Konfirmasi Transfer via WhatsApp (${OWNER_WHATSAPP})
+          </button>
+        </div>
+      </div>
+
+      <!-- License Activation Input Box -->
+      <div class="license-activation-card">
+        <div style="font-size:0.84rem;font-weight:800;color:var(--primary);margin-bottom:0.4rem;">
+          🔑 Sudah punya Kunci Lisensi? Masukkan di sini:
+        </div>
+        <div style="display:flex;gap:0.45rem;">
+          <input type="text" id="m-license-input" class="form-input" style="font-family:var(--font-mono);text-transform:uppercase;font-weight:750;" placeholder="Contoh: RJPRO-LIFETIME-8B39-C49F12">
+          <button class="btn btn-primary" id="btn-activate-license">✨ Aktifkan</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Tutup</button>
+    </div>
+  `;
+
+  openModal(html, 'modal-wide');
+
+  on('btn-activate-license', 'click', () => {
+    const key = ($id('m-license-input')?.value || '').trim();
+    if (!key) {
+      showToast('Masukkan kode lisensi terlebih dahulu', 'error');
+      return;
+    }
+    const success = activateLicense(key);
+    if (success) {
+      closeModal();
+    }
+  });
+}
+
+function handleOrderPackage(packageName) {
+  const msg = `Halo Admin, saya ingin aktivasi Lisensi PRO Cetak Voucher Ruijie:\n\n` +
+    `📦 Paket: ${packageName}\n` +
+    `💳 Pembayaran: Transfer E-Wallet / QRIS (${OWNER_EWALLET})\n\n` +
+    `Mohon kirimkan Kunci Lisensi saya. Terima kasih!`;
+  
+  const url = `https://wa.me/62${OWNER_WHATSAPP.substring(1)}?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+}
+
+// ===== 🔑 SECRET ADMIN LICENSE GENERATOR (FOR OWNER ONLY) =====
+function showSecretLicenseGenModal() {
+  showPinPromptModal(() => {
+    const html = `
+      <div class="modal-header">
+        <h3>🔑 Generator Kunci Lisensi (Khusus Pemilik)</h3>
+        <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:1rem;">
+          Gunakan form ini untuk membuat Kunci Lisensi asli bagi pembeli yang sudah mentransfer dana ke rekening / E-Wallet Anda.
+        </p>
+
+        <div class="modal-form">
+          <div class="form-group">
+            <label for="gen-plan-select">Pilih Paket Lisensi</label>
+            <select id="gen-plan-select" class="form-input">
+              <option value="1MONTH">1 Bulan (Rp 20.000)</option>
+              <option value="1YEAR">1 Tahun / Teknisi (Rp 150.000)</option>
+              <option value="LIFETIME" selected>👑 Lifetime Selamanya (Rp 299.000)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="gen-customer-name">Nama Pembeli / Toko (Opsional)</label>
+            <input type="text" id="gen-customer-name" class="form-input" placeholder="Contoh: Warkop Bu Ani">
+          </div>
+
+          <button class="btn btn-primary" id="btn-do-generate-key" style="margin-top:0.4rem;">
+            ⚙️ Generate Kunci Lisensi Sekarang
+          </button>
+        </div>
+
+        <div id="gen-result-box" style="display:none;margin-top:1.15rem;background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-xs);padding:1rem;">
+          <label style="font-size:0.72rem;font-weight:750;color:var(--text-secondary);text-transform:uppercase;">Kunci Lisensi Dihasilkan:</label>
+          <div id="gen-key-display" style="font-family:var(--font-mono);font-size:1.15rem;font-weight:900;color:var(--primary);background:var(--surface);padding:0.6rem;border:1px dashed var(--primary);border-radius:var(--radius-xs);margin:0.4rem 0 0.75rem;text-align:center;">
+            RJPRO-...
+          </div>
+
+          <div style="display:flex;gap:0.45rem;">
+            <button class="btn btn-secondary btn-sm" id="btn-copy-raw-key" style="flex:1;">📋 Salin Kunci Saja</button>
+            <button class="btn btn-primary btn-sm" id="btn-copy-wa-format" style="flex:1;background:#25D366;border-color:#25D366;">💬 Salin Pesan WA Pembeli</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal()">Tutup</button>
+      </div>
+    `;
+
+    openModal(html);
+
+    let generatedKey = '';
+
+    on('btn-do-generate-key', 'click', () => {
+      const plan = $id('gen-plan-select')?.value || '1MONTH';
+      generatedKey = generateLicenseKey(plan, 'USER');
+
+      const resultBox = $id('gen-result-box');
+      const keyDisplay = $id('gen-key-display');
+
+      if (resultBox && keyDisplay) {
+        keyDisplay.textContent = generatedKey;
+        resultBox.style.display = 'block';
+      }
+      showToast('Kunci Lisensi berhasil dibuat!');
+    });
+
+    on('btn-copy-raw-key', 'click', () => {
+      if (generatedKey) {
+        navigator.clipboard.writeText(generatedKey);
+        showToast('Kunci lisensi disalin ke clipboard!');
+      }
+    });
+
+    on('btn-copy-wa-format', 'click', () => {
+      const custName = ($id('gen-customer-name')?.value || '').trim() || 'Kak';
+      const plan = $id('gen-plan-select')?.value || 'LIFETIME';
+      const planLabel = plan === 'LIFETIME' ? 'Lifetime Selamanya' : (plan === '1YEAR' ? '1 Tahun' : '1 Bulan');
+
+      const waText = `Halo ${custName}! Terima kasih atas pembayarannya 🙏\n\n` +
+        `Berikut Kunci Lisensi PRO Anda (${planLabel}):\n` +
+        `🔑 ${generatedKey}\n\n` +
+        `Cara Aktivasi:\n` +
+        `1. Buka aplikasi: https://ruijie-voucher-app.vercel.app\n` +
+        `2. Klik tombol "💎 Upgrade PRO" di atas\n` +
+        `3. Masukkan kunci di kotak aktivasi lalu klik "Aktifkan"\n\n` +
+        `Selamat menikmati seluruh fitur tanpa batas!`;
+
+      navigator.clipboard.writeText(waText);
+      showToast('Format pesan WhatsApp lengkap berhasil disalin!');
+    });
   });
 }
 
@@ -1782,7 +2136,7 @@ function renderRekapModalContent() {
     }
   });
 
-  // Chart 1: Top Selling Packages (Comparative Share)
+  // Chart 1: Top Selling Packages
   const chartPkgs = Object.keys(packageStats);
   const maxPrintedCount = Math.max(1, ...chartPkgs.map(k => packageStats[k].printed));
   
@@ -1798,7 +2152,7 @@ function renderRekapModalContent() {
     `;
   }).join('');
 
-  // Chart 2: Timeline Omset (Last 7 Days Sales Trend)
+  // Chart 2: Timeline Omset (Last 7 Days)
   const daysTrendMap = {};
   const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
   const now = new Date();
@@ -2158,70 +2512,6 @@ function printRekapReceipt() {
     printArea.innerHTML = receiptHtml;
     window.print();
   }
-}
-
-// ===== UPGRADE PRO MODAL =====
-function showUpgradeProModal() {
-  const html = `
-    <div class="modal-header">
-      <h3>💎 Upgrade ke Cetak Voucher PRO</h3>
-      <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
-    </div>
-    <div class="modal-body">
-      <div style="text-align:center;margin-bottom:1.15rem;">
-        <p style="font-size:0.88rem;color:var(--text-secondary);">Pilih paket lisensi untuk aktivasi fitur lengkap tanpa batas.</p>
-      </div>
-
-      <div class="pricing-grid">
-        <div class="pricing-card featured">
-          <div class="pricing-badge">POPULER</div>
-          <div>
-            <div class="pricing-title">⚡ Paket PRO Unlimited</div>
-            <div class="pricing-price">Rp 20.000 <span>/ bulan</span></div>
-            <ul class="pricing-features">
-              <li>✓ Database Google Spreadsheet Cloud</li>
-              <li>✓ Theme Store & Galeri Desain 1-Click</li>
-              <li>✓ Audit Trail & Log Aktivitas Kasir</li>
-              <li>✓ Stock Alert & Notifikasi Kritis</li>
-              <li>✓ 1-Click Quick POS Print & Shift Kasir</li>
-              <li>✓ Direct Bluetooth Thermal Print (ESC/POS)</li>
-            </ul>
-          </div>
-          <button class="btn btn-pro" style="width:100%;justify-content:center;" onclick="handleOrderPlan('Paket PRO Bulanan (Rp 20.000)')">Langganan PRO</button>
-        </div>
-
-        <div class="pricing-card">
-          <div>
-            <div class="pricing-title">🏢 Paket Teknisi / 1 Tahun</div>
-            <div class="pricing-price">Rp 150.000 <span>/ tahun</span></div>
-            <ul class="pricing-features">
-              <li>✓ Semua Fitur Paket PRO</li>
-              <li>✓ Hemat 38% dibanding bayar bulanan</li>
-              <li>✓ Unlimited Multi-Profil Toko/SSID</li>
-              <li>✓ Prioritas Bantuan & Update Fitur</li>
-              <li>✓ Lisensi Aktif 12 Bulan Penuh</li>
-            </ul>
-          </div>
-          <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="handleOrderPlan('Paket Teknisi 1 Tahun (Rp 150.000)')">Pilih 1 Tahun</button>
-        </div>
-      </div>
-
-      <div style="background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.85rem;text-align:center;font-size:0.8rem;color:var(--text-secondary);">
-        💳 <strong>Pembayaran Instan:</strong> Mendukung QRIS (GoPay, OVO, Dana, ShopeePay, BCA, Mandiri, BRI).
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal()">Tutup</button>
-    </div>
-  `;
-
-  openModal(html);
-}
-
-function handleOrderPlan(planName) {
-  closeModal();
-  const text = encodeURIComponent(`Halo Admin, saya tertarik berlangganan ${planName} untuk Aplikasi Cetak Voucher Ruijie. Mohon info pembayaran QRIS.`);
-  window.open(`https://wa.me/?text=${text}`, '_blank');
 }
 
 // ===== LOGO UPLOAD =====
@@ -3099,7 +3389,7 @@ function renderPreview() {
   container.innerHTML = dummyBanner + html;
 }
 
-// ===== CARD TEMPLATE BUILDER (CLEAN HERO CODE WITHOUT QR) =====
+// ===== CARD TEMPLATE BUILDER =====
 function buildCardHTML(v, num, settings, isPreview) {
   const prefix = isPreview ? 'v-card-preview' : 'v-card';
   const themeClass = settings.theme || 'theme-blue';
@@ -3324,7 +3614,7 @@ function setFilter(filterName) {
 }
 
 // ===== LOCAL STORAGE PERSISTENCE =====
-const STORAGE_KEY = 'ruijie_voucher_app_v10_pro';
+const STORAGE_KEY = 'ruijie_voucher_app_v11_licensed';
 
 function saveState() {
   try {
@@ -3336,12 +3626,14 @@ function saveState() {
 
 function loadState() {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('ruijie_voucher_app_v9_sheets') || localStorage.getItem('ruijie_voucher_app_v8_pro');
+    const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('ruijie_voucher_app_v10_pro') || localStorage.getItem('ruijie_voucher_app_v9_sheets');
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed.uiMode) state.uiMode = parsed.uiMode;
       if (parsed.themeMode) state.themeMode = parsed.themeMode;
       if (parsed.adminPin) state.adminPin = parsed.adminPin;
+      if (parsed.isPro !== undefined) state.isPro = parsed.isPro;
+      if (parsed.proLicense) state.proLicense = parsed.proLicense;
       if (parsed.activeShift) state.activeShift = parsed.activeShift;
       if (Array.isArray(parsed.auditLogs)) state.auditLogs = parsed.auditLogs;
       if (Array.isArray(parsed.vouchers)) {

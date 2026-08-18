@@ -28,7 +28,7 @@
           </div>
           <div class="brand-text">
             <h1>Cetak Voucher Ruijie</h1>
-            <span class="header-badge">POS Studio Pro</span>
+            <span class="header-badge" id="app-badge-status">SaaS Studio</span>
           </div>
         </div>
 
@@ -39,13 +39,18 @@
         </div>
       </div>
 
-      <!-- Header Right: Stock Indicator, Rekap, Theme Toggle & Menu Dropdown -->
+      <!-- Header Right: Stock Indicator, PRO Badge, Rekap, Theme Toggle & Menu Dropdown -->
       <div class="header-right">
         <!-- Stock Quick Pill -->
         <div class="header-stock-pill" id="header-stock-pill" title="Total voucher yang belum dicetak (Stok siap jual)">
           <span class="stock-dot"></span>
           <span>Stok: <strong id="header-stock-count">0</strong> pcs</span>
         </div>
+
+        <!-- PRO Status Badge Button -->
+        <button class="btn btn-pro-badge btn-sm" id="btn-header-pro" title="Kelola / Aktivasi Lisensi PRO">
+          <span id="header-pro-text">💎 Upgrade PRO</span>
+        </button>
 
         <!-- Rekap Omset Button -->
         <button class="btn btn-secondary btn-sm" id="btn-rekap" title="Buka Rekap Penjualan & Grafik Omset">📊 Rekap Omset</button>
@@ -69,7 +74,8 @@
             <a class="dropdown-item" id="menu-item-audit">📜 Log Aktivitas Kasir (Audit Trail)</a>
             <a class="dropdown-item admin-only" id="menu-item-presets">🏪 Ganti Profil Toko / SSID</a>
             <div class="dropdown-divider admin-only"></div>
-            <a class="dropdown-item admin-only" id="menu-item-pro" style="color:var(--gold);font-weight:750;">💎 Upgrade Lisensi PRO</a>
+            <a class="dropdown-item admin-only" id="menu-item-pro" style="color:var(--gold);font-weight:750;">💎 Aktivasi & Beli Lisensi PRO</a>
+            <a class="dropdown-item admin-only" id="menu-item-license-gen" style="font-size:0.75rem;color:var(--text-secondary);">🔑 Generator Lisensi (Khusus Pemilik)</a>
             <a class="dropdown-item" id="menu-item-install-pwa" style="display:none;">📲 Pasang Aplikasi (PWA)</a>
           </div>
         </div>
