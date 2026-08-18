@@ -4,7 +4,7 @@ const ASSETS_TO_CACHE = [
   './index.html',
   './index.css',
   './print.css',
-  './app.js',
+  './main.js',
   './qrcode.min.js',
   './xlsx.mini.min.js',
   './manifest.json',
