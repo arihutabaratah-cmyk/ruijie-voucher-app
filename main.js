@@ -672,34 +672,34 @@ function showUpgradeProModal() {
         <div class="pricing-card">
           <div>
             <div class="pricing-title">⚡ 1 Bulan</div>
-            <div class="pricing-price">Rp 20.000 <span>/ bln</span></div>
+            <div class="pricing-price">Rp 25.000 <span>/ bln</span></div>
             <ul class="pricing-features">
               <li>✓ Cloud Google Sheets</li>
               <li>✓ Bluetooth POS Print</li>
               <li>✓ Audit Trail Kasir</li>
             </ul>
           </div>
-          <button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;" onclick="handleOrderPackage('Paket 1 Bulan (Rp 20.000)')">Pilih 1 Bulan</button>
+          <button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;" onclick="handleOrderPackage('Paket 1 Bulan (Rp 25.000)')">Pilih 1 Bulan</button>
         </div>
 
         <div class="pricing-card featured">
-          <div class="pricing-badge">HEMAT 38%</div>
+          <div class="pricing-badge">HEMAT 42%</div>
           <div>
             <div class="pricing-title">🏢 1 Tahun (Teknisi)</div>
-            <div class="pricing-price">Rp 150.000 <span>/ thn</span></div>
+            <div class="pricing-price">Rp 175.000 <span>/ thn</span></div>
             <ul class="pricing-features">
               <li>✓ Semua Fitur PRO</li>
               <li>✓ Multi-Toko & SSID</li>
               <li>✓ Prioritas Update</li>
             </ul>
           </div>
-          <button class="btn btn-primary btn-sm" style="width:100%;justify-content:center;" onclick="handleOrderPackage('Paket Teknisi 1 Tahun (Rp 150.000)')">Pilih 1 Tahun</button>
+          <button class="btn btn-primary btn-sm" style="width:100%;justify-content:center;" onclick="handleOrderPackage('Paket Teknisi 1 Tahun (Rp 175.000)')">Pilih 1 Tahun</button>
         </div>
 
         <div class="pricing-card lifetime">
           <div class="pricing-badge">POPULER</div>
           <div>
-            <div class="pricing-title">👑 Lifetime</div>
+            <div class="pricing-title">👑 Lifetime Pro</div>
             <div class="pricing-price">Rp 299.000 <span>/ sekali</span></div>
             <ul class="pricing-features">
               <li>✓ Lisensi Selamanya</li>
@@ -793,8 +793,8 @@ function showSecretLicenseGenModal() {
           <div class="form-group">
             <label for="gen-plan-select">Pilih Paket Lisensi</label>
             <select id="gen-plan-select" class="form-input">
-              <option value="1MONTH">1 Bulan (Rp 20.000)</option>
-              <option value="1YEAR">1 Tahun / Teknisi (Rp 150.000)</option>
+              <option value="1MONTH">1 Bulan (Rp 25.000)</option>
+              <option value="1YEAR">1 Tahun / Teknisi (Rp 175.000)</option>
               <option value="LIFETIME" selected>👑 Lifetime Selamanya (Rp 299.000)</option>
             </select>
           </div>
