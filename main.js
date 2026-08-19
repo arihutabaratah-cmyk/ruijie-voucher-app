@@ -860,7 +860,7 @@ function showSecretLicenseGenModal() {
         `Berikut Kunci Lisensi PRO Anda (${planLabel}):\n` +
         `🔑 ${generatedKey}\n\n` +
         `Cara Aktivasi:\n` +
-        `1. Buka aplikasi: https://ruijie-voucher-app.vercel.app\n` +
+        `1. Buka aplikasi: https://cetakvoucher.harojuan.net\n` +
         `2. Klik tombol "💎 Upgrade PRO" di atas\n` +
         `3. Masukkan kunci di kotak aktivasi lalu klik "Aktifkan"\n\n` +
         `Selamat menikmati seluruh fitur tanpa batas!`;
