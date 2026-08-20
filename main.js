@@ -94,7 +94,12 @@ const $id = (id) => document.getElementById(id);
 
 const on = (idOrEl, event, handler) => {
   const el = typeof idOrEl === 'string' ? $id(idOrEl) : idOrEl;
-  if (el) el.addEventListener(event, handler);
+  if (!el) return;
+  if (typeof event === 'function') {
+    el.addEventListener('click', event);
+  } else if (event && typeof handler === 'function') {
+    el.addEventListener(event, handler);
+  }
 };
 
 const setVal = (id, val) => {
@@ -149,7 +154,8 @@ function generateLicenseKey(plan = '1MONTH', customerId = 'USER') {
 
 function verifyLicenseKey(key) {
   if (!key || typeof key !== 'string') return { valid: false };
-  const parts = key.trim().toUpperCase().split('-');
+  const cleanKey = key.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '');
+  const parts = cleanKey.split('-');
   if (parts.length !== 4 || parts[0] !== 'RJPRO') return { valid: false };
 
   const plan = parts[1]; // '1MONTH' | '1YEAR' | 'LIFETIME'
@@ -163,7 +169,7 @@ function verifyLicenseKey(key) {
     let days = 30;
     if (plan === '1YEAR') days = 365;
     if (plan === 'LIFETIME') days = 36500;
-    return { valid: true, plan: plan, days: days };
+    return { valid: true, plan: plan, days: days, cleanKey: cleanKey };
   }
   return { valid: false };
 }
@@ -189,6 +195,11 @@ function checkLicenseValidity() {
 }
 
 function activateLicense(key) {
+  if (!key) {
+    showToast('Masukkan kode lisensi terlebih dahulu', 'error');
+    return false;
+  }
+
   const res = verifyLicenseKey(key);
   if (!res.valid) {
     showToast('Kunci Lisensi tidak valid! Periksa kembali kode Anda.', 'error');
@@ -200,7 +211,7 @@ function activateLicense(key) {
 
   state.isPro = true;
   state.proLicense = {
-    key: key.trim().toUpperCase(),
+    key: res.cleanKey || key.trim().toUpperCase(),
     plan: res.plan,
     activatedAt: now.toISOString(),
     expiresAt: expiresAt
@@ -810,7 +821,7 @@ function showUpgradeProModal() {
         </div>
         <div style="display:flex;gap:0.45rem;">
           <input type="text" id="m-license-input" class="form-input" style="font-family:var(--font-mono);text-transform:uppercase;font-weight:750;" placeholder="Contoh: RJPRO-LIFETIME-8B39-C49F12">
-          <button class="btn btn-primary" id="btn-activate-license">✨ Aktifkan</button>
+          <button class="btn btn-primary" id="btn-activate-license" onclick="handleDirectActivateLicense()">✨ Aktifkan</button>
         </div>
       </div>
     </div>
@@ -821,17 +832,24 @@ function showUpgradeProModal() {
 
   openModal(html, 'modal-wide');
 
-  on('btn-activate-license', () => {
-    const key = ($id('m-license-input')?.value || '').trim();
-    if (!key) {
-      showToast('Masukkan kode lisensi terlebih dahulu', 'error');
-      return;
-    }
-    const success = activateLicense(key);
-    if (success) {
-      closeModal();
-    }
+  on('btn-activate-license', 'click', handleDirectActivateLicense);
+  on('m-license-input', 'keydown', (e) => {
+    if (e.key === 'Enter') handleDirectActivateLicense();
   });
+}
+
+function handleDirectActivateLicense() {
+  const input = $id('m-license-input');
+  const key = (input ? input.value : '').trim();
+  if (!key) {
+    showToast('Masukkan kode lisensi terlebih dahulu', 'error');
+    if (input) input.focus();
+    return;
+  }
+  const success = activateLicense(key);
+  if (success) {
+    closeModal();
+  }
 }
 
 function handleOrderPackage(packageName) {
