@@ -1757,6 +1757,35 @@ select.form-input {
 .v-card-preview.theme-purple .v-code-box { background: #f5f3ff; border-color: #c4b5fd; }
 .v-card-preview.theme-purple .v-meta-tag { color: #7c3aed; }
 
+/* Micro Layout Live Previews (40, 50, 60, 80) */
+.preview-page.layout-40 .v-card-preview,
+.preview-page.layout-50 .v-card-preview,
+.preview-page.layout-60 .v-card-preview,
+.preview-page.layout-80 .v-card-preview {
+  padding: 1.5px 2px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+}
+
+.preview-page.layout-60 .v-code-label,
+.preview-page.layout-80 .v-code-label {
+  display: none !important;
+}
+
+.preview-page.layout-60 .v-sub-grid,
+.preview-page.layout-80 .v-sub-grid,
+.preview-page.layout-60 .v-footer,
+.preview-page.layout-80 .v-footer {
+  display: none !important;
+}
+
+.preview-page.layout-40 .v-code-value { font-size: 7px; }
+.preview-page.layout-50 .v-code-value { font-size: 6px; }
+.preview-page.layout-60 .v-code-value { font-size: 5.2px; }
+.preview-page.layout-80 .v-code-value { font-size: 4.5px; }
+
 .preview-dummy-banner {
   background: #fef3c7;
   color: #92400e;
