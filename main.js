@@ -132,6 +132,13 @@ document.addEventListener('DOMContentLoaded', () => {
   renderTable();
   renderPreview();
   initPWA();
+
+  // Auto-Sync Unified Google Sheets Database on App Launch
+  if (state.isPro && state.settings.sheetsUrl && state.settings.autoSyncSheets !== false) {
+    setTimeout(() => {
+      syncFromGoogleSheets({ silent: true });
+    }, 1200);
+  }
 });
 
 // ===== 🔑 CRYPTOGRAPHIC LICENSE ENGINE (EMAIL-BOUND) =====
@@ -306,11 +313,16 @@ function updateProBadgeUI() {
   const proBtn = $id('btn-header-pro');
   const proText = $id('header-pro-text');
   const appBadge = $id('app-badge-status');
+  const sheetsEmail = $id('sheets-bound-email');
+
+  if (sheetsEmail) {
+    sheetsEmail.textContent = (state.isPro && state.proLicense?.email) ? state.proLicense.email : 'Belum Login PRO';
+  }
 
   if (state.isPro) {
     if (proBtn) {
       proBtn.className = 'btn btn-pro-badge btn-sm active-pro';
-      proBtn.title = 'Lisensi PRO Aktif • Klik untuk info lisensi';
+      proBtn.title = `Lisensi PRO Aktif (${state.proLicense?.email || ''}) • Klik untuk detail`;
     }
     if (proText) proText.textContent = '👑 PRO Aktif';
     if (appBadge) {
@@ -630,6 +642,12 @@ function bindEvents() {
     state.settings.sheetsUrl = url;
     saveState();
     showToast('Link Google Spreadsheet berhasil disimpan!');
+    triggerBackgroundAutoSync();
+  });
+  on('auto-sync-sheets-toggle', 'change', (e) => {
+    state.settings.autoSyncSheets = e.target.checked;
+    saveState();
+    showToast(`Cloud Auto-Sync: ${e.target.checked ? 'Aktif' : 'Nonaktif'}`);
   });
 
   // Bluetooth Direct Printing & POS Shift Management
@@ -1044,6 +1062,7 @@ function showGoogleSheetsModal() {
     saveState();
     closeModal();
     showToast('Link Google Spreadsheet berhasil disimpan!');
+    triggerBackgroundAutoSync();
   });
 
   on('btn-modal-sync-sheets', () => {
@@ -1067,6 +1086,17 @@ function showGoogleSheetsModal() {
   });
 }
 
+// ===== 📊 1-UNIFIED ACCOUNT CLOUD DATABASE & REALTIME AUTO-SYNC =====
+let autoSaveSheetsTimeout = null;
+
+function triggerBackgroundAutoSync() {
+  if (!state.isPro || !state.settings.sheetsUrl || state.settings.autoSyncSheets === false) return;
+  if (autoSaveSheetsTimeout) clearTimeout(autoSaveSheetsTimeout);
+  autoSaveSheetsTimeout = setTimeout(() => {
+    saveToGoogleSheets({ silent: true });
+  }, 1200);
+}
+
 function resolveGoogleSheetsUrl(rawUrl) {
   if (!rawUrl) return null;
   const trimmed = rawUrl.trim();
@@ -1087,30 +1117,32 @@ function resolveGoogleSheetsUrl(rawUrl) {
   return { type: 'csv', url: trimmed };
 }
 
-async function syncFromGoogleSheets() {
+async function syncFromGoogleSheets(opts = {}) {
   if (!requirePro('Database Cloud Google Spreadsheet')) return;
 
   const rawUrl = state.settings.sheetsUrl || $id('sheets-url-input')?.value;
   if (!rawUrl) {
-    showToast('Masukkan link Google Spreadsheet / Apps Script terlebih dahulu.', 'error');
-    showGoogleSheetsModal();
+    if (!opts.silent) {
+      showToast('Masukkan link Google Spreadsheet / Apps Script terlebih dahulu.', 'error');
+      showGoogleSheetsModal();
+    }
     return;
   }
 
   const resolved = resolveGoogleSheetsUrl(rawUrl);
   if (!resolved) {
-    showToast('Format link Spreadsheet tidak valid.', 'error');
+    if (!opts.silent) showToast('Format link Spreadsheet tidak valid.', 'error');
     return;
   }
 
-  showToast('Menghubungkan ke Google Spreadsheet...');
+  if (!opts.silent) showToast('Menghubungkan ke Cloud Google Spreadsheet...');
 
   try {
     if (resolved.type === 'apps_script') {
       const res = await fetch(resolved.url, { method: 'GET' });
       const json = await res.json();
       if (json.status === 'success' && Array.isArray(json.data)) {
-        handleImportedSheetsVouchers(json.data);
+        handleImportedSheetsVouchers(json.data, opts);
         logActivity('SYNC', `Sinkronisasi ${json.data.length} voucher dari Google Sheets`);
         return;
       }
@@ -1120,18 +1152,18 @@ async function syncFromGoogleSheets() {
     const csvText = await res.text();
     const parsedVouchers = parseRuijieCSV(csvText);
     if (parsedVouchers.length === 0) {
-      showToast('Tidak ada data voucher ditemukan di Spreadsheet.', 'error');
+      if (!opts.silent) showToast('Tidak ada data voucher ditemukan di Spreadsheet.', 'error');
       return;
     }
-    handleImportedSheetsVouchers(parsedVouchers);
+    handleImportedSheetsVouchers(parsedVouchers, opts);
     logActivity('SYNC', `Tarik ${parsedVouchers.length} voucher dari Spreadsheet CSV`);
   } catch (err) {
     console.error('Google Sheets sync error:', err);
-    showToast('Gagal menarik data dari Google Sheets. Pastikan akses disetel "Anyone".', 'error');
+    if (!opts.silent) showToast('Gagal menarik data dari Google Sheets. Pastikan akses disetel "Anyone".', 'error');
   }
 }
 
-function handleImportedSheetsVouchers(importedList) {
+function handleImportedSheetsVouchers(importedList, opts = {}) {
   const existingMap = new Set(state.vouchers.map(v => (v.code || '').toLowerCase().trim()));
   let newCount = 0;
 
@@ -1176,27 +1208,36 @@ function handleImportedSheetsVouchers(importedList) {
   renderQuickPOSGrid();
   renderTable();
   renderPreview();
-  showToast(`✨ Sukses! ${newCount} voucher disinkronkan dari Google Sheets.`);
+
+  if (!opts.silent) {
+    showToast(`✨ Sukses! ${newCount} voucher disinkronkan dari Google Sheets.`);
+  } else if (newCount > 0) {
+    showToast(`☁️ Cloud Auto-Sync: ${newCount} voucher baru disinkronkan.`);
+  }
 }
 
-async function saveToGoogleSheets() {
+async function saveToGoogleSheets(opts = {}) {
   if (!requirePro('Database Cloud Google Spreadsheet')) return;
 
   const rawUrl = state.settings.sheetsUrl || $id('sheets-url-input')?.value;
   if (!rawUrl) {
-    showToast('Masukkan link Google Apps Script Web App terlebih dahulu.', 'error');
-    showGoogleSheetsModal();
+    if (!opts.silent) {
+      showToast('Masukkan link Google Apps Script Web App terlebih dahulu.', 'error');
+      showGoogleSheetsModal();
+    }
     return;
   }
 
   const resolved = resolveGoogleSheetsUrl(rawUrl);
   if (!resolved || resolved.type !== 'apps_script') {
-    showToast('Untuk menyimpan otomatis, gunakan link Web App Google Apps Script (lihat panduan).', 'error');
-    showGoogleSheetsModal();
+    if (!opts.silent) {
+      showToast('Untuk menyimpan otomatis, gunakan link Web App Google Apps Script (lihat panduan).', 'error');
+      showGoogleSheetsModal();
+    }
     return;
   }
 
-  showToast('Mengunggah data ke Google Spreadsheet...');
+  if (!opts.silent) showToast('Mengunggah data ke Google Spreadsheet...');
 
   try {
     await fetch(resolved.url, {
@@ -1205,15 +1246,18 @@ async function saveToGoogleSheets() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'save_vouchers',
+        email: state.proLicense?.email || 'pro@user',
         vouchers: state.vouchers
       })
     });
 
     logActivity('SYNC', `Backup ${state.vouchers.length} voucher ke Google Sheets`);
-    showToast(`✅ Berhasil! ${state.vouchers.length} voucher tersimpan di Google Sheets.`);
+    if (!opts.silent) {
+      showToast(`✅ Berhasil! ${state.vouchers.length} voucher tersimpan di Google Sheets.`);
+    }
   } catch (err) {
     console.error('Save to sheets error:', err);
-    showToast('Gagal menyimpan ke Google Sheets.', 'error');
+    if (!opts.silent) showToast('Gagal menyimpan ke Google Sheets.', 'error');
   }
 }
 
@@ -1711,6 +1755,7 @@ function quickPrintPackage(pkgName, qty = 1) {
 
   saveState();
   checkStockAlerts();
+  triggerBackgroundAutoSync();
 
   setTimeout(() => {
     window.print();
@@ -3241,6 +3286,7 @@ function toggleSelectedPrintedStatus() {
   logActivity('STATUS_CHANGE', `Ubah status ${selected.length} voucher menjadi "${targetStatus ? 'Sudah Dicetak' : 'Belum Dicetak'}"`);
   saveState();
   checkStockAlerts();
+  triggerBackgroundAutoSync();
   renderQuickPOSGrid();
   renderTable();
   renderPreview();
@@ -3300,6 +3346,7 @@ function deleteVoucher(index) {
   state.vouchers.splice(index, 1);
   saveState();
   checkStockAlerts();
+  triggerBackgroundAutoSync();
   renderQuickPOSGrid();
   renderTable();
   renderPreview();
@@ -3332,6 +3379,7 @@ function confirmDeleteSelected() {
     state.vouchers = state.vouchers.filter(v => v.selected === false);
     saveState();
     checkStockAlerts();
+    triggerBackgroundAutoSync();
     renderQuickPOSGrid();
     renderTable();
     renderPreview();
@@ -3696,6 +3744,7 @@ function handlePrint() {
   logActivity('PRINT_BATCH', `Cetak lembar ${selectedVouchers.length} voucher (Layout: ${layoutVal})`);
   saveState();
   checkStockAlerts();
+  triggerBackgroundAutoSync();
 
   setTimeout(() => {
     window.print();

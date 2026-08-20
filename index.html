@@ -175,20 +175,32 @@
           <div class="sheets-config-box">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.65rem;flex-wrap:wrap;gap:0.5rem;">
               <div>
-                <strong style="font-size:0.92rem;color:var(--text);">📊 Integrasi Database Google Spreadsheet <span class="badge-tab-pro">PRO</span></strong>
-                <p style="font-size:0.75rem;color:var(--text-secondary);">Gunakan Google Sheets gratis sebagai database cloud untuk simpan voucher dan rekap hasil export.</p>
+                <strong style="font-size:0.92rem;color:var(--text);">📊 Database Cloud Google Spreadsheet <span class="badge-tab-pro">PRO</span></strong>
+                <p style="font-size:0.75rem;color:var(--text-secondary);">1 Database Cloud terpusat untuk semua HP & Laptop Anda. Otomatis tersinkronisasi saat kasir menjual voucher.</p>
               </div>
-              <button class="btn btn-secondary btn-sm" id="btn-open-sheets-guide-tab">📖 Panduan Script (Gratis)</button>
+              <button class="btn btn-secondary btn-sm" id="btn-open-sheets-guide-tab">📖 Panduan Setup 2 Menit</button>
+            </div>
+
+            <div id="sheets-account-badge" style="background:var(--primary-light);border:1px solid var(--primary-border);padding:0.55rem 0.85rem;border-radius:var(--radius-xs);margin-bottom:0.85rem;font-size:0.78rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.4rem;">
+              <div>🔒 Terikat ke Akun: <strong id="sheets-bound-email">Belum Login PRO</strong></div>
+              <div style="color:var(--success);font-weight:750;">🟢 Cloud Auto-Sync Aktif</div>
             </div>
 
             <div class="form-group">
               <label for="sheets-url-input">Link Google Spreadsheet / Web App URL</label>
-              <input type="url" id="sheets-url-input" class="form-input" placeholder="https://docs.google.com/spreadsheets/d/... ATAU https://script.google.com/macros/s/.../exec">
+              <input type="url" id="sheets-url-input" class="form-input" placeholder="https://script.google.com/macros/s/.../exec ATAU https://docs.google.com/spreadsheets/d/...">
             </div>
 
-            <div class="sheets-actions-row" style="margin-top:0.85rem;display:flex;gap:0.55rem;flex-wrap:wrap;">
-              <button class="btn btn-primary btn-sm" id="btn-sync-from-sheets">📥 Tarik Data dari Spreadsheet</button>
-              <button class="btn btn-secondary btn-sm" id="btn-save-to-sheets">📤 Simpan / Backup ke Spreadsheet</button>
+            <div style="margin:0.65rem 0 0.85rem;">
+              <label class="toggle-label" style="font-size:0.8rem;font-weight:750;">
+                <input type="checkbox" id="auto-sync-sheets-toggle" checked>
+                ⚡ Auto-Sync Realtime Otomatis Setiap Transaksi Kasir / Cetak
+              </label>
+            </div>
+
+            <div class="sheets-actions-row" style="display:flex;gap:0.55rem;flex-wrap:wrap;">
+              <button class="btn btn-primary btn-sm" id="btn-sync-from-sheets">📥 Tarik Data Sekarang</button>
+              <button class="btn btn-secondary btn-sm" id="btn-save-to-sheets">📤 Backup / Simpan ke Spreadsheet</button>
               <button class="btn btn-secondary btn-sm" id="btn-save-sheets-config">💾 Simpan Link</button>
             </div>
           </div>
