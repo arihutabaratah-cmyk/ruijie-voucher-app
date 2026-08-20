@@ -534,7 +534,6 @@ function bindEvents() {
   // Header PRO Button & Dropdown Items
   on('btn-header-pro', 'click', showUpgradeProModal);
   on('menu-item-pro', 'click', () => { menuDropdown?.classList.remove('show'); showUpgradeProModal(); });
-  on('menu-item-license-gen', 'click', () => { menuDropdown?.classList.remove('show'); showSecretLicenseGenModal(); });
   on('menu-item-sheets', 'click', () => { menuDropdown?.classList.remove('show'); showGoogleSheetsModal(); });
   on('menu-item-reseller', 'click', () => { menuDropdown?.classList.remove('show'); showResellerModal(); });
   on('menu-item-audit', 'click', () => { menuDropdown?.classList.remove('show'); showAuditLogModal(); });
@@ -843,101 +842,6 @@ function handleOrderPackage(packageName) {
   
   const url = `https://wa.me/62${OWNER_WHATSAPP.substring(1)}?text=${encodeURIComponent(msg)}`;
   window.open(url, '_blank');
-}
-
-// ===== 🔑 SECRET ADMIN LICENSE GENERATOR (FOR OWNER ONLY) =====
-function showSecretLicenseGenModal() {
-  showPinPromptModal(() => {
-    const html = `
-      <div class="modal-header">
-        <h3>🔑 Generator Kunci Lisensi (Khusus Pemilik)</h3>
-        <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
-      </div>
-      <div class="modal-body">
-        <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:1rem;">
-          Gunakan form ini untuk membuat Kunci Lisensi asli bagi pembeli yang sudah mentransfer dana ke rekening / E-Wallet Anda.
-        </p>
-
-        <div class="modal-form">
-          <div class="form-group">
-            <label for="gen-plan-select">Pilih Paket Lisensi</label>
-            <select id="gen-plan-select" class="form-input">
-              <option value="1MONTH">1 Bulan (Rp 25.000)</option>
-              <option value="1YEAR">1 Tahun / Teknisi (Rp 175.000)</option>
-              <option value="LIFETIME" selected>👑 Lifetime Selamanya (Rp 299.000)</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="gen-customer-name">Nama Pembeli / Toko (Opsional)</label>
-            <input type="text" id="gen-customer-name" class="form-input" placeholder="Contoh: Warkop Bu Ani">
-          </div>
-
-          <button class="btn btn-primary" id="btn-do-generate-key" style="margin-top:0.4rem;">
-            ⚙️ Generate Kunci Lisensi Sekarang
-          </button>
-        </div>
-
-        <div id="gen-result-box" style="display:none;margin-top:1.15rem;background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-xs);padding:1rem;">
-          <label style="font-size:0.72rem;font-weight:750;color:var(--text-secondary);text-transform:uppercase;">Kunci Lisensi Dihasilkan:</label>
-          <div id="gen-key-display" style="font-family:var(--font-mono);font-size:1.15rem;font-weight:900;color:var(--primary);background:var(--surface);padding:0.6rem;border:1px dashed var(--primary);border-radius:var(--radius-xs);margin:0.4rem 0 0.75rem;text-align:center;">
-            RJPRO-...
-          </div>
-
-          <div style="display:flex;gap:0.45rem;">
-            <button class="btn btn-secondary btn-sm" id="btn-copy-raw-key" style="flex:1;">📋 Salin Kunci Saja</button>
-            <button class="btn btn-primary btn-sm" id="btn-copy-wa-format" style="flex:1;background:#25D366;border-color:#25D366;">💬 Salin Pesan WA Pembeli</button>
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeModal()">Tutup</button>
-      </div>
-    `;
-
-    openModal(html);
-
-    let generatedKey = '';
-
-    on('btn-do-generate-key', () => {
-      const plan = $id('gen-plan-select')?.value || '1MONTH';
-      generatedKey = generateLicenseKey(plan, 'USER');
-
-      const resultBox = $id('gen-result-box');
-      const keyDisplay = $id('gen-key-display');
-
-      if (resultBox && keyDisplay) {
-        keyDisplay.textContent = generatedKey;
-        resultBox.style.display = 'block';
-      }
-      showToast('Kunci Lisensi berhasil dibuat!');
-    });
-
-    on('btn-copy-raw-key', () => {
-      if (generatedKey) {
-        navigator.clipboard.writeText(generatedKey);
-        showToast('Kunci lisensi disalin ke clipboard!');
-      }
-    });
-
-    on('btn-copy-wa-format', () => {
-      const custName = ($id('gen-customer-name')?.value || '').trim() || 'Kak';
-      const plan = $id('gen-plan-select')?.value || 'LIFETIME';
-      const planLabel = plan === 'LIFETIME' ? 'Lifetime Selamanya' : (plan === '1YEAR' ? '1 Tahun' : '1 Bulan');
-
-      const waText = `Halo ${custName}! Terima kasih atas pembayarannya 🙏\n\n` +
-        `Berikut Kunci Lisensi PRO Anda (${planLabel}):\n` +
-        `🔑 ${generatedKey}\n\n` +
-        `Cara Aktivasi:\n` +
-        `1. Buka aplikasi: https://cetakvoucher.harojuan.net\n` +
-        `2. Klik tombol "💎 Upgrade PRO" di atas\n` +
-        `3. Masukkan kunci di kotak aktivasi lalu klik "Aktifkan"\n\n` +
-        `Selamat menikmati seluruh fitur tanpa batas!`;
-
-      navigator.clipboard.writeText(waText);
-      showToast('Format pesan WhatsApp lengkap berhasil disalin!');
-    });
-  });
 }
 
 // ===== 📊 GOOGLE SPREADSHEET DATABASE ENGINE =====
