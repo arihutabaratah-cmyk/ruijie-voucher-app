@@ -3725,23 +3725,168 @@ function buildPrintArea(selectedVouchers, layoutVal) {
   printArea.appendChild(fragment);
 }
 
+function getPageCapacity(layout) {
+  switch (layout) {
+    case '50': return 50;
+    case '30': return 30;
+    case '25': return 25;
+    case '20': return 20;
+    case '16': return 16;
+    case 'thermal-58':
+    case 'thermal-80': return 1;
+    case 'label-103': return 12;
+    case 'label-108': return 40;
+    case 'label-121': return 10;
+    default: return 25;
+  }
+}
+
 function handlePrint() {
-  const selectedVouchers = getSelectedVouchers();
-  if (selectedVouchers.length === 0) {
-    showToast('Pilih minimal 1 voucher dengan mencentang kotak ceklis sebelum mencetak.', 'error');
+  if (state.vouchers.length === 0) {
+    showToast('Belum ada voucher. Silakan import file dari Ruijie Cloud terlebih dahulu.', 'error');
     return;
   }
 
-  const layoutVal = state.settings.layout || '25';
-  buildPrintArea(selectedVouchers, layoutVal);
+  showPrintBatchModal();
+}
 
-  selectedVouchers.forEach(v => {
+function showPrintBatchModal() {
+  const layoutVal = state.settings.layout || '25';
+  const perPage = getPageCapacity(layoutVal);
+  const unprinted = state.vouchers.filter(v => !v.printed);
+  const availablePages = Math.max(1, Math.ceil(unprinted.length / perPage));
+  const totalCount = unprinted.length;
+
+  const html = `
+    <div class="modal-header">
+      <h3>🖨️ Cetak Voucher Sesuai Lembar (Batch)</h3>
+      <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.9rem;margin-bottom:1.15rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+        <div>
+          <div style="font-size:0.8rem;color:var(--text-secondary);">Stok Voucher Belum Dicetak:</div>
+          <div style="font-size:1.15rem;font-weight:900;color:var(--success);">
+            🟢 ${totalCount} Voucher <span style="font-size:0.82rem;font-weight:600;color:var(--text-secondary);">(${availablePages} lembar A4 @ ${perPage} pcs)</span>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:0.75rem;color:var(--text-secondary);">Layout Kertas:</div>
+          <div style="font-size:0.88rem;font-weight:750;color:var(--primary);">${perPage} Voucher / Lembar</div>
+        </div>
+      </div>
+
+      <div style="font-size:0.86rem;font-weight:800;color:var(--text);margin-bottom:0.65rem;">
+        Pilih Berapa Lembar yang Ingin Dicetak Sekarang:
+      </div>
+
+      <!-- Quick Batch Buttons -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:0.55rem;margin-bottom:1.15rem;">
+        <button class="btn btn-secondary btn-batch-opt" onclick="executeBatchPrint(1, ${perPage})" style="padding:0.85rem 0.5rem;text-align:center;flex-direction:column;gap:3px;">
+          <span style="font-size:1rem;font-weight:850;">📄 1 Lembar</span>
+          <span style="color:var(--text-muted);font-size:0.72rem;">(${Math.min(totalCount || perPage, perPage * 1)} voucher)</span>
+        </button>
+
+        ${availablePages >= 2 ? `
+          <button class="btn btn-secondary btn-batch-opt" onclick="executeBatchPrint(2, ${perPage})" style="padding:0.85rem 0.5rem;text-align:center;flex-direction:column;gap:3px;">
+            <span style="font-size:1rem;font-weight:850;">📄📄 2 Lembar</span>
+            <span style="color:var(--text-muted);font-size:0.72rem;">(${Math.min(totalCount, perPage * 2)} voucher)</span>
+          </button>
+        ` : ''}
+
+        ${availablePages >= 3 ? `
+          <button class="btn btn-secondary btn-batch-opt" onclick="executeBatchPrint(3, ${perPage})" style="padding:0.85rem 0.5rem;text-align:center;flex-direction:column;gap:3px;">
+            <span style="font-size:1rem;font-weight:850;">📄 3 Lembar</span>
+            <span style="color:var(--text-muted);font-size:0.72rem;">(${Math.min(totalCount, perPage * 3)} voucher)</span>
+          </button>
+        ` : ''}
+
+        ${availablePages >= 5 ? `
+          <button class="btn btn-secondary btn-batch-opt" onclick="executeBatchPrint(5, ${perPage})" style="padding:0.85rem 0.5rem;text-align:center;flex-direction:column;gap:3px;">
+            <span style="font-size:1rem;font-weight:850;">📄 5 Lembar</span>
+            <span style="color:var(--text-muted);font-size:0.72rem;">(${Math.min(totalCount, perPage * 5)} voucher)</span>
+          </button>
+        ` : ''}
+
+        ${availablePages >= 10 ? `
+          <button class="btn btn-secondary btn-batch-opt" onclick="executeBatchPrint(10, ${perPage})" style="padding:0.85rem 0.5rem;text-align:center;flex-direction:column;gap:3px;">
+            <span style="font-size:1rem;font-weight:850;">📄 10 Lembar</span>
+            <span style="color:var(--text-muted);font-size:0.72rem;">(${Math.min(totalCount, perPage * 10)} voucher)</span>
+          </button>
+        ` : ''}
+      </div>
+
+      <!-- Custom Page Input Row -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.85rem;margin-bottom:1rem;">
+        <div style="font-size:0.8rem;font-weight:750;color:var(--text);margin-bottom:0.45rem;">
+          Atau Masukkan Jumlah Lembar Kustom:
+        </div>
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+          <input type="number" id="m-batch-custom-pages" class="form-input" min="1" max="${Math.max(1, availablePages)}" value="1" style="width:100px;text-align:center;font-weight:800;font-size:1rem;">
+          <span style="font-size:0.85rem;color:var(--text-secondary);">Lembar (<span id="m-batch-voucher-calc">${Math.min(totalCount || perPage, perPage)}</span> voucher)</span>
+          <button class="btn btn-primary" style="margin-left:auto;font-weight:800;" onclick="executeCustomBatchPrint(${perPage})">
+            🖨️ Cetak Lembar Ini
+          </button>
+        </div>
+      </div>
+
+      ${totalCount > 0 ? `
+        <button class="btn btn-secondary" style="width:100%;justify-content:center;font-size:0.82rem;" onclick="executeBatchPrint(${availablePages}, ${perPage})">
+          🖨️ Cetak SEMUA Stok Belum Dicetak (${totalCount} Voucher • ${availablePages} Lembar)
+        </button>
+      ` : `
+        <button class="btn btn-secondary" style="width:100%;justify-content:center;font-size:0.82rem;" onclick="executeBatchPrint(1, ${perPage})">
+          🔄 Cetak Ulang 1 Lembar (${perPage} Voucher)
+        </button>
+      `}
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Batal</button>
+    </div>
+  `;
+
+  openModal(html, 'modal-medium');
+
+  const customInput = $id('m-batch-custom-pages');
+  const calcSpan = $id('m-batch-voucher-calc');
+  if (customInput && calcSpan) {
+    customInput.addEventListener('input', () => {
+      const p = Math.max(1, parseInt(customInput.value, 10) || 1);
+      const count = Math.min(totalCount || (p * perPage), p * perPage);
+      calcSpan.textContent = count;
+    });
+  }
+}
+
+function executeBatchPrint(pages, perPage) {
+  const layoutVal = state.settings.layout || '25';
+  const neededCount = pages * perPage;
+  
+  // Ambil hanya voucher yang BELUM dicetak secara berurutan
+  let toPrint = state.vouchers.filter(v => !v.printed).slice(0, neededCount);
+
+  // Jika stok belum dicetak kosong (misal reprint), ambil dari awal daftar
+  if (toPrint.length === 0) {
+    toPrint = state.vouchers.slice(0, neededCount);
+  }
+
+  if (toPrint.length === 0) {
+    showToast('Tidak ada voucher yang dapat dicetak.', 'error');
+    return;
+  }
+
+  closeModal();
+
+  // Bangun area print hanya untuk voucher terpilih tersebut
+  buildPrintArea(toPrint, layoutVal);
+
+  // Tandai HANYA voucher yang dicetak tersebut sebagai "printed = true"
+  toPrint.forEach(v => {
     v.printed = true;
     v.printedAt = new Date().toISOString();
-    v.selected = false;
   });
 
-  logActivity('PRINT_BATCH', `Cetak lembar ${selectedVouchers.length} voucher (Layout: ${layoutVal})`);
+  logActivity('PRINT_BATCH', `Cetak ${pages} lembar (${toPrint.length} voucher) Layout: ${layoutVal}`);
   saveState();
   checkStockAlerts();
   triggerBackgroundAutoSync();
@@ -3751,8 +3896,14 @@ function handlePrint() {
     renderQuickPOSGrid();
     renderTable();
     renderPreview();
-    showToast(`${selectedVouchers.length} voucher telah dicetak & ditandai "Sudah Dicetak"`);
-  }, 100);
+    showToast(`✅ Berhasil mencetak ${pages} lembar (${toPrint.length} voucher)! Sisa voucher tetap tersimpan di stok.`);
+  }, 120);
+}
+
+function executeCustomBatchPrint(perPage) {
+  const input = $id('m-batch-custom-pages');
+  const pages = Math.max(1, parseInt(input?.value, 10) || 1);
+  executeBatchPrint(pages, perPage);
 }
 
 function onSettingChange() {

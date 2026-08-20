@@ -393,23 +393,15 @@
         </div>
 
         <div class="actions">
-          <!-- Selection Controls -->
-          <div class="btn-group-select">
-            <button class="btn btn-secondary btn-sm" id="btn-select-unprinted" title="Pilih hanya voucher yang belum dicetak">🟢 Belum Dicetak</button>
-            <button class="btn btn-secondary btn-sm" id="btn-select-all" title="Pilih Semua Voucher">✓ Semua</button>
-            <button class="btn btn-secondary btn-sm" id="btn-select-page" title="Pilih 1 Halaman / Batch voucher belum dicetak">📄 1 Batch</button>
-            <button class="btn btn-secondary btn-sm" id="btn-deselect-all" title="Batalkan Pilihan">✕ Batal</button>
-          </div>
-          
           <!-- Primary Actions: Import Ruijie & Add -->
           <button class="btn btn-primary admin-only" id="btn-import" title="Import file CSV / Excel langsung dari Ruijie Cloud">📁 Import File Ruijie</button>
           <button class="btn btn-secondary admin-only" id="btn-add">＋ Tambah</button>
           <button class="btn btn-secondary admin-only" id="btn-assign-reseller" title="Titipkan voucher terpilih ke Reseller / Warung">🏪 Titip Warung</button>
           <button class="btn btn-secondary" id="btn-toggle-printed" title="Ubah status voucher terpilih (Belum / Sudah Dicetak)">🏷️ Ubah Status</button>
           <button class="btn btn-secondary" id="btn-export-pdf" title="Export Lembar Cetak sebagai Dokumen PDF Presisi Ukuran">📄 Export PDF</button>
-          <button class="btn btn-secondary" id="btn-export-png" title="Download Lembar Cetak sebagai Gambar PNG (Siap kirim ke tempat fotokopi)">🖼️ Export PNG</button>
+          <button class="btn btn-secondary" id="btn-export-png" title="Download Lembar Cetak sebagai Gambar PNG">🖼️ Export PNG</button>
           <button class="btn btn-danger admin-only" id="btn-delete-selected" title="Hapus voucher yang dicentang">🗑 Hapus</button>
-          <button class="btn btn-print" id="btn-print">🖨️ Cetak (<span id="btn-print-count">0</span>)</button>
+          <button class="btn btn-print" id="btn-print">🖨️ Cetak Lembaran (Pilih Batch)</button>
         </div>
         <input type="file" id="csv-file" accept=".csv,.txt,.xlsx,.xls" hidden>
       </div>
