@@ -821,7 +821,7 @@ function showUpgradeProModal() {
               <li>✓ Audit Trail Kasir</li>
             </ul>
           </div>
-          <button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;" onclick="handleOrderPackage('Paket 1 Bulan (Rp 25.000)')">Pilih 1 Bulan</button>
+          <button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;" onclick="showOrderFormModal('1bln')">Pilih 1 Bulan</button>
         </div>
 
         <div class="pricing-card featured">
@@ -835,7 +835,7 @@ function showUpgradeProModal() {
               <li>✓ Prioritas Update</li>
             </ul>
           </div>
-          <button class="btn btn-primary btn-sm" style="width:100%;justify-content:center;" onclick="handleOrderPackage('Paket Teknisi 1 Tahun (Rp 175.000)')">Pilih 1 Tahun</button>
+          <button class="btn btn-primary btn-sm" style="width:100%;justify-content:center;" onclick="showOrderFormModal('1thn')">Pilih 1 Tahun</button>
         </div>
 
         <div class="pricing-card lifetime">
@@ -849,7 +849,7 @@ function showUpgradeProModal() {
               <li>✓ Support Selamanya</li>
             </ul>
           </div>
-          <button class="btn btn-pro btn-sm" style="width:100%;justify-content:center;" onclick="handleOrderPackage('Paket Lifetime Selamanya (Rp 299.000)')">Pilih Lifetime</button>
+          <button class="btn btn-pro btn-sm" style="width:100%;justify-content:center;" onclick="showOrderFormModal('lifetime')">Pilih Lifetime</button>
         </div>
       </div>
 
@@ -871,8 +871,8 @@ function showUpgradeProModal() {
         </div>
 
         <div style="margin-top:0.85rem;text-align:center;">
-          <button class="btn btn-primary" style="width:100%;justify-content:center;background:#25D366;border-color:#25D366;font-weight:800;" onclick="handleOrderPackage('Konfirmasi Pembayaran PRO')">
-            💬 Konfirmasi Transfer via WhatsApp (${OWNER_WHATSAPP})
+          <button class="btn btn-primary" style="width:100%;justify-content:center;background:#25D366;border-color:#25D366;font-weight:800;" onclick="showOrderFormModal('1thn')">
+            📝 Isi Formulir Pemesanan & Konfirmasi WhatsApp
           </button>
         </div>
       </div>
@@ -934,14 +934,133 @@ function handleDirectActivateLicense() {
   }
 }
 
-function handleOrderPackage(packageName) {
-  const msg = `Halo Admin, saya ingin aktivasi Lisensi PRO Cetak Voucher Ruijie:\n\n` +
-    `📦 Paket: ${packageName}\n` +
-    `💳 Pembayaran: Transfer E-Wallet / QRIS (${OWNER_EWALLET})\n\n` +
-    `Mohon kirimkan Kunci Lisensi saya. Terima kasih!`;
-  
-  const url = `https://wa.me/62${OWNER_WHATSAPP.substring(1)}?text=${encodeURIComponent(msg)}`;
-  window.open(url, '_blank');
+function showOrderFormModal(selectedPackage = '1thn') {
+  const packages = {
+    '1bln': { name: 'Paket 1 Bulan (Starter)', price: 'Rp 25.000', code: '1BLN' },
+    '1thn': { name: '🏢 Paket 1 Tahun (Teknisi - Best Value)', price: 'Rp 175.000', code: '1THN' },
+    'lifetime': { name: '👑 Paket Lifetime Pro (Sekali Bayar Selamanya)', price: 'Rp 299.000', code: 'LIFETIME' }
+  };
+
+  const curPkg = packages[selectedPackage] || packages['1thn'];
+
+  const html = `
+    <div class="modal-header">
+      <h3>📝 Formulir Pembelian & Konfirmasi Pembayaran PRO</h3>
+      <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Step 1: Data Pembeli -->
+      <div style="background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.9rem;margin-bottom:1rem;">
+        <div style="font-size:0.86rem;font-weight:800;color:var(--primary);margin-bottom:0.6rem;">
+          1️⃣ Data Pembeli (Wajib untuk Lisensi & Database Cloud):
+        </div>
+
+        <div class="form-group" style="margin-bottom:0.6rem;">
+          <label for="order-email" style="font-size:0.78rem;font-weight:750;color:var(--text);">
+            📧 Alamat Email Anda <span style="color:var(--danger);font-weight:800;">*</span>
+          </label>
+          <input type="email" id="order-email" class="form-input" placeholder="contoh: warkopbudi@gmail.com" value="${esc(state.proLicense?.email || '')}" required>
+          <small style="font-size:0.7rem;color:var(--text-secondary);display:block;margin-top:2px;">
+            Kunci lisensi akan terikat ke email ini agar bisa digunakan di HP & Laptop Anda.
+          </small>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0.6rem;">
+          <label for="order-name" style="font-size:0.78rem;font-weight:750;color:var(--text);">
+            👤 Nama Pemilik / Nama Usaha Hotspot <span style="color:var(--danger);font-weight:800;">*</span>
+          </label>
+          <input type="text" id="order-name" class="form-input" placeholder="contoh: Budi (Warkop Net)" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0.3rem;">
+          <label for="order-plan-select" style="font-size:0.78rem;font-weight:750;color:var(--text);">
+            📦 Pilihan Paket Lisensi
+          </label>
+          <select id="order-plan-select" class="form-input" style="font-weight:750;">
+            <option value="1bln" ${selectedPackage === '1bln' ? 'selected' : ''}>Paket 1 Bulan — Rp 25.000</option>
+            <option value="1thn" ${selectedPackage === '1thn' ? 'selected' : ''}>🏢 Paket 1 Tahun (Best Value) — Rp 175.000</option>
+            <option value="lifetime" ${selectedPackage === 'lifetime' ? 'selected' : ''}>👑 Paket Lifetime Selamanya — Rp 299.000</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Step 2: Rekening Pembayaran -->
+      <div style="background:var(--surface);border:1.5px solid var(--primary);border-radius:var(--radius-xs);padding:0.9rem;margin-bottom:1.15rem;">
+        <div style="font-size:0.86rem;font-weight:800;color:var(--text);margin-bottom:0.5rem;display:flex;justify-content:space-between;align-items:center;">
+          <span>2️⃣ Rekening & E-Wallet Pembayaran:</span>
+          <span id="order-total-badge" style="font-size:0.95rem;font-weight:900;color:var(--primary);">${curPkg.price}</span>
+        </div>
+
+        <div style="background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.7rem;display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+          <div>
+            <div style="font-size:0.75rem;font-weight:750;color:var(--text-secondary);">DANA / GoPay / OVO / ShopeePay / QRIS:</div>
+            <div style="font-family:var(--font-mono);font-size:1.1rem;font-weight:900;color:var(--primary);letter-spacing:0.04em;">
+              ${OWNER_EWALLET}
+            </div>
+            <div style="font-size:0.72rem;color:var(--text-secondary);">a.n. Ari Hutabarat</div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText('${OWNER_EWALLET}');showToast('Nomor ${OWNER_EWALLET} berhasil disalin!')">
+            📋 Salin Nomor
+          </button>
+        </div>
+
+        <p style="font-size:0.75rem;color:var(--text-secondary);margin:0;">
+          💡 Silakan transfer sesuai nominal, lalu klik tombol konfirmasi di bawah untuk kirim bukti transfer ke WhatsApp kami.
+        </p>
+      </div>
+
+      <!-- Step 3: Tombol Konfirmasi WhatsApp -->
+      <button class="btn btn-primary" id="btn-submit-order-wa" style="width:100%;justify-content:center;background:#25D366;border-color:#25D366;font-size:0.92rem;font-weight:850;padding:0.75rem;">
+        💬 Kirim Formulir & Bukti Pembayaran ke WhatsApp
+      </button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="showUpgradeProModal()">← Kembali ke Pilihan Paket</button>
+    </div>
+  `;
+
+  openModal(html, 'modal-medium');
+
+  const planSelect = $id('order-plan-select');
+  const totalBadge = $id('order-total-badge');
+  if (planSelect && totalBadge) {
+    planSelect.addEventListener('change', () => {
+      const p = packages[planSelect.value] || packages['1thn'];
+      totalBadge.textContent = p.price;
+    });
+  }
+
+  on('btn-submit-order-wa', 'click', () => {
+    const email = ($id('order-email')?.value || '').trim();
+    const name = ($id('order-name')?.value || '').trim();
+    const planKey = $id('order-plan-select')?.value || '1thn';
+    const pkg = packages[planKey] || packages['1thn'];
+
+    if (!email || !email.includes('@')) {
+      showToast('Harap masukkan alamat email Anda yang valid!', 'error');
+      $id('order-email')?.focus();
+      return;
+    }
+    if (!name) {
+      showToast('Harap masukkan nama pemilik atau nama usaha Anda!', 'error');
+      $id('order-name')?.focus();
+      return;
+    }
+
+    const waMsg = `Halo Admin Ari Hutabarat, saya ingin konfirmasi pemesanan Lisensi PRO Cetak Voucher Ruijie:\n\n` +
+      `📋 FORMULIR PEMBELIAN:\n` +
+      `• Nama Pemilik / Usaha: ${name}\n` +
+      `• Email Terdaftar: ${email}\n` +
+      `• Paket Lisensi: ${pkg.name} (${pkg.price})\n` +
+      `• Pembayaran: Transfer E-Wallet / Bank (${OWNER_EWALLET})\n\n` +
+      `(Berikut saya lampirkan bukti transfer pembayaran).\n` +
+      `Mohon Kunci Lisensi PRO dikirimkan ke email saya. Terima kasih!`;
+
+    const url = `https://wa.me/62${OWNER_WHATSAPP.substring(1)}?text=${encodeURIComponent(waMsg)}`;
+    window.open(url, '_blank');
+    closeModal();
+    showToast('Membuka WhatsApp untuk mengirimkan formulir...');
+  });
 }
 
 // ===== 📊 GOOGLE SPREADSHEET DATABASE ENGINE =====

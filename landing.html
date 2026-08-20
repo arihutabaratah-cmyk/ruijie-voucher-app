@@ -361,9 +361,9 @@
             <li>✓ Support Printer POS Bluetooth</li>
             <li>✓ Log Audit Trail Kasir</li>
           </ul>
-          <a href="https://wa.me/6282248381836?text=Halo%20Admin%2C%20saya%20mau%20order%20Lisensi%20PRO%201%20Bulan%20(Rp%2025.000)" target="_blank" class="btn-plan-order">
+          <button onclick="openOrderModal('1bln')" class="btn-plan-order">
             Beli Paket 1 Bulan
-          </a>
+          </button>
         </div>
 
         <!-- Paket 2: 1 Tahun (Best Seller) -->
@@ -387,9 +387,9 @@
             <li>✓ Prioritas Update Fitur Baru</li>
             <li>✓ Bantuan Setup Google Spreadsheet</li>
           </ul>
-          <a href="https://wa.me/6282248381836?text=Halo%20Admin%2C%20saya%20mau%20order%20Lisensi%20PRO%201%20Tahun%20(Rp%20175.000)" target="_blank" class="btn-plan-order primary">
+          <button onclick="openOrderModal('1thn')" class="btn-plan-order primary">
             Beli Paket 1 Tahun
-          </a>
+          </button>
         </div>
 
         <!-- Paket 3: Lifetime -->
@@ -413,9 +413,9 @@
             <li>✓ VIP Fast-Track Support WhatsApp</li>
             <li>✓ Garansi Update Selamanya</li>
           </ul>
-          <a href="https://wa.me/6282248381836?text=Halo%20Admin%2C%20saya%20mau%20order%20Lisensi%20PRO%20Lifetime%20Selamanya%20(Rp%20299.000)" target="_blank" class="btn-plan-order gold">
+          <button onclick="openOrderModal('lifetime')" class="btn-plan-order gold">
             Beli Lifetime Selamanya
-          </a>
+          </button>
         </div>
       </div>
 
@@ -438,30 +438,26 @@
   <!-- ===== ❓ FAQ SECTION ===== -->
   <section class="faq-section" id="faq">
     <div class="section-container">
-      <div class="section-header-center">
-        <span class="section-tag">❓ PERTANYAAN UMUM</span>
-        <h2>Sering Ditanyakan (FAQ)</h2>
-      </div>
+      <div class="section-badge">FAQ</div>
+      <h2 class="section-title">Pertanyaan Sering Diajukan</h2>
+      <p class="section-subtitle">Jawaban cepat seputar lisensi, kompatibilitas, dan fitur aplikasi.</p>
 
       <div class="faq-grid">
-        <div class="faq-card">
-          <h4>📱 Apakah aplikasi ini bisa dipakai di HP Android / iPhone?</h4>
-          <p>Ya, 100% bisa! Aplikasi ini menggunakan teknologi PWA (Progressive Web App). Anda cukup buka di Google Chrome di HP Anda, lalu klik "Pasang Aplikasi" di layar utama.</p>
+        <div class="faq-item">
+          <h4>Apakah software ini terikat ke 1 perangkat saja?</h4>
+          <p>Tidak! Lisensi terikat ke <strong>Email Akun Anda</strong>. Anda bebas membukanya di laptop toko dan HP Android di rumah secara bersamaan.</p>
         </div>
-
-        <div class="faq-card">
-          <h4>🖨️ Printer apa saja yang didukung?</h4>
-          <p>Mendukung semua printer inkjet/laser A4 (Epson, Canon, HP, Brother) serta printer thermal struk mini kasir (58mm & 80mm) yang terhubung via Bluetooth atau USB.</p>
+        <div class="faq-item">
+          <h4>Format file apa yang didukung dari Ruijie Cloud?</h4>
+          <p>Mendukung format file <strong>.CSV, .TXT, dan .XLSX/.XLS (Excel)</strong> hasil export langsung dari Ruijie Cloud Controller.</p>
         </div>
-
-        <div class="faq-card">
-          <h4>📶 Apakah harus selalu terhubung ke internet?</h4>
-          <p>Setelah halaman aplikasi terbuka, sistem bisa mencetak secara offline di jaringan lokal. Internet hanya diperlukan saat Anda ingin menarik data dari Google Sheets.</p>
+        <div class="faq-item">
+          <h4>Bagaimana sistem database cloud Google Sheets bekerja?</h4>
+          <p>Data voucher dan status cetak terhubung ke Google Spreadsheet milik Anda. Tiap transaksi di kasir otomatis tersinkronisasi realtime.</p>
         </div>
-
-        <div class="faq-card">
-          <h4>🔑 Bagaimana cara mengaktifkan Kunci Lisensi PRO?</h4>
-          <p>Cukup klik tombol "💎 Upgrade PRO" di pojok kanan atas aplikasi, masukkan kode lisensi yang kami berikan via WhatsApp, lalu klik "Aktifkan". Akun Anda langsung aktif seketika!</p>
+        <div class="faq-item">
+          <h4>Apakah butuh install aplikasi khusus di PC?</h4>
+          <p>Tidak perlu install! Software ini adalah <strong>Progressive Web App (PWA)</strong> berbasis browser modern. Cukup buka link dan siap dipakai.</p>
         </div>
       </div>
     </div>
@@ -495,6 +491,82 @@
     </div>
   </footer>
 
+  <!-- Modal Order & Konfirmasi Pembayaran -->
+  <div id="order-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+    <div style="background:#ffffff;color:#0f172a;border-radius:14px;max-width:540px;width:100%;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);overflow:hidden;border:1px solid #e2e8f0;display:flex;flex-direction:column;">
+      <div style="padding:1.15rem 1.35rem;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
+        <h3 style="margin:0;font-size:1.05rem;font-weight:800;color:#0f172a;">📝 Formulir Pembelian & Konfirmasi PRO</h3>
+        <button onclick="closeOrderModal()" style="border:none;background:none;font-size:1.25rem;cursor:pointer;color:#64748b;">✕</button>
+      </div>
+      <div style="padding:1.35rem;max-height:80vh;overflow-y:auto;">
+        <!-- Step 1 -->
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:0.9rem;margin-bottom:1rem;">
+          <div style="font-size:0.86rem;font-weight:800;color:#2563eb;margin-bottom:0.6rem;">
+            1️⃣ Data Pembeli (Wajib untuk Lisensi & Database Cloud):
+          </div>
+
+          <div style="margin-bottom:0.65rem;">
+            <label style="font-size:0.78rem;font-weight:750;color:#334155;display:block;margin-bottom:3px;">
+              📧 Alamat Email Anda <span style="color:#ef4444;font-weight:800;">*</span>
+            </label>
+            <input type="email" id="landing-order-email" style="width:100%;padding:0.55rem 0.75rem;border:1px solid #cbd5e1;border-radius:6px;font-size:0.88rem;box-sizing:border-box;" placeholder="contoh: warkopbudi@gmail.com" required>
+            <small style="font-size:0.7rem;color:#64748b;display:block;margin-top:2px;">
+              Kunci lisensi akan terikat ke email ini agar bisa digunakan di HP & Laptop Anda.
+            </small>
+          </div>
+
+          <div style="margin-bottom:0.65rem;">
+            <label style="font-size:0.78rem;font-weight:750;color:#334155;display:block;margin-bottom:3px;">
+              👤 Nama Pemilik / Nama Usaha Hotspot <span style="color:#ef4444;font-weight:800;">*</span>
+            </label>
+            <input type="text" id="landing-order-name" style="width:100%;padding:0.55rem 0.75rem;border:1px solid #cbd5e1;border-radius:6px;font-size:0.88rem;box-sizing:border-box;" placeholder="contoh: Budi (Warkop Net)" required>
+          </div>
+
+          <div>
+            <label style="font-size:0.78rem;font-weight:750;color:#334155;display:block;margin-bottom:3px;">
+              📦 Pilihan Paket Lisensi
+            </label>
+            <select id="landing-order-plan" style="width:100%;padding:0.55rem 0.75rem;border:1px solid #cbd5e1;border-radius:6px;font-size:0.88rem;font-weight:750;background:#ffffff;box-sizing:border-box;">
+              <option value="1bln">Paket 1 Bulan — Rp 25.000</option>
+              <option value="1thn" selected>🏢 Paket 1 Tahun (Best Value) — Rp 175.000</option>
+              <option value="lifetime">👑 Paket Lifetime Selamanya — Rp 299.000</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div style="background:#ffffff;border:1.5px solid #2563eb;border-radius:10px;padding:0.9rem;margin-bottom:1.15rem;">
+          <div style="font-size:0.86rem;font-weight:800;color:#0f172a;margin-bottom:0.5rem;display:flex;justify-content:space-between;align-items:center;">
+            <span>2️⃣ Rekening & E-Wallet Pembayaran:</span>
+            <span id="landing-order-price-badge" style="font-size:0.95rem;font-weight:900;color:#2563eb;">Rp 175.000</span>
+          </div>
+
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:0.75rem;display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+            <div>
+              <div style="font-size:0.75rem;font-weight:750;color:#64748b;">DANA / GoPay / OVO / ShopeePay / QRIS:</div>
+              <div style="font-family:monospace;font-size:1.15rem;font-weight:900;color:#0f172a;letter-spacing:0.04em;">
+                082248381836
+              </div>
+              <div style="font-size:0.72rem;color:#64748b;">a.n. Ari Hutabarat</div>
+            </div>
+            <button onclick="navigator.clipboard.writeText('082248381836');alert('Nomor 082248381836 berhasil disalin!')" style="padding:0.4rem 0.75rem;border:1px solid #cbd5e1;background:#ffffff;border-radius:6px;font-size:0.75rem;font-weight:750;cursor:pointer;">
+              📋 Salin
+            </button>
+          </div>
+
+          <p style="font-size:0.75rem;color:#64748b;margin:0;">
+            💡 Silakan transfer sesuai nominal paket, lalu klik tombol hijau di bawah untuk mengirimkan formulir & bukti transfer ke WhatsApp.
+          </p>
+        </div>
+
+        <!-- Step 3 -->
+        <button id="btn-landing-order-submit" onclick="submitLandingOrder()" style="width:100%;padding:0.85rem;background:#25D366;color:#ffffff;border:none;border-radius:8px;font-size:0.95rem;font-weight:850;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:0.45rem;box-shadow:0 4px 12px rgba(37,211,102,0.3);">
+          💬 Kirim Formulir & Bukti Pembayaran ke WhatsApp
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // Live Savings Calculator Logic
     const slider = document.getElementById('voucher-slider');
@@ -507,12 +579,10 @@
       const count = parseInt(slider.value, 10);
       voucherVal.textContent = count.toLocaleString('id-ID') + ' pcs';
 
-      // Old way: ~16 per page -> count/16 pages. New way: 50 per page -> count/50 pages.
       const oldPages = Math.ceil(count / 16);
       const newPages = Math.ceil(count / 50);
       const savedPages = Math.max(1, oldPages - newPages);
 
-      // Cost saving: Paper + Ink + Cutting time (~Rp 180 / voucher saved)
       const monthlySavings = Math.round(savedPages * 1500 + count * 80);
       const yearlySavings = monthlySavings * 12;
 
@@ -524,6 +594,67 @@
     if (slider) {
       slider.addEventListener('input', updateCalculator);
       updateCalculator();
+    }
+
+    // Modal Order & Confirmation Logic
+    const landingPackages = {
+      '1bln': { name: 'Paket 1 Bulan (Starter)', price: 'Rp 25.000' },
+      '1thn': { name: '🏢 Paket 1 Tahun (Teknisi - Best Value)', price: 'Rp 175.000' },
+      'lifetime': { name: '👑 Paket Lifetime Pro (Sekali Bayar Selamanya)', price: 'Rp 299.000' }
+    };
+
+    function openOrderModal(planKey = '1thn') {
+      const modal = document.getElementById('order-modal-overlay');
+      const select = document.getElementById('landing-order-plan');
+      const badge = document.getElementById('landing-order-price-badge');
+      if (select) select.value = planKey;
+      if (badge && landingPackages[planKey]) badge.textContent = landingPackages[planKey].price;
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function closeOrderModal() {
+      const modal = document.getElementById('order-modal-overlay');
+      if (modal) modal.style.display = 'none';
+    }
+
+    const planSelectEl = document.getElementById('landing-order-plan');
+    if (planSelectEl) {
+      planSelectEl.addEventListener('change', () => {
+        const badge = document.getElementById('landing-order-price-badge');
+        const pkg = landingPackages[planSelectEl.value] || landingPackages['1thn'];
+        if (badge) badge.textContent = pkg.price;
+      });
+    }
+
+    function submitLandingOrder() {
+      const email = (document.getElementById('landing-order-email')?.value || '').trim();
+      const name = (document.getElementById('landing-order-name')?.value || '').trim();
+      const planKey = document.getElementById('landing-order-plan')?.value || '1thn';
+      const pkg = landingPackages[planKey] || landingPackages['1thn'];
+
+      if (!email || !email.includes('@')) {
+        alert('Harap masukkan alamat email Anda yang valid!');
+        document.getElementById('landing-order-email')?.focus();
+        return;
+      }
+      if (!name) {
+        alert('Harap masukkan nama pemilik atau nama usaha Anda!');
+        document.getElementById('landing-order-name')?.focus();
+        return;
+      }
+
+      const waMsg = 'Halo Admin Ari Hutabarat, saya ingin konfirmasi pemesanan Lisensi PRO Cetak Voucher Ruijie:\n\n' +
+        '📋 FORMULIR PEMBELIAN:\n' +
+        '• Nama Pemilik / Usaha: ' + name + '\n' +
+        '• Email Terdaftar: ' + email + '\n' +
+        '• Paket Lisensi: ' + pkg.name + ' (' + pkg.price + ')\n' +
+        '• Pembayaran: Transfer E-Wallet / Bank (082248381836)\n\n' +
+        '(Berikut saya lampirkan bukti transfer pembayaran).\n' +
+        'Mohon Kunci Lisensi PRO dikirimkan ke email saya. Terima kasih!';
+
+      const url = 'https://wa.me/6282248381836?text=' + encodeURIComponent(waMsg);
+      window.open(url, '_blank');
+      closeOrderModal();
     }
   </script>
 </body>
