@@ -608,6 +608,23 @@ body.mode-admin .quick-pos-panel {
   font-size: 0.78rem;
   font-weight: 800;
   color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.badge-tab-pro {
+  font-size: 0.58rem;
+  font-weight: 850;
+  color: #ffffff;
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 .preset-desc {

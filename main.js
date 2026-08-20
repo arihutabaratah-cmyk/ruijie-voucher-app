@@ -2,6 +2,7 @@
  * Aplikasi Cetak Voucher Ruijie Cloud — POS & Print Studio Pro
  * Features: Manual E-Wallet / QRIS Payment & WhatsApp Order,
  * Cryptographic License Key Engine & Secret Admin Key Generator,
+ * Free vs PRO Feature Gating Engine,
  * Database Google Spreadsheet, 1-Click Theme Store Gallery,
  * Audit Trail Kasir, Stock Alert System, Dual Analytics Charts,
  * Streamlined Dropdown Navigation, Direct Bluetooth Thermal (ESC/POS),
@@ -12,6 +13,7 @@
 const ADMIN_SECRET_SALT = 'RUIJIE_PRO_OFFLINE_SECRET_2026_CMYK';
 const OWNER_WHATSAPP = '082248381836';
 const OWNER_EWALLET = '082248381836';
+const FREE_TIER_MAX_VOUCHERS = 25;
 
 const DEFAULT_PRESET = {
   id: 'preset_default',
@@ -212,6 +214,44 @@ function activateLicense(key) {
   return true;
 }
 
+// ===== 🛡️ PRO FEATURE GATE / REQUIRE PRO =====
+function requirePro(featureName = 'Fitur ini') {
+  if (state.isPro) return true;
+
+  const html = `
+    <div class="modal-header">
+      <h3>🔒 Fitur Khusus Lisensi PRO</h3>
+      <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
+    </div>
+    <div class="modal-body" style="text-align:center;padding:1.6rem 1.25rem;">
+      <div style="font-size:3rem;margin-bottom:0.5rem;">👑</div>
+      <h4 style="font-size:1.18rem;font-weight:900;color:var(--text);margin-bottom:0.4rem;">
+        Upgrade ke Lisensi PRO
+      </h4>
+      <p style="font-size:0.86rem;color:var(--text-secondary);max-width:440px;margin:0 auto 1.25rem;line-height:1.5;">
+        <strong>${esc(featureName)}</strong> adalah fitur eksklusif PRO. Dapatkan akses cetak unlimited tanpa batas, Google Sheets DB, Bluetooth POS, dan seluruh tema premium!
+      </p>
+
+      <div style="background:var(--primary-light);border:1px solid var(--primary-border);border-radius:var(--radius-xs);padding:0.95rem;margin-bottom:1.35rem;text-align:left;font-size:0.82rem;color:var(--text);">
+        <div style="font-weight:800;color:var(--primary);margin-bottom:0.4rem;">Keuntungan Lisensi PRO:</div>
+        <div>✓ Cetak Tanpa Batas (Unlimited Voucher)</div>
+        <div>✓ Cloud Database Google Spreadsheet</div>
+        <div>✓ Support Printer Kasir Bluetooth POS (58mm/80mm)</div>
+        <div>✓ Semua Tema Visual Premium & Tanpa Watermark</div>
+        <div>✓ Audit Trail Kasir & Surat Jalan Reseller</div>
+      </div>
+
+      <div style="display:flex;gap:0.55rem;justify-content:center;flex-wrap:wrap;">
+        <button class="btn btn-secondary" onclick="closeModal()">Nanti Saja</button>
+        <button class="btn btn-pro" onclick="closeModal();showUpgradeProModal();">💎 Beli / Aktivasi PRO Sekarang</button>
+      </div>
+    </div>
+  `;
+
+  openModal(html);
+  return false;
+}
+
 function updateProBadgeUI() {
   const proBtn = $id('btn-header-pro');
   const proText = $id('header-pro-text');
@@ -227,6 +267,13 @@ function updateProBadgeUI() {
       appBadge.textContent = 'PRO Studio';
       appBadge.className = 'header-badge pro-badge';
     }
+
+    // Unmark locks on dropdown items
+    setText('menu-item-sheets', '📊 Database Google Spreadsheet');
+    setText('menu-item-reseller', '🏪 Manajemen Reseller & Agen');
+    setText('menu-item-audit', '📜 Log Aktivitas Kasir (Audit Trail)');
+    const btnBt = $id('btn-connect-bluetooth');
+    if (btnBt) btnBt.textContent = '📶 Bluetooth POS';
   } else {
     if (proBtn) {
       proBtn.className = 'btn btn-pro-badge btn-sm';
@@ -234,9 +281,16 @@ function updateProBadgeUI() {
     }
     if (proText) proText.textContent = '💎 Upgrade PRO';
     if (appBadge) {
-      appBadge.textContent = 'SaaS Studio';
+      appBadge.textContent = 'SaaS Studio (Free)';
       appBadge.className = 'header-badge';
     }
+
+    // Mark locks on dropdown items in Free mode
+    setText('menu-item-sheets', '📊 Database Google Spreadsheet (🔒 PRO)');
+    setText('menu-item-reseller', '🏪 Manajemen Reseller & Agen (🔒 PRO)');
+    setText('menu-item-audit', '📜 Log Aktivitas Kasir (🔒 PRO)');
+    const btnBt = $id('btn-connect-bluetooth');
+    if (btnBt) btnBt.textContent = '📶 Bluetooth POS (🔒 PRO)';
   }
 }
 
@@ -259,6 +313,8 @@ function logActivity(type, detail, user) {
 }
 
 function showAuditLogModal() {
+  if (!requirePro('Log Aktivitas Kasir & Audit Trail')) return;
+
   const logs = state.auditLogs || [];
   const rows = logs.slice(0, 80).map((l, idx) => {
     const d = new Date(l.timestamp);
@@ -317,7 +373,7 @@ function showAuditLogModal() {
 
   openModal(html, 'modal-wide');
 
-  on('btn-export-audit-csv', 'click', () => {
+  on('btn-export-audit-csv', () => {
     if (logs.length === 0) {
       showToast('Belum ada log untuk diekspor.', 'error');
       return;
@@ -404,6 +460,11 @@ function applyTheme() {
 }
 
 function applyDesignPreset(presetName, fontName, borderName) {
+  // Free themes: theme-blue, theme-mono. Premium PRO themes: theme-purple, theme-gold, theme-emerald
+  if ((presetName === 'theme-purple' || presetName === 'theme-gold' || presetName === 'theme-emerald') && !state.isPro) {
+    if (!requirePro(`Tema Desain ${presetName.replace('theme-', '').toUpperCase()}`)) return;
+  }
+
   state.settings.theme = presetName;
   if (fontName) state.settings.fontFamily = fontName;
   if (borderName) state.settings.borderStyle = borderName;
@@ -483,6 +544,10 @@ function bindEvents() {
   $$('.btn-setting-tab').forEach(btn => {
     btn.addEventListener('click', () => {
       const tabId = btn.dataset.tab;
+      if (tabId === 'tab-sheets' && !state.isPro) {
+        if (!requirePro('Database Cloud Google Spreadsheet')) return;
+      }
+
       $$('.btn-setting-tab').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       $$('.setting-tab-pane').forEach(pane => {
@@ -511,6 +576,7 @@ function bindEvents() {
   on('btn-sync-from-sheets', 'click', syncFromGoogleSheets);
   on('btn-save-to-sheets', 'click', saveToGoogleSheets);
   on('btn-save-sheets-config', 'click', () => {
+    if (!requirePro('Database Cloud Google Spreadsheet')) return;
     const url = ($id('sheets-url-input')?.value || '').trim();
     state.settings.sheetsUrl = url;
     saveState();
@@ -528,7 +594,11 @@ function bindEvents() {
   on('btn-export-png', 'click', exportPreviewAsPNG);
 
   // Background Image Upload & Opacity
-  on('btn-upload-bg', 'click', () => { const el = $id('bg-upload'); if (el) el.click(); });
+  on('btn-upload-bg', 'click', () => {
+    if (!requirePro('Custom Background Gambar')) return;
+    const el = $id('bg-upload');
+    if (el) el.click();
+  });
   on('bg-upload', 'change', handleBgUpload);
   on('bg-opacity-slider', 'input', (e) => {
     state.settings.bgOpacity = parseInt(e.target.value, 10);
@@ -609,7 +679,6 @@ function bindEvents() {
   on('show-hint', 'change', onSettingChange);
 
   // Actions & File Import
-  on('btn-add', 'click', showAddModal);
   on('btn-import', 'click', () => { const el = $id('csv-file'); if (el) el.click(); });
   on('csv-file', 'change', handleFileInput);
   on('btn-toggle-printed', 'click', toggleSelectedPrintedStatus);
@@ -753,7 +822,7 @@ function showUpgradeProModal() {
 
   openModal(html, 'modal-wide');
 
-  on('btn-activate-license', 'click', () => {
+  on('btn-activate-license', () => {
     const key = ($id('m-license-input')?.value || '').trim();
     if (!key) {
       showToast('Masukkan kode lisensi terlebih dahulu', 'error');
@@ -830,7 +899,7 @@ function showSecretLicenseGenModal() {
 
     let generatedKey = '';
 
-    on('btn-do-generate-key', 'click', () => {
+    on('btn-do-generate-key', () => {
       const plan = $id('gen-plan-select')?.value || '1MONTH';
       generatedKey = generateLicenseKey(plan, 'USER');
 
@@ -844,14 +913,14 @@ function showSecretLicenseGenModal() {
       showToast('Kunci Lisensi berhasil dibuat!');
     });
 
-    on('btn-copy-raw-key', 'click', () => {
+    on('btn-copy-raw-key', () => {
       if (generatedKey) {
         navigator.clipboard.writeText(generatedKey);
         showToast('Kunci lisensi disalin ke clipboard!');
       }
     });
 
-    on('btn-copy-wa-format', 'click', () => {
+    on('btn-copy-wa-format', () => {
       const custName = ($id('gen-customer-name')?.value || '').trim() || 'Kak';
       const plan = $id('gen-plan-select')?.value || 'LIFETIME';
       const planLabel = plan === 'LIFETIME' ? 'Lifetime Selamanya' : (plan === '1YEAR' ? '1 Tahun' : '1 Bulan');
@@ -928,6 +997,8 @@ function doPost(e) {
 }`;
 
 function showGoogleSheetsModal() {
+  if (!requirePro('Database Cloud Google Spreadsheet')) return;
+
   const currentUrl = state.settings.sheetsUrl || '';
   const html = `
     <div class="modal-header">
@@ -972,7 +1043,7 @@ function showGoogleSheetsModal() {
 
   openModal(html, 'modal-wide');
 
-  on('btn-copy-gas-code', 'click', () => {
+  on('btn-copy-gas-code', () => {
     navigator.clipboard.writeText(GOOGLE_APPS_SCRIPT_CODE).then(() => {
       showToast('Kode Google Apps Script berhasil disalin ke clipboard!');
     }).catch(() => {
@@ -980,7 +1051,7 @@ function showGoogleSheetsModal() {
     });
   });
 
-  on('btn-modal-save-sheets-config', 'click', () => {
+  on('btn-modal-save-sheets-config', () => {
     const url = ($id('m-sheets-url')?.value || '').trim();
     state.settings.sheetsUrl = url;
     setVal('sheets-url-input', url);
@@ -989,7 +1060,7 @@ function showGoogleSheetsModal() {
     showToast('Link Google Spreadsheet berhasil disimpan!');
   });
 
-  on('btn-modal-sync-sheets', 'click', () => {
+  on('btn-modal-sync-sheets', () => {
     const url = ($id('m-sheets-url')?.value || '').trim();
     if (url) {
       state.settings.sheetsUrl = url;
@@ -999,7 +1070,7 @@ function showGoogleSheetsModal() {
     syncFromGoogleSheets();
   });
 
-  on('btn-modal-save-sheets', 'click', () => {
+  on('btn-modal-save-sheets', () => {
     const url = ($id('m-sheets-url')?.value || '').trim();
     if (url) {
       state.settings.sheetsUrl = url;
@@ -1031,6 +1102,8 @@ function resolveGoogleSheetsUrl(rawUrl) {
 }
 
 async function syncFromGoogleSheets() {
+  if (!requirePro('Database Cloud Google Spreadsheet')) return;
+
   const rawUrl = state.settings.sheetsUrl || $id('sheets-url-input')?.value;
   if (!rawUrl) {
     showToast('Masukkan link Google Spreadsheet / Apps Script terlebih dahulu.', 'error');
@@ -1076,7 +1149,21 @@ function handleImportedSheetsVouchers(importedList) {
   const existingMap = new Set(state.vouchers.map(v => (v.code || '').toLowerCase().trim()));
   let newCount = 0;
 
-  importedList.forEach(item => {
+  let processList = importedList;
+  if (!state.isPro) {
+    const currentLen = state.vouchers.length;
+    const remainingSlots = Math.max(0, FREE_TIER_MAX_VOUCHERS - currentLen);
+    if (remainingSlots <= 0) {
+      requirePro('Kapasitas Lebih dari 25 Voucher');
+      return;
+    }
+    processList = importedList.slice(0, remainingSlots);
+    if (importedList.length > remainingSlots) {
+      showToast(`Versi Gratis dibatasi maksimal ${FREE_TIER_MAX_VOUCHERS} voucher. Hanya ${remainingSlots} voucher diimpor. Upgrade PRO untuk unlimited!`, 'error');
+    }
+  }
+
+  processList.forEach(item => {
     const code = (item.code || '').trim();
     if (code && !existingMap.has(code.toLowerCase())) {
       state.vouchers.push({
@@ -1103,10 +1190,12 @@ function handleImportedSheetsVouchers(importedList) {
   renderQuickPOSGrid();
   renderTable();
   renderPreview();
-  showToast(`✨ Sukses! ${newCount} voucher baru disinkronkan dari Google Sheets.`);
+  showToast(`✨ Sukses! ${newCount} voucher disinkronkan dari Google Sheets.`);
 }
 
 async function saveToGoogleSheets() {
+  if (!requirePro('Database Cloud Google Spreadsheet')) return;
+
   const rawUrl = state.settings.sheetsUrl || $id('sheets-url-input')?.value;
   if (!rawUrl) {
     showToast('Masukkan link Google Apps Script Web App terlebih dahulu.', 'error');
@@ -1244,7 +1333,7 @@ function showChangePinModal() {
 
   openModal(html);
 
-  on('btn-save-new-pin', 'click', () => {
+  on('btn-save-new-pin', () => {
     const oldPin = ($id('m-old-pin')?.value || '').trim();
     const newPin = ($id('m-new-pin')?.value || '').trim();
     const confirmPin = ($id('m-confirm-pin')?.value || '').trim();
@@ -1271,6 +1360,8 @@ function showChangePinModal() {
 
 // ===== DIRECT WEB BLUETOOTH PRINTING (ESC/POS) =====
 async function handleConnectBluetooth() {
+  if (!requirePro('Koneksi Printer Bluetooth POS')) return;
+
   if (!navigator.bluetooth) {
     showToast('Web Bluetooth API belum aktif di browser ini (Gunakan Google Chrome / Android).', 'error');
     return;
@@ -1300,6 +1391,11 @@ async function handleConnectBluetooth() {
 
 // ===== BACKGROUND CARD IMAGE =====
 function handleBgUpload(e) {
+  if (!requirePro('Custom Background Gambar')) {
+    e.target.value = '';
+    return;
+  }
+
   const file = e.target.files[0];
   if (!file) return;
 
@@ -1382,7 +1478,7 @@ function showShiftModal() {
 
   openModal(html);
 
-  on('btn-save-open-shift', 'click', () => {
+  on('btn-save-open-shift', () => {
     state.activeShift = {
       id: 'shift_' + Date.now(),
       cashierName: ($id('m-shift-cashier')?.value || '').trim() || 'Kasir',
@@ -1399,7 +1495,7 @@ function showShiftModal() {
     showToast(`Shift dibuka untuk kasir: ${state.activeShift.cashierName}`);
   });
 
-  on('btn-print-close-shift', 'click', printCloseShiftReceipt);
+  on('btn-print-close-shift', printCloseShiftReceipt);
 }
 
 function printCloseShiftReceipt() {
@@ -1463,6 +1559,8 @@ function printCloseShiftReceipt() {
 
 // ===== 📄 EXPORT PDF =====
 function exportPDF() {
+  if (!requirePro('Export Lembar Cetak PDF')) return;
+
   const selected = getSelectedVouchers();
   if (selected.length === 0 && state.vouchers.length > 0) {
     showToast('Pilih voucher dengan mencentang kotak ceklis terlebih dahulu.', 'error');
@@ -1650,6 +1748,8 @@ function renderResellerFilterSelect() {
 }
 
 function showResellerModal() {
+  if (!requirePro('Manajemen Reseller & Surat Jalan')) return;
+
   const resellerStats = {};
   state.resellers.forEach(r => {
     resellerStats[r.id] = { reseller: r, totalVouchers: 0, printedVouchers: 0, unprintedVouchers: 0, totalOmset: 0, piutang: 0 };
@@ -1708,7 +1808,7 @@ function showResellerModal() {
   `;
 
   openModal(html, 'modal-wide');
-  on('btn-add-new-reseller', 'click', showAddResellerForm);
+  on('btn-add-new-reseller', showAddResellerForm);
 }
 
 function showAddResellerForm() {
@@ -1747,7 +1847,7 @@ function showAddResellerForm() {
 
   openModal(html);
 
-  on('btn-save-reseller', 'click', () => {
+  on('btn-save-reseller', () => {
     const name = ($id('m-res-name')?.value || '').trim();
     if (!name) {
       showToast('Nama reseller wajib diisi', 'error');
@@ -1772,6 +1872,8 @@ function showAddResellerForm() {
 }
 
 function showAssignResellerModal() {
+  if (!requirePro('Titip Voucher ke Warung Reseller')) return;
+
   const selected = getSelectedVouchers();
   if (selected.length === 0) {
     showToast('Pilih voucher yang ingin dititipkan dengan mencentang kotak ceklis.', 'error');
@@ -1805,7 +1907,7 @@ function showAssignResellerModal() {
 
   openModal(html);
 
-  on('btn-confirm-assign-reseller', 'click', () => {
+  on('btn-confirm-assign-reseller', () => {
     const resId = $id('m-assign-reseller-select')?.value;
     const targetRes = state.resellers.find(r => r.id === resId);
 
@@ -1952,7 +2054,7 @@ function showStorePresetsModal() {
   `;
 
   openModal(html);
-  on('btn-modal-add-preset', 'click', showAddPresetModal);
+  on('btn-modal-add-preset', showAddPresetModal);
 }
 
 function switchPresetDirect(id) {
@@ -1972,6 +2074,8 @@ function switchPresetDirect(id) {
 }
 
 function showAddPresetModal() {
+  if (state.presets.length >= 1 && !requirePro('Multi-Cabang Profil Toko')) return;
+
   const html = `
     <div class="modal-header">
       <h3>Tambah Profil / Cabang Baru</h3>
@@ -1997,7 +2101,7 @@ function showAddPresetModal() {
 
   openModal(html);
 
-  on('btn-confirm-add-preset', 'click', () => {
+  on('btn-confirm-add-preset', () => {
     const name = ($id('m-preset-name')?.value || '').trim();
     if (!name) {
       showToast('Nama profil wajib diisi', 'error');
@@ -2398,8 +2502,8 @@ function renderRekapModalContent() {
     renderRekapModalContent();
   });
 
-  on('btn-export-rekap-csv', 'click', exportRekapCSV);
-  on('btn-print-rekap-receipt', 'click', printRekapReceipt);
+  on('btn-export-rekap-csv', exportRekapCSV);
+  on('btn-print-rekap-receipt', printRekapReceipt);
 }
 
 function exportRekapCSV() {
@@ -2816,12 +2920,12 @@ function showImportPreview(uploadedVouchers) {
 
   openModal(html);
 
-  on('btn-confirm-import-new', 'click', () => {
+  on('btn-confirm-import-new', () => {
     importNewVouchersOnly(newVouchers);
     closeModal();
   });
 
-  on('btn-confirm-replace-all', 'click', () => {
+  on('btn-confirm-replace-all', () => {
     replaceAllVouchers(uploadedVouchers);
     closeModal();
   });
@@ -2832,44 +2936,69 @@ function importNewVouchersOnly(newVouchers) {
     showToast('Tidak ada voucher baru untuk ditambahkan.', 'error');
     return;
   }
+
+  let toAdd = newVouchers;
+  if (!state.isPro) {
+    const curLen = state.vouchers.length;
+    const remainingSlots = Math.max(0, FREE_TIER_MAX_VOUCHERS - curLen);
+    if (remainingSlots <= 0) {
+      requirePro('Kapasitas Lebih dari 25 Voucher');
+      return;
+    }
+    toAdd = newVouchers.slice(0, remainingSlots);
+    if (newVouchers.length > remainingSlots) {
+      showToast(`Versi Gratis dibatasi maksimal ${FREE_TIER_MAX_VOUCHERS} voucher. Hanya ${remainingSlots} voucher baru ditambahkan. Upgrade PRO untuk unlimited!`, 'error');
+    }
+  }
+
   state.vouchers.forEach(v => v.selected = false);
-  newVouchers.forEach(v => {
+  toAdd.forEach(v => {
     v.selected = true;
     v.printed = false;
   });
-  state.vouchers.push(...newVouchers);
+  state.vouchers.push(...toAdd);
   state.filter = 'unprinted';
   $$('.filter-tab').forEach(tab => {
     tab.classList.toggle('active', tab.dataset.filter === 'unprinted');
   });
 
-  logActivity('SYNC', `Import ${newVouchers.length} voucher baru dari file`);
+  logActivity('SYNC', `Import ${toAdd.length} voucher baru dari file`);
   saveState();
   checkStockAlerts();
   renderQuickPOSGrid();
   renderTable();
   renderPreview();
-  showToast(`Berhasil menambahkan ${newVouchers.length} voucher baru`);
+  showToast(`Berhasil menambahkan ${toAdd.length} voucher baru`);
 }
 
 function replaceAllVouchers(allVouchers) {
-  state.vouchers = allVouchers;
+  let toSet = allVouchers;
+  if (!state.isPro && allVouchers.length > FREE_TIER_MAX_VOUCHERS) {
+    toSet = allVouchers.slice(0, FREE_TIER_MAX_VOUCHERS);
+    showToast(`Versi Gratis dibatasi maksimal ${FREE_TIER_MAX_VOUCHERS} voucher. Upgrade ke PRO untuk kapasitas tanpa batas!`, 'error');
+  }
+
+  state.vouchers = toSet;
   state.filter = 'all';
   $$('.filter-tab').forEach(tab => {
     tab.classList.toggle('active', tab.dataset.filter === 'all');
   });
 
-  logActivity('SYNC', `Ganti total database dengan ${allVouchers.length} voucher`);
+  logActivity('SYNC', `Ganti total database dengan ${toSet.length} voucher`);
   saveState();
   checkStockAlerts();
   renderQuickPOSGrid();
   renderTable();
   renderPreview();
-  showToast(`Seluruh daftar diganti dengan ${allVouchers.length} voucher`);
+  showToast(`Seluruh daftar diganti dengan ${toSet.length} voucher`);
 }
 
 // ===== ADD MANUAL MODAL =====
 function showAddModal() {
+  if (!state.isPro && state.vouchers.length >= FREE_TIER_MAX_VOUCHERS) {
+    if (!requirePro('Kapasitas Lebih dari 25 Voucher')) return;
+  }
+
   const html = `
     <div class="modal-header">
       <h3>Tambah Voucher Manual</h3>
@@ -3212,7 +3341,7 @@ function confirmDeleteSelected() {
   `;
 
   openModal(html);
-  on('btn-confirm-delete-sel', 'click', () => {
+  on('btn-confirm-delete-sel', () => {
     logActivity('DELETE', `Hapus batch ${selected.length} voucher`);
     state.vouchers = state.vouchers.filter(v => v.selected === false);
     saveState();
@@ -3549,6 +3678,11 @@ function buildPrintArea(selectedVouchers, layoutVal) {
         pageHtml += Array(remaining).fill('<div class="v-card v-card-empty"></div>').join('');
       }
 
+      // Free Tier Printable Watermark
+      if (!state.isPro) {
+        pageHtml += `<div class="print-free-watermark">⚡ Cetak Voucher Ruijie (Free Version • https://cetakvoucher.harojuan.net) — Upgrade PRO untuk hapus watermark</div>`;
+      }
+
       pageEl.innerHTML = pageHtml;
       fragment.appendChild(pageEl);
     }
@@ -3614,7 +3748,7 @@ function setFilter(filterName) {
 }
 
 // ===== LOCAL STORAGE PERSISTENCE =====
-const STORAGE_KEY = 'ruijie_voucher_app_v11_licensed';
+const STORAGE_KEY = 'ruijie_voucher_app_v12_pro_gated';
 
 function saveState() {
   try {
@@ -3626,7 +3760,7 @@ function saveState() {
 
 function loadState() {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('ruijie_voucher_app_v10_pro') || localStorage.getItem('ruijie_voucher_app_v9_sheets');
+    const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('ruijie_voucher_app_v11_licensed') || localStorage.getItem('ruijie_voucher_app_v10_pro');
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed.uiMode) state.uiMode = parsed.uiMode;

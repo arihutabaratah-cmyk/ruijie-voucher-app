@@ -61,6 +61,20 @@
     background: #ffffff;
     box-sizing: border-box;
     overflow: hidden;
+    position: relative;
+  }
+
+  .print-free-watermark {
+    position: absolute;
+    bottom: 0.5mm;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 4.2pt;
+    color: #64748b;
+    letter-spacing: 0.04em;
+    pointer-events: none;
+    z-index: 10;
   }
 
   .print-page:last-child {
