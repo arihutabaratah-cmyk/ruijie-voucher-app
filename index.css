@@ -2222,7 +2222,7 @@ select.form-input {
   transform: translateX(-50%) translateY(0);
 }
 
-/* ===== RESPONSIVE ===== */
+/* ===== RESPONSIVE MOBILE ENGINE (SMARTPHONE OPTIMIZATION) ===== */
 @media (max-width: 960px) {
   .app-content {
     grid-template-columns: 1fr;
@@ -2234,11 +2234,15 @@ select.form-input {
 
 @media (max-width: 768px) {
   .app-header {
-    padding: 0.75rem 1rem;
+    padding: 0.65rem 0.85rem;
+  }
+
+  .header-brand .header-badge {
+    display: none;
   }
 
   .app-main {
-    padding: 0.85rem;
+    padding: 0.65rem;
   }
 
   .settings-grid-tab {
@@ -2252,29 +2256,187 @@ select.form-input {
     justify-content: center;
   }
 
+  .setting-tab-nav {
+    display: flex;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    gap: 0.35rem;
+    padding-bottom: 4px;
+    margin-bottom: 0.65rem;
+    scrollbar-width: none;
+  }
+
+  .setting-tab-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .btn-setting-tab {
+    flex-shrink: 0;
+    font-size: 0.76rem;
+    padding: 0.45rem 0.75rem;
+    white-space: nowrap;
+  }
+
+  .quick-pos-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+
+  .quick-pos-stats {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .quick-pos-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+
+  .btn-pos-pkg {
+    padding: 0.65rem 0.5rem;
+    min-height: 52px;
+  }
+
   .action-bar {
     flex-direction: column;
     align-items: stretch;
+    gap: 0.6rem;
   }
 
-  .action-bar-left {
+  .action-bar-left, .action-bar-right {
+    width: 100%;
     justify-content: space-between;
   }
 
+  .filter-tabs {
+    width: 100%;
+    display: flex;
+  }
+
+  .filter-tab {
+    flex: 1;
+    text-align: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    padding: 0.45rem 0.3rem;
+  }
+
+  .table-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .search-box {
+    width: 100%;
+    max-width: none;
+  }
+
   .actions {
-    justify-content: stretch;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.45rem;
+    width: 100%;
   }
 
   .actions .btn {
-    flex: 1;
+    width: 100%;
     justify-content: center;
-    min-width: 85px;
-    min-height: 44px;
+    font-size: 0.8rem;
+    padding: 0.55rem 0.5rem;
+    min-height: 42px;
+  }
+
+  #btn-print {
+    grid-column: 1 / -1;
+    min-height: 46px;
+    font-size: 0.95rem;
+    font-weight: 850;
   }
 
   .rekap-card-grid-3,
   .rekap-filter-row {
     grid-template-columns: 1fr;
+  }
+
+  .modal-content {
+    width: 96% !important;
+    max-width: 96vw !important;
+    padding: 1.15rem 1rem !important;
+    max-height: 90vh !important;
+  }
+
+  /* Prevent iOS auto-zoom on form inputs */
+  input[type="text"],
+  input[type="password"],
+  input[type="number"],
+  input[type="url"],
+  select {
+    font-size: 16px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-header .header-inner {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .header-left {
+    gap: 0.6rem;
+  }
+
+  .header-brand .brand-title {
+    font-size: 0.95rem;
+  }
+
+  .header-right {
+    gap: 0.35rem;
+    flex-wrap: wrap;
+  }
+
+  .header-stock-pill {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.72rem;
+  }
+
+  #btn-rekap {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.72rem;
+  }
+
+  .btn-pro-badge {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.72rem;
+  }
+
+  .preview-container {
+    padding: 0.4rem;
+  }
+
+  .preview-page {
+    padding: 2px;
+  }
+
+  .v-card-preview {
+    padding: 2px;
+    font-size: 6.5px;
+  }
+
+  .v-card-preview .v-code-value {
+    font-size: 8px;
+  }
+
+  .v-card-preview .v-meta-tag,
+  .v-card-preview .v-meta-val {
+    font-size: 6.5px;
+  }
+
+  .v-card-preview .v-sn-val {
+    font-size: 6px;
   }
 }
