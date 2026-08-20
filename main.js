@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initPWA();
 });
 
-// ===== 🔑 CRYPTOGRAPHIC LICENSE ENGINE =====
+// ===== 🔑 CRYPTOGRAPHIC LICENSE ENGINE (EMAIL-BOUND) =====
 function hashString(str) {
   let hash = 5381;
   for (let i = 0; i < str.length; i++) {
@@ -144,39 +144,56 @@ function hashString(str) {
   return Math.abs(hash).toString(36).toUpperCase().padStart(6, 'X');
 }
 
-function generateLicenseKey(plan = '1MONTH', customerId = 'USER') {
+function generateLicenseKey(plan = '1MONTH', email = 'USER') {
   const cleanPlan = (plan || '1MONTH').toUpperCase();
-  const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
-  const raw = `${cleanPlan}-${customerId.toUpperCase()}-${randomPart}-${ADMIN_SECRET_SALT}`;
+  const cleanEmail = (email || 'USER').trim().toLowerCase();
+  const emailToken = hashString(cleanEmail + ADMIN_SECRET_SALT).substring(0, 4);
+  const raw = `${cleanPlan}-${cleanEmail}-${emailToken}-${ADMIN_SECRET_SALT}`;
   const checksum = hashString(raw).substring(0, 6);
-  return `RJPRO-${cleanPlan}-${randomPart}-${checksum}`;
+  return `RJPRO-${cleanPlan}-${emailToken}-${checksum}`;
 }
 
-function verifyLicenseKey(key) {
-  if (!key || typeof key !== 'string') return { valid: false };
+function verifyLicenseKey(key, inputEmail) {
+  if (!key || typeof key !== 'string') return { valid: false, reason: 'INVALID_FORMAT' };
   const cleanKey = key.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '');
   const parts = cleanKey.split('-');
-  if (parts.length !== 4 || parts[0] !== 'RJPRO') return { valid: false };
+  if (parts.length !== 4 || parts[0] !== 'RJPRO') return { valid: false, reason: 'INVALID_FORMAT' };
 
   const plan = parts[1]; // '1MONTH' | '1YEAR' | 'LIFETIME'
-  const randomPart = parts[2];
+  const token = parts[2];
   const checksum = parts[3];
 
-  const expectedRaw = `${plan}-USER-${randomPart}-${ADMIN_SECRET_SALT}`;
-  const expectedChecksum = hashString(expectedRaw).substring(0, 6);
+  let days = 30;
+  if (plan === '1YEAR') days = 365;
+  if (plan === 'LIFETIME') days = 36500;
 
-  if (checksum === expectedChecksum) {
-    let days = 30;
-    if (plan === '1YEAR') days = 365;
-    if (plan === 'LIFETIME') days = 36500;
-    return { valid: true, plan: plan, days: days, cleanKey: cleanKey };
+  // Case 1: Email-Bound Verification
+  const cleanEmail = (inputEmail || (state.proLicense && state.proLicense.email) || '').trim().toLowerCase();
+  if (cleanEmail && cleanEmail.includes('@')) {
+    const expectedToken = hashString(cleanEmail + ADMIN_SECRET_SALT).substring(0, 4);
+    if (token === expectedToken) {
+      const raw = `${plan}-${cleanEmail}-${token}-${ADMIN_SECRET_SALT}`;
+      const expectedChecksum = hashString(raw).substring(0, 6);
+      if (checksum === expectedChecksum) {
+        return { valid: true, plan: plan, days: days, email: cleanEmail, cleanKey: cleanKey };
+      }
+    } else {
+      return { valid: false, reason: 'EMAIL_MISMATCH' };
+    }
   }
-  return { valid: false };
+
+  // Case 2: Legacy / Master Offline Verification (Backward Compatibility)
+  const legacyRaw = `${plan}-USER-${token}-${ADMIN_SECRET_SALT}`;
+  if (checksum === hashString(legacyRaw).substring(0, 6)) {
+    return { valid: true, plan: plan, days: days, email: cleanEmail || 'offline@owner', cleanKey: cleanKey };
+  }
+
+  return { valid: false, reason: 'INVALID_CHECKSUM' };
 }
 
 function checkLicenseValidity() {
   if (state.proLicense && state.proLicense.key) {
-    const res = verifyLicenseKey(state.proLicense.key);
+    const res = verifyLicenseKey(state.proLicense.key, state.proLicense.email);
     if (res.valid) {
       if (state.proLicense.expiresAt) {
         const expDate = new Date(state.proLicense.expiresAt);
@@ -194,15 +211,23 @@ function checkLicenseValidity() {
   state.isPro = false;
 }
 
-function activateLicense(key) {
+function activateLicense(key, email) {
   if (!key) {
-    showToast('Masukkan kode lisensi terlebih dahulu', 'error');
+    showToast('Masukkan kode lisensi Anda!', 'error');
     return false;
   }
 
-  const res = verifyLicenseKey(key);
+  const cleanEmail = (email || '').trim().toLowerCase();
+  const res = verifyLicenseKey(key, cleanEmail);
+
   if (!res.valid) {
-    showToast('Kunci Lisensi tidak valid! Periksa kembali kode Anda.', 'error');
+    if (res.reason === 'EMAIL_MISMATCH') {
+      showToast('❌ Kunci Lisensi ini tidak cocok dengan email ini! Masukkan email terdaftar Anda saat membeli.', 'error');
+    } else if (res.reason === 'INVALID_EMAIL') {
+      showToast('Masukkan format alamat email yang valid!', 'error');
+    } else {
+      showToast('Kunci Lisensi tidak valid! Periksa kembali kode & email Anda.', 'error');
+    }
     return false;
   }
 
@@ -212,17 +237,31 @@ function activateLicense(key) {
   state.isPro = true;
   state.proLicense = {
     key: res.cleanKey || key.trim().toUpperCase(),
+    email: res.email || cleanEmail || 'pro@user',
     plan: res.plan,
     activatedAt: now.toISOString(),
     expiresAt: expiresAt
   };
 
-  logActivity('SHIFT', `Aktivasi Lisensi PRO [${res.plan}] berhasil`);
+  logActivity('SHIFT', `Aktivasi Lisensi PRO [${res.plan}] akun: ${state.proLicense.email}`);
   saveState();
   updateProBadgeUI();
   renderPreview();
-  showToast(`🎉 Selamat! Lisensi PRO (${res.plan}) Berhasil Diaktifkan!`);
+  showToast(`🎉 Selamat! Lisensi PRO (${res.plan}) Berhasil Diaktifkan untuk ${state.proLicense.email}!`);
   return true;
+}
+
+function deactivateLicense() {
+  if (confirm('Yakin ingin keluar dan menghapus lisensi PRO dari perangkat ini?')) {
+    logActivity('SHIFT', `Logout lisensi akun: ${state.proLicense?.email || '-'}`);
+    state.isPro = false;
+    state.proLicense = null;
+    saveState();
+    updateProBadgeUI();
+    renderPreview();
+    closeModal();
+    showToast('Lisensi berhasil dikeluarkan dari perangkat ini.');
+  }
 }
 
 // ===== 🛡️ PRO FEATURE GATE / REQUIRE PRO =====
@@ -736,12 +775,18 @@ function showUpgradeProModal() {
     </div>
     <div class="modal-body">
       ${isCurrentlyPro ? `
-        <div style="background:var(--success-light);border:2px solid var(--success-border);border-radius:var(--radius-xs);padding:1.15rem;text-align:center;margin-bottom:1.15rem;">
-          <div style="font-size:2rem;margin-bottom:0.3rem;">👑</div>
-          <h4 style="font-size:1.15rem;font-weight:900;color:var(--success);margin-bottom:0.25rem;">Lisensi PRO Anda Aktif!</h4>
-          <p style="font-size:0.8rem;color:var(--text-secondary);">${expText}</p>
-          <div style="font-family:var(--font-mono);font-weight:800;font-size:0.9rem;background:var(--surface);border:1px dashed var(--success);padding:0.4rem 0.8rem;border-radius:var(--radius-xs);margin-top:0.65rem;display:inline-block;">
+        <div style="background:var(--success-light);border:2px solid var(--success-border);border-radius:var(--radius-xs);padding:1.25rem 1rem;text-align:center;margin-bottom:1.15rem;">
+          <div style="font-size:2.2rem;margin-bottom:0.3rem;">👑</div>
+          <h4 style="font-size:1.15rem;font-weight:900;color:var(--success);margin-bottom:0.25rem;">Lisensi PRO Terverifikasi!</h4>
+          <div style="font-size:0.86rem;color:var(--text);margin:0.4rem 0;">
+            📧 Akun Email: <strong>${esc(licenseInfo ? licenseInfo.email : '-')}</strong>
+          </div>
+          <p style="font-size:0.78rem;color:var(--text-secondary);">${expText}</p>
+          <div style="font-family:var(--font-mono);font-weight:800;font-size:0.88rem;background:var(--surface);border:1px dashed var(--success);padding:0.4rem 0.8rem;border-radius:var(--radius-xs);margin-top:0.65rem;display:inline-block;">
             ${esc(licenseInfo ? licenseInfo.key : 'ACTIVE')}
+          </div>
+          <div style="margin-top:0.95rem;">
+            <button class="btn btn-secondary btn-sm" onclick="deactivateLicense()" style="font-size:0.75rem;">🔓 Keluar / Hapus Lisensi Dari Perangkat Ini</button>
           </div>
         </div>
       ` : ''}
@@ -814,15 +859,22 @@ function showUpgradeProModal() {
         </div>
       </div>
 
-      <!-- License Activation Input Box -->
+      <!-- License Activation Input Box (Email-Bound) -->
       <div class="license-activation-card">
-        <div style="font-size:0.84rem;font-weight:800;color:var(--primary);margin-bottom:0.4rem;">
-          🔑 Sudah punya Kunci Lisensi? Masukkan di sini:
+        <div style="font-size:0.88rem;font-weight:800;color:var(--primary);margin-bottom:0.65rem;">
+          🔑 Login & Aktivasi Lisensi PRO Terdaftar:
         </div>
-        <div style="display:flex;gap:0.45rem;">
-          <input type="text" id="m-license-input" class="form-input" style="font-family:var(--font-mono);text-transform:uppercase;font-weight:750;" placeholder="Contoh: RJPRO-LIFETIME-8B39-C49F12">
-          <button class="btn btn-primary" id="btn-activate-license" onclick="handleDirectActivateLicense()">✨ Aktifkan</button>
+        <div class="form-group" style="margin-bottom:0.55rem;">
+          <label for="m-email-input" style="font-size:0.75rem;font-weight:750;color:var(--text-secondary);">Alamat Email Pembeli (Email Terdaftar Saat Membeli)</label>
+          <input type="email" id="m-email-input" class="form-input" placeholder="contoh: warkopbudi@gmail.com" value="${esc(state.proLicense?.email || '')}">
         </div>
+        <div class="form-group" style="margin-bottom:0.75rem;">
+          <label for="m-license-input" style="font-size:0.75rem;font-weight:750;color:var(--text-secondary);">Kunci Lisensi PRO</label>
+          <input type="text" id="m-license-input" class="form-input" style="font-family:var(--font-mono);text-transform:uppercase;font-weight:750;" placeholder="Contoh: RJPRO-LIFETIME-A8F2-9X4B1C">
+        </div>
+        <button class="btn btn-primary" id="btn-activate-license" style="width:100%;justify-content:center;font-weight:800;" onclick="handleDirectActivateLicense()">
+          ✨ Login & Aktifkan Lisensi PRO
+        </button>
       </div>
     </div>
     <div class="modal-footer">
@@ -836,17 +888,29 @@ function showUpgradeProModal() {
   on('m-license-input', 'keydown', (e) => {
     if (e.key === 'Enter') handleDirectActivateLicense();
   });
+  on('m-email-input', 'keydown', (e) => {
+    if (e.key === 'Enter') handleDirectActivateLicense();
+  });
 }
 
 function handleDirectActivateLicense() {
-  const input = $id('m-license-input');
-  const key = (input ? input.value : '').trim();
-  if (!key) {
-    showToast('Masukkan kode lisensi terlebih dahulu', 'error');
-    if (input) input.focus();
+  const emailInput = $id('m-email-input');
+  const keyInput = $id('m-license-input');
+  const email = (emailInput ? emailInput.value : '').trim();
+  const key = (keyInput ? keyInput.value : '').trim();
+
+  if (!email || !email.includes('@')) {
+    showToast('Masukkan alamat email yang valid!', 'error');
+    if (emailInput) emailInput.focus();
     return;
   }
-  const success = activateLicense(key);
+  if (!key) {
+    showToast('Masukkan kode lisensi Anda!', 'error');
+    if (keyInput) keyInput.focus();
+    return;
+  }
+
+  const success = activateLicense(key, email);
   if (success) {
     closeModal();
   }
