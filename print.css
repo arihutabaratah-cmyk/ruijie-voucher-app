@@ -84,6 +84,12 @@
 
   /* ===== GRID LAYOUTS (A4) — STRICT HEIGHTS TO PREVENT BOTTOM OVERFLOW ===== */
   
+  /* Layout 10 (2×5) — 100mm × 56mm (VIP Kartu Nama / Business Card) */
+  .print-page.layout-10 {
+    grid-template-columns: repeat(2, 100mm);
+    grid-template-rows: repeat(5, 56mm);
+  }
+
   /* Layout 16 (4×4) — 50mm × 70mm */
   .print-page.layout-16 {
     grid-template-columns: repeat(4, 50mm);
@@ -96,7 +102,7 @@
     grid-template-rows: repeat(5, 56mm);
   }
 
-  /* Layout 25 (5×5) — 40mm × 56mm */
+  /* Layout 25 (5×5) — 40mm × 56mm (Standar Warkop & Kafe) */
   .print-page.layout-25 {
     grid-template-columns: repeat(5, 40mm);
     grid-template-rows: repeat(5, 56mm);
@@ -108,9 +114,33 @@
     grid-template-rows: repeat(6, 46.6mm);
   }
 
-  /* Layout 50 (5×10) — 40mm × 28.0mm (Super Hemat Kertas — Anti Terpotong) */
+  /* Layout 40 (4×10) — 50mm × 28mm (RT/RW Net Tulisan Besar) */
+  .print-page.layout-40 {
+    grid-template-columns: repeat(4, 50mm);
+    grid-template-rows: repeat(10, 28mm);
+    height: 280mm;
+    max-height: 280mm;
+  }
+
+  /* Layout 50 (5×10) — 40mm × 28.0mm (Hemat Kertas & Tinta) */
   .print-page.layout-50 {
     grid-template-columns: repeat(5, 40mm);
+    grid-template-rows: repeat(10, 28mm);
+    height: 280mm;
+    max-height: 280mm;
+  }
+
+  /* Layout 60 (6×10) — 33.3mm × 28.0mm (Super Hemat RT/RW Net) */
+  .print-page.layout-60 {
+    grid-template-columns: repeat(6, 33.33mm);
+    grid-template-rows: repeat(10, 28mm);
+    height: 280mm;
+    max-height: 280mm;
+  }
+
+  /* Layout 80 (8×10) — 25.0mm × 28.0mm (Ultra Hemat Kupon Receh) */
+  .print-page.layout-80 {
+    grid-template-columns: repeat(8, 25mm);
     grid-template-rows: repeat(10, 28mm);
     height: 280mm;
     max-height: 280mm;
@@ -584,6 +614,66 @@
     border-top-width: 0.2pt !important;
     line-height: 1 !important;
   }
+
+  /* ===== LAYOUT 10 (2×5) — EXACT 100mm × 56mm (VIP KARTU NAMA / MEMBER) ===== */
+  .print-page.layout-10 .v-card {
+    height: 56mm !important;
+    max-height: 56mm !important;
+    padding: 3mm 4mm !important;
+  }
+  .print-page.layout-10 .v-logo-wide { height: 16mm !important; max-width: 90% !important; }
+  .print-page.layout-10 .v-logo-side { width: 14mm !important; height: 14mm !important; }
+  .print-page.layout-10 .v-ssid-bar { font-size: 9pt !important; }
+  .print-page.layout-10 .v-no-logo-ssid { font-size: 12pt !important; }
+  .print-page.layout-10 .v-code-value { font-size: 14pt !important; letter-spacing: 0.12em !important; }
+  .print-page.layout-10 .v-meta-grid { font-size: 8.5pt !important; }
+  .print-page.layout-10 .v-sub-grid { font-size: 7.5pt !important; }
+  .print-page.layout-10 .v-footer { font-size: 7pt !important; }
+
+  /* ===== LAYOUT 40 (4×10) — EXACT 50mm × 28mm (RT/RW NET TULISAN BESAR) ===== */
+  .print-page.layout-40 .v-card {
+    height: 28mm !important;
+    max-height: 28mm !important;
+    padding: 0.8mm 1.2mm !important;
+    justify-content: space-between !important;
+    overflow: hidden !important;
+  }
+  .print-page.layout-40 .v-logo-wide { height: 5mm !important; max-width: 80% !important; }
+  .print-page.layout-40 .v-ssid-bar { font-size: 4.8pt !important; }
+  .print-page.layout-40 .v-code-value { font-size: 8.5pt !important; font-weight: 900 !important; }
+  .print-page.layout-40 .v-meta-grid { font-size: 4.8pt !important; }
+  .print-page.layout-40 .v-sub-grid { font-size: 4.2pt !important; }
+  .print-page.layout-40 .v-footer { font-size: 4pt !important; }
+
+  /* ===== LAYOUT 60 (6×10) — EXACT 33.3mm × 28mm (SUPER HEMAT RT/RW NET) ===== */
+  .print-page.layout-60 .v-card {
+    height: 28mm !important;
+    max-height: 28mm !important;
+    padding: 0.5mm 0.8mm !important;
+    justify-content: space-between !important;
+    overflow: hidden !important;
+  }
+  .print-page.layout-60 .v-logo-wide { height: 4mm !important; max-width: 75% !important; }
+  .print-page.layout-60 .v-ssid-bar { font-size: 3.8pt !important; }
+  .print-page.layout-60 .v-code-value { font-size: 6.8pt !important; font-weight: 900 !important; }
+  .print-page.layout-60 .v-meta-grid { font-size: 3.8pt !important; }
+  .print-page.layout-60 .v-sub-grid { font-size: 3.4pt !important; }
+  .print-page.layout-60 .v-footer { font-size: 3.2pt !important; }
+
+  /* ===== LAYOUT 80 (8×10) — EXACT 25mm × 28mm (ULTRA HEMAT KUPON RECEH) ===== */
+  .print-page.layout-80 .v-card {
+    height: 28mm !important;
+    max-height: 28mm !important;
+    padding: 0.4mm 0.6mm !important;
+    justify-content: space-between !important;
+    overflow: hidden !important;
+  }
+  .print-page.layout-80 .v-logo-wide { height: 3.5mm !important; max-width: 70% !important; }
+  .print-page.layout-80 .v-ssid-bar { font-size: 3.5pt !important; }
+  .print-page.layout-80 .v-code-value { font-size: 6.2pt !important; font-weight: 900 !important; }
+  .print-page.layout-80 .v-meta-grid { font-size: 3.4pt !important; }
+  .print-page.layout-80 .v-sub-grid { font-size: 3pt !important; }
+  .print-page.layout-80 .v-footer { font-size: 2.8pt !important; }
 
   /* Thermal 58mm POS Receipt */
   .print-page.layout-thermal-58 .v-card { padding: 2mm 1.5mm; }

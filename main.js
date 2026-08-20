@@ -3727,11 +3727,15 @@ function buildPrintArea(selectedVouchers, layoutVal) {
 
 function getPageCapacity(layout) {
   switch (layout) {
+    case '80': return 80;
+    case '60': return 60;
     case '50': return 50;
+    case '40': return 40;
     case '30': return 30;
     case '25': return 25;
     case '20': return 20;
     case '16': return 16;
+    case '10': return 10;
     case 'thermal-58':
     case 'thermal-80': return 1;
     case 'label-103': return 12;
