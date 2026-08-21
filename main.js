@@ -856,23 +856,25 @@ function showUpgradeProModal() {
       <!-- Payment Details Box -->
       <div class="payment-methods-box">
         <div style="font-size:0.84rem;font-weight:800;color:var(--text);margin-bottom:0.4rem;">
-          💳 Rekening Pembayaran & E-Wallet:
+          💳 Metode Pembayaran Resmi (QRIS GoPay & E-Wallet):
         </div>
         
-        <div class="payment-method-card">
-          <div>
-            <strong style="font-size:0.88rem;">📱 E-Wallet & QRIS (Dana / GoPay / OVO / ShopeePay)</strong>
-            <div style="font-family:var(--font-mono);font-size:0.96rem;font-weight:900;color:var(--primary);margin-top:2px;">
-              ${OWNER_EWALLET}
+        <div class="payment-method-card" style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem;">
+          <img src="qris.jpg" alt="QRIS GoPay" style="width:70px;height:70px;object-fit:cover;border-radius:4px;border:1px solid var(--border);cursor:pointer;" onclick="window.open('qris.jpg','_blank')" title="Klik untuk memperbesar QRIS">
+          <div style="flex:1;">
+            <strong style="font-size:0.84rem;display:block;color:var(--text);">🏪 HAROJUAN SERBA-SERBI, PULSA & INTERNET</strong>
+            <div style="font-size:0.72rem;color:var(--text-secondary);">NMID: ID1026574838235 • GPN QRIS</div>
+            <div style="font-family:var(--font-mono);font-size:0.85rem;font-weight:800;color:var(--primary);margin-top:2px;">
+              E-Wallet / No. HP: ${OWNER_EWALLET}
             </div>
-            <div style="font-size:0.72rem;color:var(--text-secondary);">a.n. Ari Hutabarat</div>
+            <div style="font-size:0.7rem;color:var(--text-secondary);">a.n. Ari Hutabarat</div>
           </div>
           <button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText('${OWNER_EWALLET}');showToast('Nomor E-Wallet disalin!')">📋 Salin</button>
         </div>
 
         <div style="margin-top:0.85rem;text-align:center;">
           <button class="btn btn-primary" style="width:100%;justify-content:center;background:#25D366;border-color:#25D366;font-weight:800;" onclick="showOrderFormModal('1thn')">
-            📝 Isi Formulir Pemesanan & Konfirmasi WhatsApp
+            📝 Isi Formulir Pemesanan & Scan QRIS
           </button>
         </div>
       </div>
@@ -945,7 +947,7 @@ function showOrderFormModal(selectedPackage = '1thn') {
 
   const html = `
     <div class="modal-header">
-      <h3>📝 Formulir Pembelian & Konfirmasi Pembayaran PRO</h3>
+      <h3>📝 Formulir Pembelian & Pembayaran QRIS PRO</h3>
       <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
     </div>
     <div class="modal-body">
@@ -984,29 +986,47 @@ function showOrderFormModal(selectedPackage = '1thn') {
         </div>
       </div>
 
-      <!-- Step 2: Rekening Pembayaran -->
+      <!-- Step 2: QRIS GoPay & E-Wallet Pembayaran -->
       <div style="background:var(--surface);border:1.5px solid var(--primary);border-radius:var(--radius-xs);padding:0.9rem;margin-bottom:1.15rem;">
         <div style="font-size:0.86rem;font-weight:800;color:var(--text);margin-bottom:0.5rem;display:flex;justify-content:space-between;align-items:center;">
-          <span>2️⃣ Rekening & E-Wallet Pembayaran:</span>
-          <span id="order-total-badge" style="font-size:0.95rem;font-weight:900;color:var(--primary);">${curPkg.price}</span>
+          <span>2️⃣ Scan Barcode QRIS / Transfer:</span>
+          <span id="order-total-badge" style="font-size:1.05rem;font-weight:900;color:var(--primary);">${curPkg.price}</span>
         </div>
 
-        <div style="background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.7rem;display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
-          <div>
-            <div style="font-size:0.75rem;font-weight:750;color:var(--text-secondary);">DANA / GoPay / OVO / ShopeePay / QRIS:</div>
-            <div style="font-family:var(--font-mono);font-size:1.1rem;font-weight:900;color:var(--primary);letter-spacing:0.04em;">
-              ${OWNER_EWALLET}
-            </div>
-            <div style="font-size:0.72rem;color:var(--text-secondary);">a.n. Ari Hutabarat</div>
+        <!-- QRIS Container Card -->
+        <div style="background:#ffffff;border:1px solid #cbd5e1;border-radius:8px;padding:0.85rem;text-align:center;margin-bottom:0.65rem;box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+          <div style="font-size:0.82rem;font-weight:900;color:#0f172a;margin-bottom:2px;">
+            HAROJUAN SERBA-SERBI, PULSA & INTERNET
           </div>
-          <button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText('${OWNER_EWALLET}');showToast('Nomor ${OWNER_EWALLET} berhasil disalin!')">
-            📋 Salin Nomor
+          <div style="font-size:0.7rem;color:#64748b;margin-bottom:0.5rem;">
+            NMID: <strong>ID1026574838235</strong> • Standar Pembayaran Nasional GPN
+          </div>
+
+          <div style="display:flex;justify-content:center;margin-bottom:0.5rem;">
+            <img src="qris.jpg" alt="QRIS GoPay Harojuan" style="max-width:220px;width:100%;height:auto;border-radius:8px;border:1px solid #e2e8f0;box-shadow:0 4px 12px rgba(0,0,0,0.1);cursor:pointer;" onclick="window.open('qris.jpg','_blank')" title="Klik untuk perbesar QRIS">
+          </div>
+
+          <div style="font-size:0.74rem;color:#334155;font-weight:700;margin-bottom:0.4rem;">
+            📱 Scan via: GoPay, BCA, Mandiri, BRI, BNI, DANA, OVO, ShopeePay, Seabank & Semua M-Banking
+          </div>
+
+          <a href="qris.jpg" download="QRIS-HAROJUAN.jpg" class="btn btn-secondary btn-sm" style="display:inline-flex;padding:0.3rem 0.75rem;font-size:0.72rem;">
+            📥 Download Gambar QRIS
+          </a>
+        </div>
+
+        <!-- Manual E-Wallet Fallback -->
+        <div style="background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.6rem 0.75rem;display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:0.72rem;font-weight:750;color:var(--text-secondary);">Atau Transfer Nomor HP E-Wallet:</div>
+            <div style="font-family:var(--font-mono);font-size:0.95rem;font-weight:900;color:var(--primary);">
+              ${OWNER_EWALLET} <span style="font-size:0.7rem;font-weight:600;color:var(--text-secondary);">(Ari Hutabarat)</span>
+            </div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText('${OWNER_EWALLET}');showToast('Nomor ${OWNER_EWALLET} disalin!')">
+            📋 Salin
           </button>
         </div>
-
-        <p style="font-size:0.75rem;color:var(--text-secondary);margin:0;">
-          💡 Silakan transfer sesuai nominal, lalu klik tombol konfirmasi di bawah untuk kirim bukti transfer ke WhatsApp kami.
-        </p>
       </div>
 
       <!-- Step 3: Tombol Konfirmasi WhatsApp -->
@@ -1052,8 +1072,8 @@ function showOrderFormModal(selectedPackage = '1thn') {
       `• Nama Pemilik / Usaha: ${name}\n` +
       `• Email Terdaftar: ${email}\n` +
       `• Paket Lisensi: ${pkg.name} (${pkg.price})\n` +
-      `• Pembayaran: Transfer E-Wallet / Bank (${OWNER_EWALLET})\n\n` +
-      `(Berikut saya lampirkan bukti transfer pembayaran).\n` +
+      `• Pembayaran: Scan QRIS GoPay / E-Wallet (HAROJUAN SERBA-SERBI, PULSA & INTERNET)\n\n` +
+      `(Berikut saya lampirkan bukti pembayaran QRIS).\n` +
       `Mohon Kunci Lisensi PRO dikirimkan ke email saya. Terima kasih!`;
 
     const url = `https://wa.me/62${OWNER_WHATSAPP.substring(1)}?text=${encodeURIComponent(waMsg)}`;
