@@ -2072,9 +2072,12 @@ function showResellerModal() {
           <span>Total Nilai Titipan:</span>
           <strong style="color:var(--primary);font-size:0.92rem;">Rp ${formatNumber(s.totalOmset)}</strong>
         </div>
-        <div class="reseller-card-actions">
+        <div class="reseller-card-actions" style="grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));">
           <button class="btn btn-primary btn-sm" onclick="showAssignResellerModal('${r.id}')" title="Titip voucher ke warung ini">
             ⚡ Titip Voucher
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="printResellerVouchers('${r.id}')" title="Cetak lembaran voucher untuk warung ini">
+            🖨️ Cetak Voucher
           </button>
           <button class="btn btn-secondary btn-sm" onclick="printSuratJalan('${r.id}')" title="Cetak Surat Jalan Tanda Terima">
             📄 Surat Jalan
@@ -2098,7 +2101,7 @@ function showResellerModal() {
     <div class="modal-body">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem;flex-wrap:wrap;gap:0.5rem;">
         <p style="font-size:0.82rem;color:var(--text-secondary);margin:0;">
-          Kelola mitra warung/agen, titip voucher otomatis per jumlah, dan cetak surat jalan.
+          Kelola mitra warung/agen, titip voucher otomatis per jumlah, dan cetak langsung lembaran/surat jalan.
         </p>
         <div style="display:flex;gap:0.4rem;">
           <button class="btn btn-secondary btn-sm" onclick="showAssignResellerModal()">⚡ Titip Cepat per Jumlah</button>
@@ -2284,6 +2287,46 @@ function deleteReseller(resellerId) {
   showResellerModal();
 }
 
+function printResellerVouchers(resellerId, customVouchers = null) {
+  const reseller = state.resellers.find(r => r.id === resellerId);
+  const layoutVal = state.settings.layout || '25';
+
+  let toPrint = customVouchers;
+  if (!toPrint || toPrint.length === 0) {
+    toPrint = state.vouchers.filter(v => v.resellerId === resellerId && !v.printed);
+    if (toPrint.length === 0) {
+      toPrint = state.vouchers.filter(v => v.resellerId === resellerId);
+    }
+  }
+
+  if (!toPrint || toPrint.length === 0) {
+    showToast(`Tidak ada voucher untuk warung "${reseller ? reseller.name : 'Reseller'}" yang bisa dicetak.`, 'error');
+    return;
+  }
+
+  closeModal();
+
+  buildPrintArea(toPrint, layoutVal);
+
+  toPrint.forEach(v => {
+    v.printed = true;
+    v.printedAt = new Date().toISOString();
+  });
+
+  logActivity('PRINT_RESELLER', `Cetak ${toPrint.length} voucher titipan untuk ${reseller ? reseller.name : 'Warung'}`);
+  saveState();
+  checkStockAlerts();
+  triggerBackgroundAutoSync();
+
+  setTimeout(() => {
+    window.print();
+    renderQuickPOSGrid();
+    renderTable();
+    renderPreview();
+    showToast(`🖨️ Berhasil mencetak ${toPrint.length} voucher titipan untuk "🏪 ${reseller ? reseller.name : 'Warung'}"!`);
+  }, 120);
+}
+
 function showAssignResellerModal(preSelectedResellerId = null) {
   if (!requirePro('Titip Voucher ke Warung Reseller')) return;
 
@@ -2361,8 +2404,8 @@ function showAssignResellerModal(preSelectedResellerId = null) {
           <label for="m-assign-qty-input" style="font-size:0.76rem;font-weight:750;">
             Jumlah Voucher yang Ingin Dititipkan (pcs) *
           </label>
-          <div style="display:flex;gap:0.4rem;align-items:center;">
-            <input type="number" id="m-assign-qty-input" class="form-input" min="1" value="25" style="max-width:120px;font-size:1.05rem;font-weight:850;text-align:center;">
+          <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;">
+            <input type="number" id="m-assign-qty-input" class="form-input" min="1" value="25" style="max-width:110px;font-size:1.05rem;font-weight:850;text-align:center;">
             <button class="btn btn-secondary btn-sm" onclick="$id('m-assign-qty-input').value = 10; updateBatchAssignInfo();">10 pcs</button>
             <button class="btn btn-secondary btn-sm" onclick="$id('m-assign-qty-input').value = 25; updateBatchAssignInfo();">25 pcs</button>
             <button class="btn btn-secondary btn-sm" onclick="$id('m-assign-qty-input').value = 50; updateBatchAssignInfo();">50 pcs</button>
@@ -2395,11 +2438,19 @@ function showAssignResellerModal(preSelectedResellerId = null) {
         </button>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" style="justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
       <button class="btn btn-secondary" onclick="closeModal()">Batal</button>
-      <button class="btn btn-primary" id="btn-execute-assign" style="font-weight:800;padding:0.65rem 1.25rem;">
-        ⚡ Simpan & Titipkan Voucher
-      </button>
+      <div style="display:flex;gap:0.45rem;flex-wrap:wrap;">
+        <button class="btn btn-secondary" id="btn-execute-assign-surat-jalan" style="font-weight:750;" title="Simpan titipan dan langsung cetak Surat Jalan">
+          📄 Simpan & Cetak Surat Jalan
+        </button>
+        <button class="btn btn-secondary" id="btn-execute-assign-print" style="font-weight:750;" title="Simpan titipan dan langsung cetak Lembar Voucher">
+          🖨️ Simpan & Langsung Cetak Voucher
+        </button>
+        <button class="btn btn-primary" id="btn-execute-assign" style="font-weight:800;">
+          ⚡ Simpan Saja
+        </button>
+      </div>
     </div>
   `;
 
@@ -2495,8 +2546,7 @@ function showAssignResellerModal(preSelectedResellerId = null) {
   // Initial calculation
   updateBatchAssignInfo();
 
-  // Execute Allocation
-  on('btn-execute-assign', 'click', () => {
+  function processAssignment(actionAfter = 'none') {
     const targetResId = $id('m-assign-reseller-target')?.value;
     const targetRes = state.resellers.find(r => r.id === targetResId);
 
@@ -2537,9 +2587,22 @@ function showAssignResellerModal(preSelectedResellerId = null) {
     saveState();
     renderTable();
     renderPreview();
-    closeModal();
-    showToast(`⚡ Berhasil menitipkan ${vouchersToAssign.length} voucher ke "🏪 ${targetRes.name}"!`);
-  });
+
+    if (actionAfter === 'print_vouchers') {
+      printResellerVouchers(targetRes.id, vouchersToAssign);
+    } else if (actionAfter === 'print_surat_jalan') {
+      closeModal();
+      printSuratJalan(targetRes.id);
+    } else {
+      closeModal();
+      showToast(`⚡ Berhasil menitipkan ${vouchersToAssign.length} voucher ke "🏪 ${targetRes.name}"!`);
+    }
+  }
+
+  // Action Buttons
+  on('btn-execute-assign', 'click', () => processAssignment('none'));
+  on('btn-execute-assign-print', 'click', () => processAssignment('print_vouchers'));
+  on('btn-execute-assign-surat-jalan', 'click', () => processAssignment('print_surat_jalan'));
 
   // Unassign / Return to Main Stock
   on('btn-unassign-reseller', 'click', () => {
