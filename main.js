@@ -936,46 +936,84 @@ function handleDirectActivateLicense() {
   }
 }
 
+// ===== 💳 DYNAMIC QRIS GENERATOR ENGINE (EMVCo / ASPI STANDARDS) =====
+const BASE_STATIC_QRIS = "00020101021126610014COM.GO-JEK.WWW01189360091439005151990210G9005151990303UMI51440014ID.CO.QRIS.WWW0215ID10265748382350303UMI5204481453033605802ID5925harojuan serba-serbi, Pul6010JAYAWIJAYA61059951162070703A0163045415";
+
+function calculateCRC16(str) {
+  let crc = 0xFFFF;
+  for (let c = 0; c < str.length; c++) {
+    crc ^= str.charCodeAt(c) << 8;
+    for (let i = 0; i < 8; i++) {
+      if (crc & 0x8000) {
+        crc = ((crc << 1) ^ 0x1021) & 0xFFFF;
+      } else {
+        crc = (crc << 1) & 0xFFFF;
+      }
+    }
+  }
+  let hex = crc.toString(16).toUpperCase();
+  while (hex.length < 4) hex = '0' + hex;
+  return hex;
+}
+
+function buildDynamicQRISPayload(nominalAmount) {
+  let payload = BASE_STATIC_QRIS.slice(0, -4); // Buang checksum lama
+  payload = payload.replace("010211", "010212"); // Ubah dari 11 (Statis) jadi 12 (Dinamis)
+  
+  // Sisipkan Tag 54 (Transaction Amount) tepat setelah Tag 53 (5303360)
+  const tag53 = "5303360";
+  const amountStr = nominalAmount.toString();
+  const tag54Len = (amountStr.length < 10 ? '0' : '') + amountStr.length;
+  const tag54 = `54${tag54Len}${amountStr}`;
+  
+  const tag53Index = payload.indexOf(tag53);
+  if (tag53Index !== -1) {
+    const insertPos = tag53Index + tag53.length;
+    payload = payload.slice(0, insertPos) + tag54 + payload.slice(insertPos);
+  }
+  
+  const newCRC = calculateCRC16(payload);
+  return payload + newCRC;
+}
+
 function showOrderFormModal(selectedPackage = '1thn') {
   const packages = {
-    '1bln': { name: 'Paket 1 Bulan (Starter)', price: 'Rp 25.000', code: '1BLN' },
-    '1thn': { name: '🏢 Paket 1 Tahun (Teknisi - Best Value)', price: 'Rp 175.000', code: '1THN' },
-    'lifetime': { name: '👑 Paket Lifetime Pro (Sekali Bayar Selamanya)', price: 'Rp 299.000', code: 'LIFETIME' }
+    '1bln': { name: 'Paket 1 Bulan (Starter)', basePrice: 25000, priceStr: 'Rp 25.000', code: '1BLN' },
+    '1thn': { name: '🏢 Paket 1 Tahun (Teknisi - Best Value)', basePrice: 175000, priceStr: 'Rp 175.000', code: '1THN' },
+    'lifetime': { name: '👑 Paket Lifetime Pro (Sekali Bayar Selamanya)', basePrice: 299000, priceStr: 'Rp 299.000', code: 'LIFETIME' }
   };
 
-  const curPkg = packages[selectedPackage] || packages['1thn'];
+  // Generate 3-Digit Unique Code for instant verification
+  const uniqueCode = Math.floor(100 + Math.random() * 899);
 
   const html = `
     <div class="modal-header">
-      <h3>📝 Formulir Pembelian & Pembayaran QRIS PRO</h3>
+      <h3>⚡ Checkout & QRIS Dinamis Otomatis PRO</h3>
       <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" style="max-height:82vh;overflow-y:auto;">
       <!-- Step 1: Data Pembeli -->
-      <div style="background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.9rem;margin-bottom:1rem;">
-        <div style="font-size:0.86rem;font-weight:800;color:var(--primary);margin-bottom:0.6rem;">
-          1️⃣ Data Pembeli (Wajib untuk Lisensi & Database Cloud):
+      <div style="background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.85rem;margin-bottom:0.85rem;">
+        <div style="font-size:0.84rem;font-weight:800;color:var(--primary);margin-bottom:0.5rem;">
+          1️⃣ Data Lisensi Pembeli:
         </div>
 
-        <div class="form-group" style="margin-bottom:0.6rem;">
-          <label for="order-email" style="font-size:0.78rem;font-weight:750;color:var(--text);">
+        <div class="form-group" style="margin-bottom:0.5rem;">
+          <label for="order-email" style="font-size:0.76rem;font-weight:750;color:var(--text);">
             📧 Alamat Email Anda <span style="color:var(--danger);font-weight:800;">*</span>
           </label>
           <input type="email" id="order-email" class="form-input" placeholder="contoh: warkopbudi@gmail.com" value="${esc(state.proLicense?.email || '')}" required>
-          <small style="font-size:0.7rem;color:var(--text-secondary);display:block;margin-top:2px;">
-            Kunci lisensi akan terikat ke email ini agar bisa digunakan di HP & Laptop Anda.
-          </small>
         </div>
 
-        <div class="form-group" style="margin-bottom:0.6rem;">
-          <label for="order-name" style="font-size:0.78rem;font-weight:750;color:var(--text);">
-            👤 Nama Pemilik / Nama Usaha Hotspot <span style="color:var(--danger);font-weight:800;">*</span>
+        <div class="form-group" style="margin-bottom:0.5rem;">
+          <label for="order-name" style="font-size:0.76rem;font-weight:750;color:var(--text);">
+            👤 Nama Pemilik / Nama Usaha <span style="color:var(--danger);font-weight:800;">*</span>
           </label>
           <input type="text" id="order-name" class="form-input" placeholder="contoh: Budi (Warkop Net)" required>
         </div>
 
-        <div class="form-group" style="margin-bottom:0.3rem;">
-          <label for="order-plan-select" style="font-size:0.78rem;font-weight:750;color:var(--text);">
+        <div class="form-group" style="margin-bottom:0.2rem;">
+          <label for="order-plan-select" style="font-size:0.76rem;font-weight:750;color:var(--text);">
             📦 Pilihan Paket Lisensi
           </label>
           <select id="order-plan-select" class="form-input" style="font-weight:750;">
@@ -986,44 +1024,58 @@ function showOrderFormModal(selectedPackage = '1thn') {
         </div>
       </div>
 
-      <!-- Step 2: QRIS GoPay & E-Wallet Pembayaran -->
-      <div style="background:var(--surface);border:1.5px solid var(--primary);border-radius:var(--radius-xs);padding:0.9rem;margin-bottom:1.15rem;">
-        <div style="font-size:0.86rem;font-weight:800;color:var(--text);margin-bottom:0.5rem;display:flex;justify-content:space-between;align-items:center;">
-          <span>2️⃣ Scan Barcode QRIS / Transfer:</span>
-          <span id="order-total-badge" style="font-size:1.05rem;font-weight:900;color:var(--primary);">${curPkg.price}</span>
+      <!-- Step 2: Dynamic QRIS Card -->
+      <div style="background:var(--surface);border:2px solid var(--primary);border-radius:10px;padding:0.9rem;margin-bottom:1rem;box-shadow:0 6px 20px rgba(37,99,235,0.08);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem;">
+          <div style="font-size:0.84rem;font-weight:850;color:var(--text);">
+            2️⃣ Scan QRIS Dinamis (Nominal Terkunci):
+          </div>
+          <span id="order-total-badge" style="font-size:1.15rem;font-weight:900;color:var(--primary);letter-spacing:0.02em;">Rp 0</span>
         </div>
 
-        <!-- QRIS Container Card -->
-        <div style="background:#ffffff;border:1px solid #cbd5e1;border-radius:8px;padding:0.85rem;text-align:center;margin-bottom:0.65rem;box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+        <!-- Dynamic QRIS Box -->
+        <div style="background:#ffffff;border:1px solid #cbd5e1;border-radius:8px;padding:0.85rem;text-align:center;margin-bottom:0.6rem;">
           <div style="font-size:0.82rem;font-weight:900;color:#0f172a;margin-bottom:2px;">
             HAROJUAN SERBA-SERBI, PULSA & INTERNET
           </div>
           <div style="font-size:0.7rem;color:#64748b;margin-bottom:0.5rem;">
-            NMID: <strong>ID1026574838235</strong> • Standar Pembayaran Nasional GPN
+            NMID: <strong>ID1026574838235</strong> • GPN QRIS Standar Nasional
           </div>
 
-          <div style="display:flex;justify-content:center;margin-bottom:0.5rem;">
-            <img src="qris.jpg" alt="QRIS GoPay Harojuan" style="max-width:220px;width:100%;height:auto;border-radius:8px;border:1px solid #e2e8f0;box-shadow:0 4px 12px rgba(0,0,0,0.1);cursor:pointer;" onclick="window.open('qris.jpg','_blank')" title="Klik untuk perbesar QRIS">
+          <!-- Dynamic QR Container -->
+          <div id="dynamic-qris-box" style="display:flex;justify-content:center;align-items:center;min-height:210px;margin:0.5rem 0;background:#fff;padding:8px;border-radius:6px;border:1px dashed #cbd5e1;">
+            <!-- QRCode rendered dynamically here -->
           </div>
 
-          <div style="font-size:0.74rem;color:#334155;font-weight:700;margin-bottom:0.4rem;">
-            📱 Scan via: GoPay, BCA, Mandiri, BRI, BNI, DANA, OVO, ShopeePay, Seabank & Semua M-Banking
+          <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:0.5rem;margin:0.5rem 0;font-size:0.75rem;color:#1e40af;text-align:left;">
+            <div style="font-weight:800;display:flex;justify-content:space-between;margin-bottom:2px;">
+              <span>Total Tagihan:</span>
+              <span id="dyn-total-breakdown" style="font-weight:900;color:#1d4ed8;">Rp 0</span>
+            </div>
+            <div style="font-size:0.68rem;color:#3b82f6;line-height:1.35;">
+              ⚡ <em>Nominal otomatis terkunci di layar HP Anda saat scan di GoPay, BCA, Mandiri, BRI, BNI, DANA, OVO, ShopeePay (tanpa perlu ketik manual!).</em>
+            </div>
           </div>
 
-          <a href="qris.jpg" download="QRIS-HAROJUAN.jpg" class="btn btn-secondary btn-sm" style="display:inline-flex;padding:0.3rem 0.75rem;font-size:0.72rem;">
-            📥 Download Gambar QRIS
-          </a>
+          <div style="display:flex;justify-content:center;gap:0.5rem;flex-wrap:wrap;margin-top:0.4rem;">
+            <button class="btn btn-secondary btn-sm" id="btn-download-dynamic-qr" style="font-size:0.72rem;padding:0.3rem 0.65rem;">
+              📥 Unduh QRIS Dinamis
+            </button>
+            <button class="btn btn-secondary btn-sm" id="btn-copy-nominal" style="font-size:0.72rem;padding:0.3rem 0.65rem;">
+              📋 Salin Total Nominal
+            </button>
+          </div>
         </div>
 
         <!-- Manual E-Wallet Fallback -->
-        <div style="background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.6rem 0.75rem;display:flex;justify-content:space-between;align-items:center;">
+        <div style="background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.55rem 0.75rem;display:flex;justify-content:space-between;align-items:center;">
           <div>
-            <div style="font-size:0.72rem;font-weight:750;color:var(--text-secondary);">Atau Transfer Nomor HP E-Wallet:</div>
-            <div style="font-family:var(--font-mono);font-size:0.95rem;font-weight:900;color:var(--primary);">
-              ${OWNER_EWALLET} <span style="font-size:0.7rem;font-weight:600;color:var(--text-secondary);">(Ari Hutabarat)</span>
+            <div style="font-size:0.7rem;font-weight:750;color:var(--text-secondary);">Atau Transfer Nomor E-Wallet:</div>
+            <div style="font-family:var(--font-mono);font-size:0.92rem;font-weight:900;color:var(--primary);">
+              ${OWNER_EWALLET} <span style="font-size:0.68rem;font-weight:600;color:var(--text-secondary);">(Ari Hutabarat)</span>
             </div>
           </div>
-          <button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText('${OWNER_EWALLET}');showToast('Nomor ${OWNER_EWALLET} disalin!')">
+          <button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText('${OWNER_EWALLET}');showToast('Nomor E-Wallet disalin!')">
             📋 Salin
           </button>
         </div>
@@ -1043,12 +1095,64 @@ function showOrderFormModal(selectedPackage = '1thn') {
 
   const planSelect = $id('order-plan-select');
   const totalBadge = $id('order-total-badge');
-  if (planSelect && totalBadge) {
+  const breakdownEl = $id('dyn-total-breakdown');
+  const qrisBox = $id('dynamic-qris-box');
+
+  let currentTotalNominal = 0;
+  let currentDynamicPayload = '';
+
+  function renderSelectedDynamicQR(planKey) {
+    const pkg = packages[planKey] || packages['1thn'];
+    currentTotalNominal = pkg.basePrice + uniqueCode;
+    currentDynamicPayload = buildDynamicQRISPayload(currentTotalNominal);
+
+    const formatted = 'Rp ' + currentTotalNominal.toLocaleString('id-ID');
+    if (totalBadge) totalBadge.textContent = formatted;
+    if (breakdownEl) breakdownEl.textContent = `${formatted} (Paket ${pkg.priceStr} + Kode Unik Rp ${uniqueCode})`;
+
+    if (qrisBox) {
+      qrisBox.innerHTML = '';
+      if (typeof QRCode !== 'undefined') {
+        new QRCode(qrisBox, {
+          text: currentDynamicPayload,
+          width: 190,
+          height: 190,
+          colorDark: "#000000",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      } else {
+        qrisBox.innerHTML = `<img src="qris.jpg" style="max-width:190px;height:auto;border-radius:4px;">`;
+      }
+    }
+  }
+
+  // Initial render
+  renderSelectedDynamicQR(selectedPackage);
+
+  if (planSelect) {
     planSelect.addEventListener('change', () => {
-      const p = packages[planSelect.value] || packages['1thn'];
-      totalBadge.textContent = p.price;
+      renderSelectedDynamicQR(planSelect.value);
     });
   }
+
+  on('btn-copy-nominal', 'click', () => {
+    navigator.clipboard.writeText(currentTotalNominal.toString());
+    showToast(`Nominal Rp ${currentTotalNominal.toLocaleString('id-ID')} berhasil disalin!`);
+  });
+
+  on('btn-download-dynamic-qr', 'click', () => {
+    const canvas = qrisBox?.querySelector('canvas');
+    if (canvas) {
+      const link = document.createElement('a');
+      link.download = `QRIS-HAROJUAN-${currentTotalNominal}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      showToast('QRIS Dinamis berhasil diunduh!');
+    } else {
+      window.open('qris.jpg', '_blank');
+    }
+  });
 
   on('btn-submit-order-wa', 'click', () => {
     const email = ($id('order-email')?.value || '').trim();
@@ -1071,9 +1175,10 @@ function showOrderFormModal(selectedPackage = '1thn') {
       `📋 FORMULIR PEMBELIAN:\n` +
       `• Nama Pemilik / Usaha: ${name}\n` +
       `• Email Terdaftar: ${email}\n` +
-      `• Paket Lisensi: ${pkg.name} (${pkg.price})\n` +
-      `• Pembayaran: Scan QRIS GoPay / E-Wallet (HAROJUAN SERBA-SERBI, PULSA & INTERNET)\n\n` +
-      `(Berikut saya lampirkan bukti pembayaran QRIS).\n` +
+      `• Paket Lisensi: ${pkg.name}\n` +
+      `• Total Transfer: Rp ${currentTotalNominal.toLocaleString('id-ID')} (Termasuk Kode Unik: ${uniqueCode})\n` +
+      `• Metode Pembayaran: Scan QRIS GoPay Dinamis (HAROJUAN SERBA-SERBI, PULSA & INTERNET)\n\n` +
+      `(Berikut saya lampirkan bukti scan QRIS dinamis).\n` +
       `Mohon Kunci Lisensi PRO dikirimkan ke email saya. Terima kasih!`;
 
     const url = `https://wa.me/62${OWNER_WHATSAPP.substring(1)}?text=${encodeURIComponent(waMsg)}`;
