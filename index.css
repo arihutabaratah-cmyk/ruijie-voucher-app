@@ -2219,6 +2219,21 @@ select.form-input {
   margin-top: 0.2rem;
 }
 
+.reseller-card-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--border);
+}
+
+.reseller-card-actions .btn {
+  font-size: 0.72rem;
+  padding: 0.3rem 0.45rem;
+  justify-content: center;
+}
+
 /* PIN Keypad */
 .pin-input-wrap {
   display: flex;

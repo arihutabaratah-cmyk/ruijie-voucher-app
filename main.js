@@ -2035,7 +2035,7 @@ function showResellerModal() {
 
   const resellerStats = {};
   state.resellers.forEach(r => {
-    resellerStats[r.id] = { reseller: r, totalVouchers: 0, printedVouchers: 0, unprintedVouchers: 0, totalOmset: 0, piutang: 0 };
+    resellerStats[r.id] = { reseller: r, totalVouchers: 0, printedVouchers: 0, unprintedVouchers: 0, totalOmset: 0 };
   });
 
   state.vouchers.forEach(v => {
@@ -2050,21 +2050,41 @@ function showResellerModal() {
   });
 
   const cardsHtml = state.resellers.map(r => {
-    const s = resellerStats[r.id];
+    const s = resellerStats[r.id] || { totalVouchers: 0, printedVouchers: 0, unprintedVouchers: 0, totalOmset: 0 };
     return `
-      <div class="reseller-card">
+      <div class="reseller-card" id="reseller-card-${r.id}">
         <div class="reseller-card-header">
           <div class="reseller-name">🏪 ${esc(r.name)}</div>
-          <button class="btn btn-secondary btn-sm" onclick="printSuratJalan('${r.id}')" title="Cetak Surat Jalan Titip Voucher">📄 Surat Jalan</button>
+          <span class="badge" style="background:var(--primary-light);color:var(--primary);font-size:0.72rem;font-weight:800;">
+            ${s.totalVouchers} pcs Dititip
+          </span>
         </div>
-        <div class="reseller-meta">📞 ${esc(r.phone || '-')} • 📍 ${esc(r.address || '-')}</div>
+        <div class="reseller-meta">
+          <div>📞 <strong>${esc(r.phone || '-')}</strong> • 📍 ${esc(r.address || '-')}</div>
+          ${r.note ? `<div style="font-style:italic;color:var(--text-muted);margin-top:2px;">📝 ${esc(r.note)}</div>` : ''}
+        </div>
         <div class="reseller-stat-row">
           <span>Stok Dititip: <strong>${s.totalVouchers} pcs</strong></span>
           <span style="color:var(--success);">Terjual: <strong>${s.printedVouchers} pcs</strong></span>
+          <span style="color:var(--warning);">Sisa: <strong>${s.unprintedVouchers} pcs</strong></span>
         </div>
         <div class="reseller-stat-row">
-          <span>Nilai Titipan:</span>
-          <strong style="color:var(--primary);">Rp ${formatNumber(s.totalOmset)}</strong>
+          <span>Total Nilai Titipan:</span>
+          <strong style="color:var(--primary);font-size:0.92rem;">Rp ${formatNumber(s.totalOmset)}</strong>
+        </div>
+        <div class="reseller-card-actions">
+          <button class="btn btn-primary btn-sm" onclick="showAssignResellerModal('${r.id}')" title="Titip voucher ke warung ini">
+            ⚡ Titip Voucher
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="printSuratJalan('${r.id}')" title="Cetak Surat Jalan Tanda Terima">
+            📄 Surat Jalan
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="showEditResellerForm('${r.id}')" title="Edit Data Warung">
+            ✏️ Edit Profil
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="deleteReseller('${r.id}')" title="Hapus Warung">
+            🗑️ Hapus
+          </button>
         </div>
       </div>
     `;
@@ -2076,13 +2096,18 @@ function showResellerModal() {
       <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
     </div>
     <div class="modal-body">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem;">
-        <p style="font-size:0.82rem;color:var(--text-secondary);">Kelola warung/agen tempat menitipkan voucher WiFi dan pantau piutang.</p>
-        <button class="btn btn-primary btn-sm" id="btn-add-new-reseller">＋ Tambah Reseller</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem;flex-wrap:wrap;gap:0.5rem;">
+        <p style="font-size:0.82rem;color:var(--text-secondary);margin:0;">
+          Kelola mitra warung/agen, titip voucher otomatis per jumlah, dan cetak surat jalan.
+        </p>
+        <div style="display:flex;gap:0.4rem;">
+          <button class="btn btn-secondary btn-sm" onclick="showAssignResellerModal()">⚡ Titip Cepat per Jumlah</button>
+          <button class="btn btn-primary btn-sm" id="btn-add-new-reseller">＋ Tambah Reseller</button>
+        </div>
       </div>
 
       <div class="reseller-card-grid">
-        ${cardsHtml || '<div style="color:var(--text-muted);">Belum ada reseller. Klik "Tambah Reseller" untuk mulai.</div>'}
+        ${cardsHtml || '<div style="color:var(--text-muted);padding:1.5rem;text-align:center;background:var(--surface-alt);border-radius:var(--radius-xs);border:1px dashed var(--border);">Belum ada reseller. Klik "Tambah Reseller" untuk mulai mendaftarkan warung mitra.</div>'}
       </div>
     </div>
     <div class="modal-footer">
@@ -2147,6 +2172,7 @@ function showAddResellerForm() {
     };
 
     state.resellers.push(newRes);
+    logActivity('RESELLER_ADD', `Menambah reseller baru: ${name}`);
     saveState();
     renderResellerFilterSelect();
     showToast(`Reseller "${name}" berhasil ditambahkan!`);
@@ -2154,57 +2180,405 @@ function showAddResellerForm() {
   });
 }
 
-function showAssignResellerModal() {
-  if (!requirePro('Titip Voucher ke Warung Reseller')) return;
-
-  const selected = getSelectedVouchers();
-  if (selected.length === 0) {
-    showToast('Pilih voucher yang ingin dititipkan dengan mencentang kotak ceklis.', 'error');
-    return;
-  }
-
-  const optionsHtml = state.resellers.map(r => `<option value="${r.id}">🏪 ${esc(r.name)} (${esc(r.phone || '-')})</option>`).join('');
+function showEditResellerForm(resellerId) {
+  const reseller = state.resellers.find(r => r.id === resellerId);
+  if (!reseller) return;
 
   const html = `
     <div class="modal-header">
-      <h3>Titipkan ${selected.length} Voucher ke Warung/Agen</h3>
-      <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
+      <h3>✏️ Edit Profil Reseller / Warung</h3>
+      <button class="btn-icon" onclick="showResellerModal()" title="Kembali">✕</button>
     </div>
     <div class="modal-body">
-      <p style="font-size:0.85rem;color:var(--text);margin-bottom:0.85rem;">
-        Anda akan menandai <strong>${selected.length}</strong> voucher terpilih sebagai titipan ke reseller berikut:
-      </p>
-      <div class="form-group">
-        <label for="m-assign-reseller-select">Pilih Reseller / Warung *</label>
-        <select id="m-assign-reseller-select" class="form-input">
-          <option value="">-- Batal Titip / Hapus Status Reseller --</option>
-          ${optionsHtml}
-        </select>
+      <div class="modal-form">
+        <div class="form-group">
+          <label for="m-edit-res-name">Nama Warung / Agen *</label>
+          <input type="text" id="m-edit-res-name" class="form-input" value="${esc(reseller.name)}" required autofocus>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="m-edit-res-phone">No. WhatsApp / HP</label>
+            <input type="text" id="m-edit-res-phone" class="form-input" value="${esc(reseller.phone || '')}" placeholder="Contoh: 08123456789">
+          </div>
+          <div class="form-group">
+            <label for="m-edit-res-address">Alamat / Lokasi</label>
+            <input type="text" id="m-edit-res-address" class="form-input" value="${esc(reseller.address || '')}" placeholder="Contoh: Jl. Melati No. 12">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="m-edit-res-note">Catatan / Perjanjian Bagi Hasil</label>
+          <input type="text" id="m-edit-res-note" class="form-input" value="${esc(reseller.note || '')}" placeholder="Contoh: Fee warung Rp 500/voucher, setoran tiap Sabtu">
+        </div>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal()">Batal</button>
-      <button class="btn btn-primary" id="btn-confirm-assign-reseller">Simpan Penugasan</button>
+      <button class="btn btn-secondary" onclick="showResellerModal()">Batal</button>
+      <button class="btn btn-primary" id="btn-update-reseller">Simpan Perubahan</button>
     </div>
   `;
 
   openModal(html);
 
-  on('btn-confirm-assign-reseller', () => {
-    const resId = $id('m-assign-reseller-select')?.value;
-    const targetRes = state.resellers.find(r => r.id === resId);
+  on('btn-update-reseller', () => {
+    const updatedName = ($id('m-edit-res-name')?.value || '').trim();
+    if (!updatedName) {
+      showToast('Nama reseller wajib diisi!', 'error');
+      $id('m-edit-res-name')?.focus();
+      return;
+    }
 
-    selected.forEach(v => {
-      v.resellerId = resId || null;
-      v.resellerName = targetRes ? targetRes.name : null;
+    reseller.name = updatedName;
+    reseller.phone = ($id('m-edit-res-phone')?.value || '').trim();
+    reseller.address = ($id('m-edit-res-address')?.value || '').trim();
+    reseller.note = ($id('m-edit-res-note')?.value || '').trim();
+
+    // Synchronize resellerName on all assigned vouchers
+    state.vouchers.forEach(v => {
+      if (v.resellerId === resellerId) {
+        v.resellerName = updatedName;
+      }
     });
 
-    logActivity('STATUS_CHANGE', `Titipkan ${selected.length} voucher ke ${targetRes ? targetRes.name : 'Langsung'}`);
+    logActivity('RESELLER_EDIT', `Mengubah data reseller: ${updatedName}`);
+    saveState();
+    renderResellerFilterSelect();
+    renderTable();
+    showToast(`Profil reseller "${updatedName}" berhasil diperbarui!`);
+    showResellerModal();
+  });
+}
+
+function deleteReseller(resellerId) {
+  const reseller = state.resellers.find(r => r.id === resellerId);
+  if (!reseller) return;
+
+  const assignedCount = state.vouchers.filter(v => v.resellerId === resellerId).length;
+
+  let confirmMsg = `Yakin ingin menghapus profil reseller "🏪 ${reseller.name}"?`;
+  if (assignedCount > 0) {
+    confirmMsg += `\n\n⚠️ Terdapat ${assignedCount} voucher yang saat ini berstatus dititipkan ke warung ini. Voucher tersebut akan dikembalikan ke status stok utama (Langsung / Unassigned).`;
+  }
+
+  if (!confirm(confirmMsg)) return;
+
+  // Unassign vouchers
+  state.vouchers.forEach(v => {
+    if (v.resellerId === resellerId) {
+      v.resellerId = null;
+      v.resellerName = null;
+    }
+  });
+
+  // Remove reseller
+  state.resellers = state.resellers.filter(r => r.id !== resellerId);
+  if (state.filterReseller === resellerId) {
+    state.filterReseller = 'all';
+  }
+
+  logActivity('RESELLER_DELETE', `Menghapus reseller ${reseller.name} (${assignedCount} voucher dikembalikan ke stok utama)`);
+  saveState();
+  renderResellerFilterSelect();
+  renderTable();
+  renderPreview();
+  showToast(`Reseller "${reseller.name}" berhasil dihapus.`);
+  showResellerModal();
+}
+
+function showAssignResellerModal(preSelectedResellerId = null) {
+  if (!requirePro('Titip Voucher ke Warung Reseller')) return;
+
+  if (state.resellers.length === 0) {
+    showToast('Belum ada data warung/reseller. Silakan tambah reseller terlebih dahulu.', 'warning');
+    showAddResellerForm();
+    return;
+  }
+
+  const checkedVouchers = getSelectedVouchers();
+  const hasManualChecked = checkedVouchers.length > 0;
+
+  // Distinct packages for filtering
+  const distinctPackages = Array.from(new Set(state.vouchers.map(v => v.paket || 'Reguler'))).filter(Boolean);
+
+  const resellerOptionsHtml = state.resellers.map(r => `
+    <option value="${r.id}" ${preSelectedResellerId === r.id ? 'selected' : ''}>
+      🏪 ${esc(r.name)} (${esc(r.phone || '-')})
+    </option>
+  `).join('');
+
+  const packageOptionsHtml = distinctPackages.map(pkg => `
+    <option value="${esc(pkg)}">Paket: ${esc(pkg)}</option>
+  `).join('');
+
+  const html = `
+    <div class="modal-header">
+      <h3>⚡ Alokasi Titip Voucher ke Warung / Reseller</h3>
+      <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Mode Tabs -->
+      <div style="display:flex;gap:0.5rem;margin-bottom:1rem;border-bottom:1px solid var(--border);padding-bottom:0.5rem;">
+        <button class="filter-tab ${!hasManualChecked ? 'active' : ''}" id="tab-assign-batch" style="font-size:0.8rem;">
+          ⚡ Alokasi Cepat (Berapa Voucher)
+        </button>
+        <button class="filter-tab ${hasManualChecked ? 'active' : ''}" id="tab-assign-checked" style="font-size:0.8rem;">
+          📋 Dari Centang Tabel (${checkedVouchers.length} Terpilih)
+        </button>
+      </div>
+
+      <!-- Reseller Target Selector -->
+      <div class="form-group" style="margin-bottom:0.85rem;">
+        <label for="m-assign-reseller-target" style="font-weight:750;">Pilih Warung / Reseller Tujuan *</label>
+        <select id="m-assign-reseller-target" class="form-input" style="font-weight:750;">
+          ${resellerOptionsHtml}
+        </select>
+      </div>
+
+      <!-- Section A: Batch Quantity Allocation (No Manual Clicks Required!) -->
+      <div id="section-assign-batch" style="display:${!hasManualChecked ? 'block' : 'none'};background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.9rem;margin-bottom:1rem;">
+        <div style="font-size:0.84rem;font-weight:800;color:var(--primary);margin-bottom:0.6rem;">
+          📦 Alokasi Otomatis Berdasarkan Jumlah Voucher:
+        </div>
+
+        <div class="form-row" style="margin-bottom:0.6rem;">
+          <div class="form-group">
+            <label for="m-assign-pkg-filter" style="font-size:0.76rem;font-weight:750;">Filter Paket Voucher</label>
+            <select id="m-assign-pkg-filter" class="form-input">
+              <option value="all">Semua Paket</option>
+              ${packageOptionsHtml}
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="m-assign-status-filter" style="font-size:0.76rem;font-weight:750;">Ambil Dari Voucher</label>
+            <select id="m-assign-status-filter" class="form-input">
+              <option value="unassigned_unprinted" selected>Belum Dititip & Belum Terjual</option>
+              <option value="unassigned_all">Semua yang Belum Dititip</option>
+              <option value="all_unprinted">Semua yang Belum Terjual</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0.6rem;">
+          <label for="m-assign-qty-input" style="font-size:0.76rem;font-weight:750;">
+            Jumlah Voucher yang Ingin Dititipkan (pcs) *
+          </label>
+          <div style="display:flex;gap:0.4rem;align-items:center;">
+            <input type="number" id="m-assign-qty-input" class="form-input" min="1" value="25" style="max-width:120px;font-size:1.05rem;font-weight:850;text-align:center;">
+            <button class="btn btn-secondary btn-sm" onclick="$id('m-assign-qty-input').value = 10; updateBatchAssignInfo();">10 pcs</button>
+            <button class="btn btn-secondary btn-sm" onclick="$id('m-assign-qty-input').value = 25; updateBatchAssignInfo();">25 pcs</button>
+            <button class="btn btn-secondary btn-sm" onclick="$id('m-assign-qty-input').value = 50; updateBatchAssignInfo();">50 pcs</button>
+            <button class="btn btn-secondary btn-sm" onclick="$id('m-assign-qty-input').value = 100; updateBatchAssignInfo();">100 pcs</button>
+            <button class="btn btn-secondary btn-sm" id="btn-assign-all-avail">Semua Sisa</button>
+          </div>
+        </div>
+
+        <!-- Live Stock & Omset Info -->
+        <div id="m-assign-live-info" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:0.6rem 0.8rem;font-size:0.78rem;color:#1e40af;line-height:1.4;">
+          <!-- Will be updated dynamically -->
+        </div>
+      </div>
+
+      <!-- Section B: From Table Checkboxes -->
+      <div id="section-assign-checked" style="display:${hasManualChecked ? 'block' : 'none'};background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.9rem;margin-bottom:1rem;">
+        <div style="font-size:0.84rem;font-weight:800;color:var(--primary);margin-bottom:0.4rem;">
+          📋 Titipkan Baris yang Dicentang:
+        </div>
+        <p style="font-size:0.82rem;color:var(--text);margin:0;">
+          Anda sedang memilih <strong>${checkedVouchers.length}</strong> voucher dari tabel.
+        </p>
+      </div>
+
+      <!-- Action: Reset / Tarik Kembali ke Stok Utama -->
+      <div style="background:var(--surface);border:1px dashed var(--border);border-radius:var(--radius-xs);padding:0.6rem 0.8rem;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:0.75rem;color:var(--text-secondary);">Ingin menarik kembali voucher dari warung?</span>
+        <button class="btn btn-secondary btn-sm" id="btn-unassign-reseller" style="font-size:0.72rem;color:var(--danger);">
+          ↩️ Tarik Kembali ke Stok Utama
+        </button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Batal</button>
+      <button class="btn btn-primary" id="btn-execute-assign" style="font-weight:800;padding:0.65rem 1.25rem;">
+        ⚡ Simpan & Titipkan Voucher
+      </button>
+    </div>
+  `;
+
+  openModal(html, 'modal-medium');
+
+  let activeTab = hasManualChecked ? 'checked' : 'batch';
+
+  const tabBatch = $id('tab-assign-batch');
+  const tabChecked = $id('tab-assign-checked');
+  const secBatch = $id('section-assign-batch');
+  const secChecked = $id('section-assign-checked');
+  const pkgFilter = $id('m-assign-pkg-filter');
+  const statusFilter = $id('m-assign-status-filter');
+  const qtyInput = $id('m-assign-qty-input');
+  const liveInfo = $id('m-assign-live-info');
+
+  function getAvailableCandidates() {
+    const selectedPkg = pkgFilter?.value || 'all';
+    const selectedStatus = statusFilter?.value || 'unassigned_unprinted';
+
+    return state.vouchers.filter(v => {
+      // Package filter
+      if (selectedPkg !== 'all' && (v.paket || 'Reguler') !== selectedPkg) return false;
+
+      // Status filter
+      if (selectedStatus === 'unassigned_unprinted') {
+        return !v.resellerId && !v.printed;
+      } else if (selectedStatus === 'unassigned_all') {
+        return !v.resellerId;
+      } else if (selectedStatus === 'all_unprinted') {
+        return !v.printed;
+      }
+      return true;
+    });
+  }
+
+  function updateBatchAssignInfo() {
+    if (!liveInfo) return;
+    const candidates = getAvailableCandidates();
+    const qty = parseInt(qtyInput?.value || '0', 10);
+    const targetResId = $id('m-assign-reseller-target')?.value;
+    const targetRes = state.resellers.find(r => r.id === targetResId);
+
+    const actualAssign = Math.min(qty, candidates.length);
+    let sampleVal = 0;
+    for (let i = 0; i < actualAssign; i++) {
+      sampleVal += parseFloat(String(candidates[i].harga).replace(/[^\d.]/g, '')) || 0;
+    }
+
+    liveInfo.innerHTML = `
+      <div>📦 <strong>Tersedia:</strong> ${candidates.length} voucher siap dititipkan.</div>
+      <div>🏪 <strong>Target Warung:</strong> ${targetRes ? esc(targetRes.name) : '-'}</div>
+      <div>⚡ <strong>Akan Dititipkan:</strong> ${actualAssign} voucher (Estimasi Nilai Titipan: <strong>Rp ${formatNumber(sampleVal)}</strong>)</div>
+    `;
+
+    if (candidates.length === 0) {
+      liveInfo.innerHTML = `<span style="color:#b91c1c;">⚠️ Tidak ada voucher yang sesuai dengan filter di atas. Import atau tambah voucher terlebih dahulu.</span>`;
+    }
+  }
+
+  window.updateBatchAssignInfo = updateBatchAssignInfo;
+
+  if (tabBatch && tabChecked && secBatch && secChecked) {
+    tabBatch.addEventListener('click', () => {
+      activeTab = 'batch';
+      tabBatch.classList.add('active');
+      tabChecked.classList.remove('active');
+      secBatch.style.display = 'block';
+      secChecked.style.display = 'none';
+      updateBatchAssignInfo();
+    });
+
+    tabChecked.addEventListener('click', () => {
+      activeTab = 'checked';
+      tabChecked.classList.add('active');
+      tabBatch.classList.remove('active');
+      secBatch.style.display = 'none';
+      secChecked.style.display = 'block';
+    });
+  }
+
+  if (pkgFilter) pkgFilter.addEventListener('change', updateBatchAssignInfo);
+  if (statusFilter) statusFilter.addEventListener('change', updateBatchAssignInfo);
+  if (qtyInput) qtyInput.addEventListener('input', updateBatchAssignInfo);
+  if ($id('m-assign-reseller-target')) $id('m-assign-reseller-target').addEventListener('change', updateBatchAssignInfo);
+
+  on('btn-assign-all-avail', 'click', () => {
+    const candidates = getAvailableCandidates();
+    if (qtyInput) qtyInput.value = candidates.length;
+    updateBatchAssignInfo();
+  });
+
+  // Initial calculation
+  updateBatchAssignInfo();
+
+  // Execute Allocation
+  on('btn-execute-assign', 'click', () => {
+    const targetResId = $id('m-assign-reseller-target')?.value;
+    const targetRes = state.resellers.find(r => r.id === targetResId);
+
+    if (!targetRes) {
+      showToast('Pilih warung / reseller tujuan!', 'error');
+      return;
+    }
+
+    let vouchersToAssign = [];
+
+    if (activeTab === 'checked') {
+      vouchersToAssign = getSelectedVouchers();
+      if (vouchersToAssign.length === 0) {
+        showToast('Tidak ada voucher yang dicentang di tabel!', 'error');
+        return;
+      }
+    } else {
+      const candidates = getAvailableCandidates();
+      const qty = parseInt(qtyInput?.value || '0', 10);
+      if (qty <= 0) {
+        showToast('Masukkan jumlah voucher yang valid (minimal 1)!', 'error');
+        qtyInput?.focus();
+        return;
+      }
+      if (candidates.length === 0) {
+        showToast('Tidak ada voucher yang tersedia untuk dititipkan!', 'error');
+        return;
+      }
+      vouchersToAssign = candidates.slice(0, qty);
+    }
+
+    vouchersToAssign.forEach(v => {
+      v.resellerId = targetRes.id;
+      v.resellerName = targetRes.name;
+    });
+
+    logActivity('STATUS_CHANGE', `Menitipkan ${vouchersToAssign.length} voucher ke ${targetRes.name}`);
     saveState();
     renderTable();
     renderPreview();
     closeModal();
-    showToast(`${selected.length} voucher berhasil ditugaskan ke ${targetRes ? targetRes.name : 'Langsung'}`);
+    showToast(`⚡ Berhasil menitipkan ${vouchersToAssign.length} voucher ke "🏪 ${targetRes.name}"!`);
+  });
+
+  // Unassign / Return to Main Stock
+  on('btn-unassign-reseller', 'click', () => {
+    const checked = getSelectedVouchers();
+    if (checked.length > 0) {
+      checked.forEach(v => {
+        v.resellerId = null;
+        v.resellerName = null;
+      });
+      logActivity('STATUS_CHANGE', `Menarik ${checked.length} voucher kembali ke stok utama`);
+      saveState();
+      renderTable();
+      renderPreview();
+      closeModal();
+      showToast(`${checked.length} voucher berhasil dikembalikan ke stok utama.`);
+    } else {
+      const targetResId = $id('m-assign-reseller-target')?.value;
+      const targetRes = state.resellers.find(r => r.id === targetResId);
+      if (!targetRes) return;
+
+      const resVouchers = state.vouchers.filter(v => v.resellerId === targetResId);
+      if (resVouchers.length === 0) {
+        showToast(`Tidak ada voucher yang sedang dititipkan di ${targetRes.name}.`, 'warning');
+        return;
+      }
+
+      if (confirm(`Tarik kembali SEMUA ${resVouchers.length} voucher dari warung "${targetRes.name}" ke stok utama?`)) {
+        resVouchers.forEach(v => {
+          v.resellerId = null;
+          v.resellerName = null;
+        });
+        logActivity('STATUS_CHANGE', `Menarik semua ${resVouchers.length} voucher dari ${targetRes.name}`);
+        saveState();
+        renderTable();
+        renderPreview();
+        closeModal();
+        showToast(`Semua ${resVouchers.length} voucher dari ${targetRes.name} berhasil dikembalikan ke stok utama.`);
+      }
+    }
   });
 }
 
