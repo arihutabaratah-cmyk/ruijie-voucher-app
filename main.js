@@ -1112,17 +1112,23 @@ function showOrderFormModal(selectedPackage = '1thn') {
 
     if (qrisBox) {
       qrisBox.innerHTML = '';
-      if (typeof QRCode !== 'undefined') {
-        new QRCode(qrisBox, {
-          text: currentDynamicPayload,
-          width: 190,
-          height: 190,
-          colorDark: "#000000",
-          colorLight: "#ffffff",
-          correctLevel: QRCode.CorrectLevel.M
-        });
-      } else {
-        qrisBox.innerHTML = `<img src="qris.jpg" style="max-width:190px;height:auto;border-radius:4px;">`;
+      try {
+        if (typeof QRCode !== 'undefined') {
+          const correctLvl = (QRCode.CorrectLevel && QRCode.CorrectLevel.M !== undefined) ? QRCode.CorrectLevel.M : 0;
+          new QRCode(qrisBox, {
+            text: currentDynamicPayload,
+            width: 190,
+            height: 190,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: correctLvl
+          });
+        } else {
+          qrisBox.innerHTML = `<img src="qris.jpg" alt="QRIS" style="max-width:190px;height:auto;border-radius:4px;">`;
+        }
+      } catch (err) {
+        console.warn('QR render fallback:', err);
+        qrisBox.innerHTML = `<img src="qris.jpg" alt="QRIS" style="max-width:190px;height:auto;border-radius:4px;">`;
       }
     }
   }
@@ -1143,10 +1149,12 @@ function showOrderFormModal(selectedPackage = '1thn') {
 
   on('btn-download-dynamic-qr', 'click', () => {
     const canvas = qrisBox?.querySelector('canvas');
-    if (canvas) {
+    const img = qrisBox?.querySelector('img');
+    const dataUrl = canvas ? canvas.toDataURL('image/png') : (img ? img.src : '');
+    if (dataUrl) {
       const link = document.createElement('a');
       link.download = `QRIS-HAROJUAN-${currentTotalNominal}.png`;
-      link.href = canvas.toDataURL('image/png');
+      link.href = dataUrl;
       link.click();
       showToast('QRIS Dinamis berhasil diunduh!');
     } else {
