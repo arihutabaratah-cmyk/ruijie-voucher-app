@@ -1649,31 +1649,91 @@ function preparePrintStyles(layoutVal = '25') {
     document.head.appendChild(styleEl);
   }
 
-  if (layoutVal === 'thermal-58') {
+  if (layoutVal === 'thermal-58' || layoutVal === 'receipt') {
     styleEl.textContent = `
-      @page { size: 58mm auto !important; margin: 0 !important; }
-      html, body { width: 58mm !important; margin: 0 !important; padding: 0 !important; }
-      #print-area { width: 58mm !important; margin: 0 !important; padding: 0 !important; }
-      .print-page.layout-thermal-58 { width: 58mm !important; max-width: 58mm !important; margin: 0 auto !important; }
+      @page {
+        size: 58mm 210mm !important;
+        margin: 0mm !important;
+      }
+      @media print {
+        html, body {
+          width: 58mm !important;
+          max-width: 58mm !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: #ffffff !important;
+        }
+        #print-area {
+          width: 58mm !important;
+          max-width: 58mm !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        .print-page {
+          width: 58mm !important;
+          max-width: 58mm !important;
+          height: auto !important;
+          min-height: 0 !important;
+          max-height: none !important;
+          display: block !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          page-break-after: auto !important;
+          break-after: auto !important;
+        }
+      }
     `;
   } else if (layoutVal === 'thermal-80') {
     styleEl.textContent = `
-      @page { size: 80mm auto !important; margin: 0 !important; }
-      html, body { width: 80mm !important; margin: 0 !important; padding: 0 !important; }
-      #print-area { width: 80mm !important; margin: 0 !important; padding: 0 !important; }
-      .print-page.layout-thermal-80 { width: 80mm !important; max-width: 80mm !important; margin: 0 auto !important; }
-    `;
-  } else if (layoutVal === 'receipt') {
-    styleEl.textContent = `
-      @page { size: 58mm auto !important; margin: 0 !important; }
-      html, body { width: 58mm !important; margin: 0 !important; padding: 0 !important; }
-      #print-area { width: 58mm !important; margin: 0 !important; padding: 0 !important; }
+      @page {
+        size: 80mm 297mm !important;
+        margin: 0mm !important;
+      }
+      @media print {
+        html, body {
+          width: 80mm !important;
+          max-width: 80mm !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: #ffffff !important;
+        }
+        #print-area {
+          width: 80mm !important;
+          max-width: 80mm !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        .print-page {
+          width: 80mm !important;
+          max-width: 80mm !important;
+          height: auto !important;
+          min-height: 0 !important;
+          max-height: none !important;
+          display: block !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          page-break-after: auto !important;
+          break-after: auto !important;
+        }
+      }
     `;
   } else {
     styleEl.textContent = `
-      @page { size: A4 portrait !important; margin: 5mm 5mm 5mm 5mm !important; }
-      html, body { width: 100% !important; margin: 0 !important; padding: 0 !important; }
-      #print-area { width: 100% !important; margin: 0 auto !important; }
+      @page {
+        size: A4 portrait !important;
+        margin: 5mm 5mm 5mm 5mm !important;
+      }
+      @media print {
+        html, body {
+          width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        #print-area {
+          width: 100% !important;
+          margin: 0 auto !important;
+        }
+      }
     `;
   }
 }
@@ -1695,10 +1755,10 @@ function showThermalPrinterModal() {
       <!-- Pilihan 1: Web Serial / Bluetooth Windows (Khusus CP-58B) -->
       <div style="background:var(--surface-alt);border:1.5px solid var(--primary);border-radius:10px;padding:0.95rem;margin-bottom:1rem;">
         <div style="font-size:0.88rem;font-weight:850;color:var(--primary);margin-bottom:0.4rem;display:flex;align-items:center;gap:0.4rem;">
-          <span>⚡ 1. Koneksi Langsung CP-58B (Serial / Bluetooth Windows)</span>
+          <span>⚡ 1. Koneksi Langsung CP-58B (Serial / Bluetooth Windows / USB)</span>
         </div>
         <p style="font-size:0.77rem;color:var(--text);line-height:1.45;margin-bottom:0.65rem;">
-          Jika CP-58B sudah di-pair di <strong>Windows Settings > Bluetooth</strong> (PIN: <code>0000</code> atau <code>1234</code>) atau dicolok USB COM:
+          Hubungkan kabel USB atau pair via Bluetooth di Windows (PIN: <code>0000</code> / <code>1234</code>):
         </p>
 
         <div style="background:#ffffff;border:1px solid #cbd5e1;border-radius:6px;padding:0.65rem 0.8rem;margin-bottom:0.75rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.4rem;">
@@ -1712,7 +1772,7 @@ function showThermalPrinterModal() {
         </div>
 
         <div style="font-size:0.76rem;font-weight:800;color:var(--text);margin-bottom:0.4rem;">
-          🧪 Tes Cetak Langsung ke CP-58B:
+          🧪 Tes Cetak Struk 58mm (Tanpa Format A4):
         </div>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
           <button class="btn btn-primary btn-sm" onclick="testPrintThermal(58)" style="font-weight:800;">
@@ -1727,13 +1787,13 @@ function showThermalPrinterModal() {
       <!-- Pilihan 2: Dialog Print Windows / Chrome (Jalur Driver POS-58) -->
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:0.95rem;margin-bottom:1rem;">
         <div style="font-size:0.86rem;font-weight:850;color:var(--text);margin-bottom:0.4rem;">
-          🖨️ 2. Jalur Cetak Standard Windows (Driver POS-58 / USB)
+          🖨️ 2. Panduan Dialog Cetak Chrome / Edge PC (Agar Tidak Format A4)
         </div>
         <p style="font-size:0.76rem;color:var(--text-secondary);line-height:1.45;margin-bottom:0.55rem;">
-          Jika mencetak melalui jendela Print browser (Chrome / Edge PC):
+          Saat jendela print browser muncul di PC:
         </p>
         <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:0.6rem 0.8rem;font-size:0.75rem;color:#0f172a;line-height:1.5;">
-          <div>1️⃣ <strong>Destination / Tujuan:</strong> Pilih nama printer thermal Anda (contoh: <em>POS-58 / CP-58B</em>).</div>
+          <div>1️⃣ <strong>Destination (Tujuan):</strong> Pilih nama printer Anda (contoh: <em>POS-58 / CP-58B</em>).</div>
           <div>2️⃣ <strong>Paper size:</strong> Pilih <code>58mm</code> / <code>Receipt</code> / <code>Roll Paper</code>.</div>
           <div>3️⃣ <strong>Margins:</strong> Pilih <strong>None (Tanpa Margin)</strong>.</div>
           <div>4️⃣ <strong>Options:</strong> <strong>Hapus centang</strong> "Headers and footers".</div>
@@ -1758,7 +1818,7 @@ function showThermalPrinterModal() {
       <!-- Layout Selector Shortcut -->
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.8rem;">
         <div style="font-size:0.78rem;font-weight:800;color:var(--text);margin-bottom:0.35rem;">
-          ⚙️ Format Layout Kertas Cetak:
+          ⚙️ Format Layout Kertas Cetak Saat Ini:
         </div>
         <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
           <button class="btn ${currentLayout === 'thermal-58' ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="setPaperLayoutFromModal('thermal-58')">
@@ -1839,22 +1899,78 @@ function testPrintThermal(widthMm = 58) {
 }
 
 function triggerBrowserTestPrint(testVoucher, layoutVal, widthMm) {
-  const printArea = $id('print-area');
-  if (!printArea) return;
-
   const receiptHtml = buildThermalReceiptHTML(testVoucher, 1, state.settings, widthMm);
-  printArea.innerHTML = `
-    <div class="print-page layout-${layoutVal}">
+  printThermalPopout(receiptHtml, widthMm);
+}
+
+function printThermalPopout(receiptHtml, widthMm = 58) {
+  const win = window.open('', '_blank', 'width=380,height=600,top=100,left=100');
+  if (!win) {
+    // If popup blocked, fallback to in-page print area
+    const printArea = $id('print-area');
+    if (printArea) {
+      printArea.innerHTML = `<div class="print-page layout-thermal-${widthMm}">${receiptHtml}</div>`;
+      preparePrintStyles(`thermal-${widthMm}`);
+      window.print();
+    }
+    return;
+  }
+
+  win.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Struk Voucher ${widthMm}mm</title>
+      <meta charset="utf-8">
+      <style>
+        @page {
+          size: ${widthMm === 80 ? '80mm 297mm' : '58mm 210mm'} !important;
+          margin: 0mm !important;
+        }
+        @media print {
+          html, body {
+            width: ${widthMm}mm !important;
+            max-width: ${widthMm}mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+          }
+          .thermal-receipt-box {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 auto !important;
+            padding: 2mm 1mm !important;
+            border: none !important;
+            box-shadow: none !important;
+          }
+        }
+        body {
+          font-family: monospace, 'Courier New', Courier, sans-serif;
+          margin: 0;
+          padding: 2mm;
+          background: #ffffff;
+          color: #000000;
+          width: ${widthMm}mm;
+          box-sizing: border-box;
+        }
+      </style>
+    </head>
+    <body>
       ${receiptHtml}
-    </div>
-  `;
-
-  preparePrintStyles(layoutVal);
-
-  setTimeout(() => {
-    window.print();
-    showToast(`🖨️ Membuka jendela print test ${widthMm}mm...`);
-  }, 120);
+      <script>
+        window.onload = function() {
+          setTimeout(function() {
+            window.focus();
+            window.print();
+            setTimeout(function() { window.close(); }, 1000);
+          }, 200);
+        };
+      </script>
+    </body>
+    </html>
+  `);
+  win.document.close();
+  showToast(`🖨️ Membuka struk thermal roll ${widthMm}mm...`);
 }
 
 // ===== ⚡ DIRECT WEB SERIAL ENGINE (CP-58B / BLUETOOTH WINDOWS / COM PORT) =====
@@ -2362,17 +2478,15 @@ function quickPrintPackage(pkgName, qty = 1) {
     return;
   }
 
-  // 3. Fallback to Browser Print Dialog
-  buildPrintArea(toPrint, layoutVal);
-  preparePrintStyles(layoutVal);
+  // 3. Fallback to Browser Thermal Popout Window (100% True 58mm/80mm, No A4)
+  const is80 = layoutVal === 'thermal-80';
+  const widthMm = is80 ? 80 : 58;
+  const receiptHtml = toPrint.map((v, idx) => buildThermalReceiptHTML(v, idx + 1, state.settings, widthMm)).join('');
+  printThermalPopout(receiptHtml, widthMm);
 
-  setTimeout(() => {
-    window.print();
-    renderQuickPOSGrid();
-    renderTable();
-    renderPreview();
-    showToast(`⚡ Berhasil cetak 1 voucher ${pkgName}!`);
-  }, 100);
+  renderQuickPOSGrid();
+  renderTable();
+  renderPreview();
 }
 
 // ===== RESELLER & AGENT MANAGEMENT =====

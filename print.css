@@ -46,7 +46,7 @@
   }
 
   /* ===== PAGE WRAPPER (A4 STANDARD: 200mm × 280mm SAFE PRINT AREA) ===== */
-  .print-page {
+  .print-page:not(.layout-thermal-58):not(.layout-thermal-80) {
     width: 200mm;
     height: 280mm;
     max-height: 280mm;
