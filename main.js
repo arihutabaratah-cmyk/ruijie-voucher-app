@@ -1690,26 +1690,37 @@ function showThermalPrinterModal() {
       <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
     </div>
     <div class="modal-body" style="max-height:82vh;overflow-y:auto;">
-      <!-- PC Windows Guide Section (UTAMA UNTUK KOMPUTER PC / LAPTOP) -->
+      <!-- PC USB Direct & Windows Driver Section -->
       <div style="background:var(--surface-alt);border:1.5px solid var(--primary);border-radius:10px;padding:0.95rem;margin-bottom:1rem;">
         <div style="font-size:0.88rem;font-weight:850;color:var(--primary);margin-bottom:0.5rem;display:flex;align-items:center;gap:0.4rem;">
           <span>🖥️ 1. Penggunaan di Komputer PC / Laptop (USB & Driver Windows)</span>
         </div>
         <p style="font-size:0.78rem;color:var(--text);line-height:1.45;margin-bottom:0.65rem;">
-          Printer thermal USB di PC (seperti <em>Epson, Panda, POS-58, POS-80, Xprinter, Iware, Eppos, VSC, dll</em>) dicetak langsung melalui <strong>Dialog Print Browser (Chrome / Edge)</strong>.
+          Printer thermal USB di PC (seperti <em>Epson, Panda, POS-58, POS-80, Xprinter, Iware, Eppos, VSC, dll</em>) dapat dicetak melalui <strong>Dialog Print Windows</strong> atau <strong>Direct USB</strong>:
         </p>
+
+        <!-- Direct WebUSB Option -->
+        <div style="background:#ffffff;border:1px dashed var(--primary);border-radius:6px;padding:0.65rem 0.8rem;margin-bottom:0.75rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.4rem;">
+          <div>
+            <div style="font-size:0.78rem;font-weight:800;color:var(--primary);">⚡ Direct USB (Chrome / Edge PC):</div>
+            <div style="font-size:0.72rem;color:var(--text-secondary);">Status: <strong id="modal-usb-status" style="color:${window.activeUsbDevice ? 'var(--success)' : 'var(--text-muted)'};">${window.activeUsbDevice ? (window.activeUsbDevice.productName || 'Printer USB Terhubung') : 'Belum Terhubung'}</strong></div>
+          </div>
+          <button class="btn ${window.activeUsbDevice ? 'btn-secondary' : 'btn-primary'} btn-sm" id="btn-modal-connect-usb" style="font-size:0.75rem;">
+            ${window.activeUsbDevice ? '🔄 Ganti Printer USB' : '🔌 Hubungkan Printer USB'}
+          </button>
+        </div>
 
         <!-- Step-by-step Setup Checklist -->
         <div style="background:#ffffff;border:1px solid #cbd5e1;border-radius:6px;padding:0.65rem 0.8rem;margin-bottom:0.75rem;font-size:0.76rem;color:#0f172a;line-height:1.55;">
-          <div style="font-weight:800;color:#1e40af;margin-bottom:0.35rem;">📋 4 Langkah Wajib di Jendela Print Chrome / Edge PC:</div>
+          <div style="font-weight:800;color:#1e40af;margin-bottom:0.35rem;">📋 4 Langkah Pengaturan di Jendela Print Chrome / Edge:</div>
           <div>1️⃣ <strong>Destination / Tujuan:</strong> Pilih nama printer thermal Anda (contoh: <em>POS-58 / POS-80 / XP-58</em>).</div>
           <div>2️⃣ <strong>Paper size / Ukuran:</strong> Pilih <code>58mm</code> / <code>80mm</code> / <code>Receipt</code> / <code>Roll Paper</code>.</div>
           <div>3️⃣ <strong>Margins / Batas:</strong> Pilih <strong>None (Tanpa Margin)</strong>.</div>
-          <div>4️⃣ <strong>Options / Opsi:</strong> <strong>Hapus centang</strong> "Headers and footers" (agar tidak muncul tanggal/URL di atas kertas).</div>
+          <div>4️⃣ <strong>Options / Opsi:</strong> <strong>Hapus centang</strong> "Headers and footers" (agar bersih tanpa URL/tanggal).</div>
         </div>
 
         <div style="font-size:0.78rem;font-weight:800;color:var(--text);margin-bottom:0.45rem;">
-          🧪 Tes Cetak Struk ke Printer Thermal PC Sekarang:
+          🧪 Tes Cetak Struk ke Printer PC Sekarang:
         </div>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
           <button class="btn btn-primary btn-sm" onclick="testPrintThermal(58)" style="font-weight:800;">
@@ -1762,6 +1773,7 @@ function showThermalPrinterModal() {
 
   openModal(html, 'modal-medium');
   on('btn-modal-connect-bt', handleConnectBluetooth);
+  on('btn-modal-connect-usb', handleConnectUSB);
 }
 
 function setPaperLayoutFromModal(layoutVal) {
@@ -1787,6 +1799,23 @@ function testPrintThermal(widthMm = 58) {
     selected: false
   };
 
+  // If USB device is connected, test direct raw print
+  if (window.activeUsbDevice) {
+    const rawBytes = generateESCPOSVoucher(testVoucher, 1, state.settings);
+    sendRawESCPOSViaUSB(rawBytes).then(success => {
+      if (success) {
+        showToast('⚡ Berhasil test print langsung via Direct USB!');
+      } else {
+        triggerBrowserTestPrint(testVoucher, layoutVal, widthMm);
+      }
+    });
+    return;
+  }
+
+  triggerBrowserTestPrint(testVoucher, layoutVal, widthMm);
+}
+
+function triggerBrowserTestPrint(testVoucher, layoutVal, widthMm) {
   const printArea = $id('print-area');
   if (!printArea) return;
 
@@ -1803,6 +1832,123 @@ function testPrintThermal(widthMm = 58) {
     window.print();
     showToast(`🖨️ Membuka jendela print test ${widthMm}mm...`);
   }, 120);
+}
+
+// ===== 🔌 DIRECT WEBUSB ESC/POS ENGINE (FOR PC / CHROME / EDGE) =====
+window.activeUsbDevice = null;
+window.activeUsbEndpoint = 1;
+
+async function handleConnectUSB() {
+  if (!requirePro('Koneksi Printer USB POS')) return;
+
+  if (!navigator.usb) {
+    showToast('WebUSB belum didukung di browser ini. Gunakan Google Chrome / Microsoft Edge di PC.', 'warning');
+    return;
+  }
+
+  try {
+    showToast('Mencari printer thermal USB...');
+    const device = await navigator.usb.requestDevice({ filters: [] });
+    if (!device) return;
+
+    await device.open();
+    await device.selectConfiguration(1);
+
+    let foundInterface = null;
+    let outEndpoint = null;
+
+    for (const iface of device.configuration.interfaces) {
+      for (const alt of iface.alternates) {
+        for (const ep of alt.endpoints) {
+          if (ep.direction === 'out') {
+            foundInterface = iface;
+            outEndpoint = ep;
+            break;
+          }
+        }
+        if (outEndpoint) break;
+      }
+      if (outEndpoint) break;
+    }
+
+    if (foundInterface) {
+      await device.claimInterface(foundInterface.interfaceNumber);
+      window.activeUsbDevice = device;
+      window.activeUsbEndpoint = outEndpoint.endpointNumber;
+      showToast(`✅ Berhasil terhubung ke Printer USB: ${device.productName || 'Thermal USB'}`);
+      if ($id('modal-overlay')?.classList.contains('active')) {
+        showThermalPrinterModal();
+      }
+    } else {
+      showToast('Interface printer USB tidak dapat diakses. Gunakan mode Windows Print Dialog biasa.', 'warning');
+    }
+  } catch (err) {
+    console.warn('USB connect error:', err);
+    if (err.name !== 'NotFoundError') {
+      showToast('Info USB: ' + (err.message || 'Gunakan mode print biasa'), 'info');
+    }
+  }
+}
+
+async function sendRawESCPOSViaUSB(commandsUint8Array) {
+  if (!window.activeUsbDevice) return false;
+  try {
+    await window.activeUsbDevice.transferOut(window.activeUsbEndpoint, commandsUint8Array);
+    return true;
+  } catch (err) {
+    console.warn('USB Transfer error:', err);
+    return false;
+  }
+}
+
+function generateESCPOSVoucher(v, num, settings) {
+  const encoder = new TextEncoder();
+  const ESC = 0x1B;
+  const GS = 0x1D;
+
+  const init = [ESC, 0x40];
+  const alignCenter = [ESC, 0x61, 0x01];
+  const alignLeft = [ESC, 0x61, 0x00];
+  const boldOn = [ESC, 0x45, 0x01];
+  const boldOff = [ESC, 0x45, 0x00];
+  const doubleHeightOn = [GS, 0x21, 0x10];
+  const doubleSizeOn = [GS, 0x21, 0x11];
+  const normalSize = [GS, 0x21, 0x00];
+  const cutPaper = [GS, 0x56, 0x41, 0x03];
+
+  const storeName = (state.presets.find(p => p.id === state.activePresetId) || DEFAULT_PRESET).name || 'WIFI HOTSPOT';
+  const ssid = settings.ssid || 'Hotspot';
+  const sn = String(num).padStart(3, '0');
+
+  let bytes = [...init, ...alignCenter, ...boldOn, ...doubleHeightOn];
+  bytes.push(...encoder.encode(storeName + '\n'));
+  bytes.push(...normalSize, ...boldOff);
+  bytes.push(...encoder.encode('SSID: ' + ssid + '\n'));
+  bytes.push(...encoder.encode('--------------------------------\n'));
+
+  bytes.push(...alignLeft);
+  bytes.push(...encoder.encode(`#${sn}  ${v.paket || 'VOUCHER'}  Rp ${formatNumber(v.harga || 0)}\n`));
+  bytes.push(...alignCenter);
+  bytes.push(...encoder.encode('================================\n'));
+  bytes.push(...encoder.encode('KODE VOUCHER / PASSWORD:\n'));
+  bytes.push(...boldOn, ...doubleSizeOn);
+  bytes.push(...encoder.encode(v.code + '\n'));
+  bytes.push(...normalSize, ...boldOff);
+  bytes.push(...encoder.encode('================================\n'));
+
+  bytes.push(...alignLeft);
+  bytes.push(...encoder.encode(`Masa Aktif : ${v.periode || '-'}\n`));
+  if (settings.showSpeed && v.speed) bytes.push(...encoder.encode(`Kecepatan  : ${v.speed}\n`));
+  if (settings.showQuota && v.quota) bytes.push(...encoder.encode(`Kuota      : ${v.quota}\n`));
+  if (settings.showHint && settings.loginHint) {
+    bytes.push(...encoder.encode('--------------------------------\n'));
+    bytes.push(...alignCenter, ...encoder.encode(settings.loginHint + '\n'));
+  }
+  bytes.push(...encoder.encode('--------------------------------\n'));
+  bytes.push(...alignCenter, ...encoder.encode('Terima Kasih • Selamat Berinternet\n\n\n'));
+  bytes.push(...cutPaper);
+
+  return new Uint8Array(bytes);
 }
 
 // ===== DIRECT WEB BLUETOOTH PRINTING (ESC/POS) =====
