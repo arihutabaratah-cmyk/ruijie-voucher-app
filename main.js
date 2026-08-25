@@ -1680,91 +1680,99 @@ function preparePrintStyles(layoutVal = '25') {
 
 // ===== 🖨️ THERMAL PRINTER SETUP & TEST PRINT (PC & MOBILE) =====
 function showThermalPrinterModal() {
+  const isSerialConnected = !!window.activeSerialPort;
+  const isUsbConnected = !!window.activeUsbDevice;
   const isBTConnected = !!state.bluetoothDevice;
-  const btName = state.bluetoothDevice ? (state.bluetoothDevice.name || 'Printer Bluetooth') : 'Belum Terhubung';
   const currentLayout = state.settings.layout || '25';
 
   const html = `
     <div class="modal-header">
-      <h3>🖨️ Pengaturan & Panduan Printer Thermal Kasir</h3>
+      <h3>🖨️ Panduan & Koneksi Printer Thermal CP-58B / POS-58</h3>
       <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
     </div>
     <div class="modal-body" style="max-height:82vh;overflow-y:auto;">
-      <!-- PC USB Direct & Windows Driver Section -->
+      
+      <!-- Pilihan 1: Web Serial / Bluetooth Windows (Khusus CP-58B) -->
       <div style="background:var(--surface-alt);border:1.5px solid var(--primary);border-radius:10px;padding:0.95rem;margin-bottom:1rem;">
-        <div style="font-size:0.88rem;font-weight:850;color:var(--primary);margin-bottom:0.5rem;display:flex;align-items:center;gap:0.4rem;">
-          <span>🖥️ 1. Penggunaan di Komputer PC / Laptop (USB & Driver Windows)</span>
+        <div style="font-size:0.88rem;font-weight:850;color:var(--primary);margin-bottom:0.4rem;display:flex;align-items:center;gap:0.4rem;">
+          <span>⚡ 1. Koneksi Langsung CP-58B (Serial / Bluetooth Windows)</span>
         </div>
-        <p style="font-size:0.78rem;color:var(--text);line-height:1.45;margin-bottom:0.65rem;">
-          Printer thermal USB di PC (seperti <em>Epson, Panda, POS-58, POS-80, Xprinter, Iware, Eppos, VSC, dll</em>) dapat dicetak melalui <strong>Dialog Print Windows</strong> atau <strong>Direct USB</strong>:
+        <p style="font-size:0.77rem;color:var(--text);line-height:1.45;margin-bottom:0.65rem;">
+          Jika CP-58B sudah di-pair di <strong>Windows Settings > Bluetooth</strong> (PIN: <code>0000</code> atau <code>1234</code>) atau dicolok USB COM:
         </p>
 
-        <!-- Direct WebUSB Option -->
-        <div style="background:#ffffff;border:1px dashed var(--primary);border-radius:6px;padding:0.65rem 0.8rem;margin-bottom:0.75rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.4rem;">
+        <div style="background:#ffffff;border:1px solid #cbd5e1;border-radius:6px;padding:0.65rem 0.8rem;margin-bottom:0.75rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.4rem;">
           <div>
-            <div style="font-size:0.78rem;font-weight:800;color:var(--primary);">⚡ Direct USB (Chrome / Edge PC):</div>
-            <div style="font-size:0.72rem;color:var(--text-secondary);">Status: <strong id="modal-usb-status" style="color:${window.activeUsbDevice ? 'var(--success)' : 'var(--text-muted)'};">${window.activeUsbDevice ? (window.activeUsbDevice.productName || 'Printer USB Terhubung') : 'Belum Terhubung'}</strong></div>
+            <div style="font-size:0.78rem;font-weight:800;color:var(--primary);">Status Port CP-58B:</div>
+            <div style="font-size:0.72rem;color:var(--text-secondary);"><strong style="color:${isSerialConnected ? 'var(--success)' : 'var(--text-muted)'};">${isSerialConnected ? '🟢 Terhubung ke Port Serial CP-58B' : '⚪ Belum Terhubung'}</strong></div>
           </div>
-          <button class="btn ${window.activeUsbDevice ? 'btn-secondary' : 'btn-primary'} btn-sm" id="btn-modal-connect-usb" style="font-size:0.75rem;">
-            ${window.activeUsbDevice ? '🔄 Ganti Printer USB' : '🔌 Hubungkan Printer USB'}
+          <button class="btn ${isSerialConnected ? 'btn-secondary' : 'btn-primary'} btn-sm" id="btn-modal-connect-serial" style="font-size:0.75rem;font-weight:800;">
+            ${isSerialConnected ? '🔄 Putus / Ganti Port' : '⚡ Hubungkan Port CP-58B'}
           </button>
         </div>
 
-        <!-- Step-by-step Setup Checklist -->
-        <div style="background:#ffffff;border:1px solid #cbd5e1;border-radius:6px;padding:0.65rem 0.8rem;margin-bottom:0.75rem;font-size:0.76rem;color:#0f172a;line-height:1.55;">
-          <div style="font-weight:800;color:#1e40af;margin-bottom:0.35rem;">📋 4 Langkah Pengaturan di Jendela Print Chrome / Edge:</div>
-          <div>1️⃣ <strong>Destination / Tujuan:</strong> Pilih nama printer thermal Anda (contoh: <em>POS-58 / POS-80 / XP-58</em>).</div>
-          <div>2️⃣ <strong>Paper size / Ukuran:</strong> Pilih <code>58mm</code> / <code>80mm</code> / <code>Receipt</code> / <code>Roll Paper</code>.</div>
-          <div>3️⃣ <strong>Margins / Batas:</strong> Pilih <strong>None (Tanpa Margin)</strong>.</div>
-          <div>4️⃣ <strong>Options / Opsi:</strong> <strong>Hapus centang</strong> "Headers and footers" (agar bersih tanpa URL/tanggal).</div>
-        </div>
-
-        <div style="font-size:0.78rem;font-weight:800;color:var(--text);margin-bottom:0.45rem;">
-          🧪 Tes Cetak Struk ke Printer PC Sekarang:
+        <div style="font-size:0.76rem;font-weight:800;color:var(--text);margin-bottom:0.4rem;">
+          🧪 Tes Cetak Langsung ke CP-58B:
         </div>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
           <button class="btn btn-primary btn-sm" onclick="testPrintThermal(58)" style="font-weight:800;">
-            🧪 Test Print Struk 58mm (Roll 58)
+            🧪 Test Print Struk 58mm (CP-58B)
           </button>
-          <button class="btn btn-secondary btn-sm" onclick="testPrintThermal(80)" style="font-weight:800;">
-            🧪 Test Print Struk 80mm (Roll 80)
+          <button class="btn btn-secondary btn-sm" onclick="testPrintThermal(80)">
+            🧪 Test Print Struk 80mm
+          </button>
+        </div>
+      </div>
+
+      <!-- Pilihan 2: Dialog Print Windows / Chrome (Jalur Driver POS-58) -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:0.95rem;margin-bottom:1rem;">
+        <div style="font-size:0.86rem;font-weight:850;color:var(--text);margin-bottom:0.4rem;">
+          🖨️ 2. Jalur Cetak Standard Windows (Driver POS-58 / USB)
+        </div>
+        <p style="font-size:0.76rem;color:var(--text-secondary);line-height:1.45;margin-bottom:0.55rem;">
+          Jika mencetak melalui jendela Print browser (Chrome / Edge PC):
+        </p>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:0.6rem 0.8rem;font-size:0.75rem;color:#0f172a;line-height:1.5;">
+          <div>1️⃣ <strong>Destination / Tujuan:</strong> Pilih nama printer thermal Anda (contoh: <em>POS-58 / CP-58B</em>).</div>
+          <div>2️⃣ <strong>Paper size:</strong> Pilih <code>58mm</code> / <code>Receipt</code> / <code>Roll Paper</code>.</div>
+          <div>3️⃣ <strong>Margins:</strong> Pilih <strong>None (Tanpa Margin)</strong>.</div>
+          <div>4️⃣ <strong>Options:</strong> <strong>Hapus centang</strong> "Headers and footers".</div>
+        </div>
+      </div>
+
+      <!-- Pilihan 3: Direct WebUSB & Mobile Bluetooth -->
+      <div style="background:var(--surface-alt);border:1px solid var(--border);border-radius:10px;padding:0.85rem;margin-bottom:0.85rem;">
+        <div style="font-size:0.84rem;font-weight:800;color:var(--text);margin-bottom:0.5rem;">
+          📱 3. Opsi Lain (Direct USB & Bluetooth Android)
+        </div>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-sm" id="btn-modal-connect-usb">
+            ${isUsbConnected ? '🟢 USB Terhubung' : '🔌 Hubungkan via WebUSB'}
+          </button>
+          <button class="btn btn-secondary btn-sm" id="btn-modal-connect-bt">
+            ${isBTConnected ? '🟢 Bluetooth Terhubung' : '📶 Hubungkan Bluetooth Android'}
           </button>
         </div>
       </div>
 
       <!-- Layout Selector Shortcut -->
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.85rem;margin-bottom:1rem;">
-        <div style="font-size:0.82rem;font-weight:800;color:var(--text);margin-bottom:0.45rem;">
-          ⚙️ Format Layout Kertas Cetak Saat Ini:
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.8rem;">
+        <div style="font-size:0.78rem;font-weight:800;color:var(--text);margin-bottom:0.35rem;">
+          ⚙️ Format Layout Kertas Cetak:
         </div>
-        <div style="display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center;">
+        <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
           <button class="btn ${currentLayout === 'thermal-58' ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="setPaperLayoutFromModal('thermal-58')">
-            🧾 Thermal 58mm (Aktifkan)
+            🧾 Thermal 58mm (Aktif)
           </button>
           <button class="btn ${currentLayout === 'thermal-80' ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="setPaperLayoutFromModal('thermal-80')">
-            🧾 Thermal 80mm (Aktifkan)
+            🧾 Thermal 80mm
           </button>
           <button class="btn ${!currentLayout.startsWith('thermal') ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="setPaperLayoutFromModal('25')">
-            📄 Kertas A4 Lembaran (Default 25)
+            📄 Kertas A4 (25/hal)
           </button>
         </div>
       </div>
 
-      <!-- Mobile Bluetooth Section -->
-      <div style="background:var(--surface-alt);border:1px solid var(--border);border-radius:10px;padding:0.85rem;">
-        <div style="font-size:0.84rem;font-weight:800;color:var(--text);margin-bottom:0.4rem;display:flex;align-items:center;gap:0.4rem;">
-          <span>📱 2. Printer Bluetooth Nirkabel (Khusus HP Android / Tablet)</span>
-        </div>
-        <p style="font-size:0.76rem;color:var(--text-secondary);margin-bottom:0.5rem;line-height:1.4;">
-          Untuk mencetak nirkabel langsung via Web Bluetooth API di smartphone Google Chrome Android:
-        </p>
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.4rem;">
-          <span style="font-size:0.76rem;color:var(--text);">Status: <strong style="color:${isBTConnected ? 'var(--success)' : 'var(--text-muted)'};">${esc(btName)}</strong></span>
-          <button class="btn ${isBTConnected ? 'btn-secondary' : 'btn-primary'} btn-sm" id="btn-modal-connect-bt">
-            ${isBTConnected ? '🔄 Ganti Printer Bluetooth' : '📶 Hubungkan Bluetooth'}
-          </button>
-        </div>
-      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-primary" onclick="closeModal()">Tutup</button>
@@ -1772,8 +1780,9 @@ function showThermalPrinterModal() {
   `;
 
   openModal(html, 'modal-medium');
-  on('btn-modal-connect-bt', handleConnectBluetooth);
+  on('btn-modal-connect-serial', handleConnectSerial);
   on('btn-modal-connect-usb', handleConnectUSB);
+  on('btn-modal-connect-bt', handleConnectBluetooth);
 }
 
 function setPaperLayoutFromModal(layoutVal) {
@@ -1799,12 +1808,13 @@ function testPrintThermal(widthMm = 58) {
     selected: false
   };
 
-  // If USB device is connected, test direct raw print
-  if (window.activeUsbDevice) {
-    const rawBytes = generateESCPOSVoucher(testVoucher, 1, state.settings);
-    sendRawESCPOSViaUSB(rawBytes).then(success => {
+  const rawBytes = generateESCPOSVoucher(testVoucher, 1, state.settings);
+
+  // 1. Try Serial first (best for CP-58B on PC)
+  if (window.activeSerialPort) {
+    sendRawESCPOSViaSerial(rawBytes).then(success => {
       if (success) {
-        showToast('⚡ Berhasil test print langsung via Direct USB!');
+        showToast('⚡ Berhasil test print via Port Serial CP-58B!');
       } else {
         triggerBrowserTestPrint(testVoucher, layoutVal, widthMm);
       }
@@ -1812,6 +1822,19 @@ function testPrintThermal(widthMm = 58) {
     return;
   }
 
+  // 2. Try USB
+  if (window.activeUsbDevice) {
+    sendRawESCPOSViaUSB(rawBytes).then(success => {
+      if (success) {
+        showToast('⚡ Berhasil test print via Direct USB!');
+      } else {
+        triggerBrowserTestPrint(testVoucher, layoutVal, widthMm);
+      }
+    });
+    return;
+  }
+
+  // 3. Fallback to Browser Print Dialog
   triggerBrowserTestPrint(testVoucher, layoutVal, widthMm);
 }
 
@@ -1834,69 +1857,60 @@ function triggerBrowserTestPrint(testVoucher, layoutVal, widthMm) {
   }, 120);
 }
 
-// ===== 🔌 DIRECT WEBUSB ESC/POS ENGINE (FOR PC / CHROME / EDGE) =====
-window.activeUsbDevice = null;
-window.activeUsbEndpoint = 1;
+// ===== ⚡ DIRECT WEB SERIAL ENGINE (CP-58B / BLUETOOTH WINDOWS / COM PORT) =====
+window.activeSerialPort = null;
 
-async function handleConnectUSB() {
-  if (!requirePro('Koneksi Printer USB POS')) return;
+async function handleConnectSerial() {
+  if (window.activeSerialPort) {
+    try {
+      await window.activeSerialPort.close();
+    } catch (e) {}
+    window.activeSerialPort = null;
+    showToast('Port Serial CP-58B diputuskan.');
+    if ($id('modal-overlay')?.classList.contains('active')) {
+      showThermalPrinterModal();
+    }
+    return;
+  }
 
-  if (!navigator.usb) {
-    showToast('WebUSB belum didukung di browser ini. Gunakan Google Chrome / Microsoft Edge di PC.', 'warning');
+  if (!navigator.serial) {
+    showToast('Web Serial API didukung di Google Chrome / Microsoft Edge di PC Windows.', 'warning');
     return;
   }
 
   try {
-    showToast('Mencari printer thermal USB...');
-    const device = await navigator.usb.requestDevice({ filters: [] });
-    if (!device) return;
+    showToast('Pilih Port CP-58B / Bluetooth Serial di daftar popup...');
+    const port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 9600 });
+    window.activeSerialPort = port;
 
-    await device.open();
-    await device.selectConfiguration(1);
-
-    let foundInterface = null;
-    let outEndpoint = null;
-
-    for (const iface of device.configuration.interfaces) {
-      for (const alt of iface.alternates) {
-        for (const ep of alt.endpoints) {
-          if (ep.direction === 'out') {
-            foundInterface = iface;
-            outEndpoint = ep;
-            break;
-          }
-        }
-        if (outEndpoint) break;
-      }
-      if (outEndpoint) break;
+    const btn = $id('btn-thermal-printer-setup');
+    if (btn) {
+      btn.textContent = `⚡ CP-58B Serial`;
+      btn.classList.add('btn-primary');
     }
 
-    if (foundInterface) {
-      await device.claimInterface(foundInterface.interfaceNumber);
-      window.activeUsbDevice = device;
-      window.activeUsbEndpoint = outEndpoint.endpointNumber;
-      showToast(`✅ Berhasil terhubung ke Printer USB: ${device.productName || 'Thermal USB'}`);
-      if ($id('modal-overlay')?.classList.contains('active')) {
-        showThermalPrinterModal();
-      }
-    } else {
-      showToast('Interface printer USB tidak dapat diakses. Gunakan mode Windows Print Dialog biasa.', 'warning');
+    showToast('✅ Berhasil terhubung ke Port Serial CP-58B!');
+    if ($id('modal-overlay')?.classList.contains('active')) {
+      showThermalPrinterModal();
     }
   } catch (err) {
-    console.warn('USB connect error:', err);
+    console.warn('Serial connect error:', err);
     if (err.name !== 'NotFoundError') {
-      showToast('Info USB: ' + (err.message || 'Gunakan mode print biasa'), 'info');
+      showToast('Info Serial: ' + (err.message || 'Gunakan mode print biasa'), 'info');
     }
   }
 }
 
-async function sendRawESCPOSViaUSB(commandsUint8Array) {
-  if (!window.activeUsbDevice) return false;
+async function sendRawESCPOSViaSerial(commandsUint8Array) {
+  if (!window.activeSerialPort || !window.activeSerialPort.writable) return false;
   try {
-    await window.activeUsbDevice.transferOut(window.activeUsbEndpoint, commandsUint8Array);
+    const writer = window.activeSerialPort.writable.getWriter();
+    await writer.write(commandsUint8Array);
+    writer.releaseLock();
     return true;
   } catch (err) {
-    console.warn('USB Transfer error:', err);
+    console.warn('Serial write error:', err);
     return false;
   }
 }
@@ -2317,12 +2331,40 @@ function quickPrintPackage(pkgName, qty = 1) {
     logActivity('PRINT_POS', `Cetak POS 1x [${v.code}] ${pkgName} (Rp ${formatNumber(v.harga)})`);
   });
 
-  const layoutVal = state.settings.layout || 'thermal-58';
-  buildPrintArea(toPrint, layoutVal);
-
+  const layoutVal = (state.settings.layout && state.settings.layout.startsWith('thermal')) ? state.settings.layout : 'thermal-58';
   saveState();
   checkStockAlerts();
   triggerBackgroundAutoSync();
+
+  // 1. Direct Serial (CP-58B)
+  if (window.activeSerialPort) {
+    toPrint.forEach((v, idx) => {
+      const rawBytes = generateESCPOSVoucher(v, idx + 1, state.settings);
+      sendRawESCPOSViaSerial(rawBytes);
+    });
+    renderQuickPOSGrid();
+    renderTable();
+    renderPreview();
+    showToast(`⚡ Berhasil cetak 1 voucher ${pkgName} via CP-58B Serial!`);
+    return;
+  }
+
+  // 2. Direct USB
+  if (window.activeUsbDevice) {
+    toPrint.forEach((v, idx) => {
+      const rawBytes = generateESCPOSVoucher(v, idx + 1, state.settings);
+      sendRawESCPOSViaUSB(rawBytes);
+    });
+    renderQuickPOSGrid();
+    renderTable();
+    renderPreview();
+    showToast(`⚡ Berhasil cetak 1 voucher ${pkgName} via Direct USB!`);
+    return;
+  }
+
+  // 3. Fallback to Browser Print Dialog
+  buildPrintArea(toPrint, layoutVal);
+  preparePrintStyles(layoutVal);
 
   setTimeout(() => {
     window.print();
