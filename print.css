@@ -16,8 +16,8 @@
   }
 
   @page {
-    size: A4 portrait;
-    margin: 5mm 5mm 5mm 5mm;
+    size: auto;
+    margin: 0mm;
   }
 
   html, body {
@@ -148,41 +148,64 @@
 
   /* ===== THERMAL POS PRINTER LAYOUTS ===== */
   .print-page.layout-thermal-58 {
-    width: 54mm !important;
+    width: 58mm !important;
+    max-width: 58mm !important;
     height: auto !important;
+    min-height: auto !important;
     max-height: none !important;
     display: block !important;
-    margin: 0 auto;
-    page-break-after: auto;
+    margin: 0 auto !important;
+    padding: 1mm !important;
+    overflow: visible !important;
+    page-break-after: auto !important;
+    break-after: auto !important;
   }
 
-  .print-page.layout-thermal-58 .v-card {
-    width: 52mm;
-    margin: 0 auto 3mm;
-    padding: 2mm 1.5mm;
-    border: none;
-    border-bottom: 0.8pt dashed #000000;
-    page-break-inside: avoid;
-    break-inside: avoid;
+  .print-page.layout-thermal-58 .v-card,
+  .print-page.layout-thermal-58 .thermal-receipt-box {
+    width: 100% !important;
+    max-width: 54mm !important;
+    margin: 0 auto 2.5mm !important;
+    padding: 2mm 1mm !important;
+    border: none !important;
+    border-bottom: 1px dashed #000000 !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    background: #ffffff !important;
+    color: #000000 !important;
   }
 
   .print-page.layout-thermal-80 {
-    width: 76mm !important;
+    width: 80mm !important;
+    max-width: 80mm !important;
     height: auto !important;
+    min-height: auto !important;
     max-height: none !important;
     display: block !important;
-    margin: 0 auto;
-    page-break-after: auto;
+    margin: 0 auto !important;
+    padding: 2mm !important;
+    overflow: visible !important;
+    page-break-after: auto !important;
+    break-after: auto !important;
   }
 
-  .print-page.layout-thermal-80 .v-card {
-    width: 74mm;
-    margin: 0 auto 3.5mm;
-    padding: 2.5mm 2mm;
-    border: none;
-    border-bottom: 0.8pt dashed #000000;
-    page-break-inside: avoid;
-    break-inside: avoid;
+  .print-page.layout-thermal-80 .v-card,
+  .print-page.layout-thermal-80 .thermal-receipt-box {
+    width: 100% !important;
+    max-width: 76mm !important;
+    margin: 0 auto 3mm !important;
+    padding: 3mm 2mm !important;
+    border: none !important;
+    border-bottom: 1px dashed #000000 !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .thermal-receipt-box * {
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
   }
 
   /* ===== VOUCHER CARD (COMMON) ===== */

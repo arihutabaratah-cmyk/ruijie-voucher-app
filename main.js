@@ -334,8 +334,8 @@ function updateProBadgeUI() {
     setText('menu-item-sheets', '📊 Database Google Spreadsheet');
     setText('menu-item-reseller', '🏪 Manajemen Reseller & Agen');
     setText('menu-item-audit', '📜 Log Aktivitas Kasir (Audit Trail)');
-    const btnBt = $id('btn-connect-bluetooth');
-    if (btnBt) btnBt.textContent = '📶 Bluetooth POS';
+    const btnBt = $id('btn-thermal-printer-setup');
+    if (btnBt) btnBt.textContent = '🖨️ Printer Thermal';
   } else {
     if (proBtn) {
       proBtn.className = 'btn btn-pro-badge btn-sm';
@@ -351,8 +351,8 @@ function updateProBadgeUI() {
     setText('menu-item-sheets', '📊 Database Google Spreadsheet (🔒 PRO)');
     setText('menu-item-reseller', '🏪 Manajemen Reseller & Agen (🔒 PRO)');
     setText('menu-item-audit', '📜 Log Aktivitas Kasir (🔒 PRO)');
-    const btnBt = $id('btn-connect-bluetooth');
-    if (btnBt) btnBt.textContent = '📶 Bluetooth POS (🔒 PRO)';
+    const btnBt = $id('btn-thermal-printer-setup');
+    if (btnBt) btnBt.textContent = '🖨️ Printer Thermal (🔒 PRO)';
   }
 }
 
@@ -650,8 +650,8 @@ function bindEvents() {
     showToast(`Cloud Auto-Sync: ${e.target.checked ? 'Aktif' : 'Nonaktif'}`);
   });
 
-  // Bluetooth Direct Printing & POS Shift Management
-  on('btn-connect-bluetooth', 'click', handleConnectBluetooth);
+  // Thermal Printer Setup (PC & Mobile) & POS Shift Management
+  on('btn-thermal-printer-setup', 'click', showThermalPrinterModal);
   on('btn-toggle-shift', 'click', showShiftModal);
 
   // Reseller & Pro & Rekap Tools
@@ -1640,12 +1640,177 @@ function showChangePinModal() {
   });
 }
 
+// ===== 🖨️ DYNAMIC PRINT STYLES ENGINE (A4 vs THERMAL 58mm / 80mm) =====
+function preparePrintStyles(layoutVal = '25') {
+  let styleEl = document.getElementById('dynamic-print-page-style');
+  if (!styleEl) {
+    styleEl = document.createElement('style');
+    styleEl.id = 'dynamic-print-page-style';
+    document.head.appendChild(styleEl);
+  }
+
+  if (layoutVal === 'thermal-58') {
+    styleEl.textContent = `
+      @page { size: 58mm auto !important; margin: 0 !important; }
+      html, body { width: 58mm !important; margin: 0 !important; padding: 0 !important; }
+      #print-area { width: 58mm !important; margin: 0 !important; padding: 0 !important; }
+      .print-page.layout-thermal-58 { width: 58mm !important; max-width: 58mm !important; margin: 0 auto !important; }
+    `;
+  } else if (layoutVal === 'thermal-80') {
+    styleEl.textContent = `
+      @page { size: 80mm auto !important; margin: 0 !important; }
+      html, body { width: 80mm !important; margin: 0 !important; padding: 0 !important; }
+      #print-area { width: 80mm !important; margin: 0 !important; padding: 0 !important; }
+      .print-page.layout-thermal-80 { width: 80mm !important; max-width: 80mm !important; margin: 0 auto !important; }
+    `;
+  } else if (layoutVal === 'receipt') {
+    styleEl.textContent = `
+      @page { size: 58mm auto !important; margin: 0 !important; }
+      html, body { width: 58mm !important; margin: 0 !important; padding: 0 !important; }
+      #print-area { width: 58mm !important; margin: 0 !important; padding: 0 !important; }
+    `;
+  } else {
+    styleEl.textContent = `
+      @page { size: A4 portrait !important; margin: 5mm 5mm 5mm 5mm !important; }
+      html, body { width: 100% !important; margin: 0 !important; padding: 0 !important; }
+      #print-area { width: 100% !important; margin: 0 auto !important; }
+    `;
+  }
+}
+
+// ===== 🖨️ THERMAL PRINTER SETUP & TEST PRINT (PC & MOBILE) =====
+function showThermalPrinterModal() {
+  const isBTConnected = !!state.bluetoothDevice;
+  const btName = state.bluetoothDevice ? (state.bluetoothDevice.name || 'Printer Bluetooth') : 'Belum Terhubung';
+  const currentLayout = state.settings.layout || '25';
+
+  const html = `
+    <div class="modal-header">
+      <h3>🖨️ Pengaturan & Panduan Printer Thermal Kasir</h3>
+      <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
+    </div>
+    <div class="modal-body" style="max-height:82vh;overflow-y:auto;">
+      <!-- PC Windows Guide Section (UTAMA UNTUK KOMPUTER PC / LAPTOP) -->
+      <div style="background:var(--surface-alt);border:1.5px solid var(--primary);border-radius:10px;padding:0.95rem;margin-bottom:1rem;">
+        <div style="font-size:0.88rem;font-weight:850;color:var(--primary);margin-bottom:0.5rem;display:flex;align-items:center;gap:0.4rem;">
+          <span>🖥️ 1. Penggunaan di Komputer PC / Laptop (USB & Driver Windows)</span>
+        </div>
+        <p style="font-size:0.78rem;color:var(--text);line-height:1.45;margin-bottom:0.65rem;">
+          Printer thermal USB di PC (seperti <em>Epson, Panda, POS-58, POS-80, Xprinter, Iware, Eppos, VSC, dll</em>) dicetak langsung melalui <strong>Dialog Print Browser (Chrome / Edge)</strong>.
+        </p>
+
+        <!-- Step-by-step Setup Checklist -->
+        <div style="background:#ffffff;border:1px solid #cbd5e1;border-radius:6px;padding:0.65rem 0.8rem;margin-bottom:0.75rem;font-size:0.76rem;color:#0f172a;line-height:1.55;">
+          <div style="font-weight:800;color:#1e40af;margin-bottom:0.35rem;">📋 4 Langkah Wajib di Jendela Print Chrome / Edge PC:</div>
+          <div>1️⃣ <strong>Destination / Tujuan:</strong> Pilih nama printer thermal Anda (contoh: <em>POS-58 / POS-80 / XP-58</em>).</div>
+          <div>2️⃣ <strong>Paper size / Ukuran:</strong> Pilih <code>58mm</code> / <code>80mm</code> / <code>Receipt</code> / <code>Roll Paper</code>.</div>
+          <div>3️⃣ <strong>Margins / Batas:</strong> Pilih <strong>None (Tanpa Margin)</strong>.</div>
+          <div>4️⃣ <strong>Options / Opsi:</strong> <strong>Hapus centang</strong> "Headers and footers" (agar tidak muncul tanggal/URL di atas kertas).</div>
+        </div>
+
+        <div style="font-size:0.78rem;font-weight:800;color:var(--text);margin-bottom:0.45rem;">
+          🧪 Tes Cetak Struk ke Printer Thermal PC Sekarang:
+        </div>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" onclick="testPrintThermal(58)" style="font-weight:800;">
+            🧪 Test Print Struk 58mm (Roll 58)
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="testPrintThermal(80)" style="font-weight:800;">
+            🧪 Test Print Struk 80mm (Roll 80)
+          </button>
+        </div>
+      </div>
+
+      <!-- Layout Selector Shortcut -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.85rem;margin-bottom:1rem;">
+        <div style="font-size:0.82rem;font-weight:800;color:var(--text);margin-bottom:0.45rem;">
+          ⚙️ Format Layout Kertas Cetak Saat Ini:
+        </div>
+        <div style="display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center;">
+          <button class="btn ${currentLayout === 'thermal-58' ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="setPaperLayoutFromModal('thermal-58')">
+            🧾 Thermal 58mm (Aktifkan)
+          </button>
+          <button class="btn ${currentLayout === 'thermal-80' ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="setPaperLayoutFromModal('thermal-80')">
+            🧾 Thermal 80mm (Aktifkan)
+          </button>
+          <button class="btn ${!currentLayout.startsWith('thermal') ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="setPaperLayoutFromModal('25')">
+            📄 Kertas A4 Lembaran (Default 25)
+          </button>
+        </div>
+      </div>
+
+      <!-- Mobile Bluetooth Section -->
+      <div style="background:var(--surface-alt);border:1px solid var(--border);border-radius:10px;padding:0.85rem;">
+        <div style="font-size:0.84rem;font-weight:800;color:var(--text);margin-bottom:0.4rem;display:flex;align-items:center;gap:0.4rem;">
+          <span>📱 2. Printer Bluetooth Nirkabel (Khusus HP Android / Tablet)</span>
+        </div>
+        <p style="font-size:0.76rem;color:var(--text-secondary);margin-bottom:0.5rem;line-height:1.4;">
+          Untuk mencetak nirkabel langsung via Web Bluetooth API di smartphone Google Chrome Android:
+        </p>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.4rem;">
+          <span style="font-size:0.76rem;color:var(--text);">Status: <strong style="color:${isBTConnected ? 'var(--success)' : 'var(--text-muted)'};">${esc(btName)}</strong></span>
+          <button class="btn ${isBTConnected ? 'btn-secondary' : 'btn-primary'} btn-sm" id="btn-modal-connect-bt">
+            ${isBTConnected ? '🔄 Ganti Printer Bluetooth' : '📶 Hubungkan Bluetooth'}
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal()">Tutup</button>
+    </div>
+  `;
+
+  openModal(html, 'modal-medium');
+  on('btn-modal-connect-bt', handleConnectBluetooth);
+}
+
+function setPaperLayoutFromModal(layoutVal) {
+  state.settings.layout = layoutVal;
+  const layoutSelect = $id('layout-select');
+  if (layoutSelect) layoutSelect.value = layoutVal;
+  saveState();
+  renderPreview();
+  showToast(`Format kertas diubah ke: ${layoutVal.toUpperCase()}`);
+  showThermalPrinterModal();
+}
+
+function testPrintThermal(widthMm = 58) {
+  const layoutVal = `thermal-${widthMm}`;
+  const testVoucher = {
+    code: 'RJ-TEST99',
+    paket: 'Paket 1 Hari',
+    harga: '5000',
+    periode: '24 Jam',
+    speed: '10 Mbps',
+    quota: 'Unlimited',
+    printed: false,
+    selected: false
+  };
+
+  const printArea = $id('print-area');
+  if (!printArea) return;
+
+  const receiptHtml = buildThermalReceiptHTML(testVoucher, 1, state.settings, widthMm);
+  printArea.innerHTML = `
+    <div class="print-page layout-${layoutVal}">
+      ${receiptHtml}
+    </div>
+  `;
+
+  preparePrintStyles(layoutVal);
+
+  setTimeout(() => {
+    window.print();
+    showToast(`🖨️ Membuka jendela print test ${widthMm}mm...`);
+  }, 120);
+}
+
 // ===== DIRECT WEB BLUETOOTH PRINTING (ESC/POS) =====
 async function handleConnectBluetooth() {
   if (!requirePro('Koneksi Printer Bluetooth POS')) return;
 
   if (!navigator.bluetooth) {
-    showToast('Web Bluetooth API belum aktif di browser ini (Gunakan Google Chrome / Android).', 'error');
+    showToast('Web Bluetooth API hanya didukung di Google Chrome Android / Laptop dengan Bluetooth aktif.', 'warning');
     return;
   }
 
@@ -1657,12 +1822,15 @@ async function handleConnectBluetooth() {
     });
 
     state.bluetoothDevice = device;
-    const btn = $id('btn-connect-bluetooth');
+    const btn = $id('btn-thermal-printer-setup');
     if (btn) {
-      btn.textContent = `📶 ${device.name || 'Printer Terhubung'}`;
+      btn.textContent = `📶 ${device.name || 'Printer POS'}`;
       btn.classList.add('btn-primary');
     }
     showToast(`Berhasil terhubung ke: ${device.name || 'Printer Bluetooth'}`);
+    if ($id('modal-overlay')?.classList.contains('active')) {
+      showThermalPrinterModal();
+    }
   } catch (err) {
     console.warn('Bluetooth connect error:', err);
     if (err.name !== 'NotFoundError') {
@@ -1835,6 +2003,7 @@ function printCloseShiftReceipt() {
   const printArea = $id('print-area');
   if (printArea) {
     printArea.innerHTML = receiptHtml;
+    preparePrintStyles('receipt');
     window.print();
   }
 }
@@ -2736,6 +2905,7 @@ function printSuratJalan(resellerId) {
   const printArea = $id('print-area');
   if (printArea) {
     printArea.innerHTML = html;
+    preparePrintStyles('A4');
     window.print();
   }
 }
@@ -3334,6 +3504,7 @@ function printRekapReceipt() {
   const printArea = $id('print-area');
   if (printArea) {
     printArea.innerHTML = receiptHtml;
+    preparePrintStyles('receipt');
     window.print();
   }
 }
@@ -4353,11 +4524,85 @@ function buildCardHTML(v, num, settings, isPreview) {
   `;
 }
 
+// ===== 🧾 THERMAL RECEIPT BUILDER (AUTHENTIC POS FORMAT) =====
+function buildThermalReceiptHTML(v, num, settings, widthMm = 58) {
+  const snFormatted = String(num).padStart(3, '0');
+  const ssidText = settings.ssid || 'WIFI HOTSPOT';
+  const activePreset = state.presets.find(p => p.id === state.activePresetId) || DEFAULT_PRESET;
+  const storeName = activePreset.name || 'WIFI HOTSPOT';
+  const is80 = widthMm >= 80;
+
+  return `
+    <div class="thermal-receipt-box" style="font-family:monospace,'Courier New',Courier,sans-serif;color:#000;background:#ffffff;text-align:center;width:${is80 ? '76mm' : '54mm'};margin:0 auto 3mm;padding:2.5mm 1.5mm;line-height:1.25;box-sizing:border-box;">
+      <!-- Store & SSID Header -->
+      <div style="font-weight:900;font-size:${is80 ? '12.5pt' : '10pt'};text-transform:uppercase;letter-spacing:0.02em;margin-bottom:1px;color:#000;">
+        ${esc(storeName)}
+      </div>
+      <div style="font-size:${is80 ? '9.5pt' : '8pt'};color:#000;margin-bottom:2px;">
+        📶 SSID: <strong>${esc(ssidText)}</strong>
+      </div>
+      
+      <div style="border-top:1px dashed #000;margin:3px 0;"></div>
+      
+      <!-- Voucher Details -->
+      <div style="display:flex;justify-content:space-between;font-size:${is80 ? '9pt' : '8pt'};font-weight:bold;margin:2px 0;color:#000;">
+        <span>#${snFormatted} • ${esc(v.paket || 'VOUCHER')}</span>
+        <span>${settings.pricePrefix || 'Rp '}${formatNumber(v.harga || 0)}</span>
+      </div>
+      
+      <!-- Big Coupon Code Box -->
+      <div style="border:1.5px dashed #000;border-radius:4px;padding:3mm 1mm;margin:2.5mm 0;background:#fff;">
+        <div style="font-size:${is80 ? '7.5pt' : '6.5pt'};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:2px;color:#000;">
+          KODE VOUCHER / PASSWORD
+        </div>
+        <div style="font-size:${is80 ? '16pt' : '13pt'};font-weight:900;letter-spacing:0.08em;font-family:monospace;color:#000;">
+          ${esc(v.code)}
+        </div>
+      </div>
+      
+      <!-- Meta Details (Durasi, Kecepatan, Kuota) -->
+      <div style="font-size:${is80 ? '8.5pt' : '7.5pt'};text-align:left;margin:2px 0;color:#000;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:1px;">
+          <span>⏱️ Masa Aktif:</span>
+          <strong>${esc(v.periode || '-')}</strong>
+        </div>
+        ${settings.showSpeed && v.speed ? `
+          <div style="display:flex;justify-content:space-between;margin-bottom:1px;">
+            <span>⚡ Kecepatan:</span>
+            <strong>${esc(v.speed)}</strong>
+          </div>
+        ` : ''}
+        ${settings.showQuota && v.quota ? `
+          <div style="display:flex;justify-content:space-between;margin-bottom:1px;">
+            <span>📦 Kuota:</span>
+            <strong>${esc(v.quota)}</strong>
+          </div>
+        ` : ''}
+      </div>
+      
+      <!-- Login Hint / Footer -->
+      ${settings.showHint && settings.loginHint ? `
+        <div style="border-top:1px dashed #000;margin:3px 0 2px;"></div>
+        <div style="font-size:${is80 ? '8pt' : '6.8pt'};color:#000;line-height:1.2;font-style:italic;">
+          ${esc(settings.loginHint)}
+        </div>
+      ` : ''}
+      
+      <div style="border-top:1px dashed #000;margin:3px 0 2px;"></div>
+      <div style="font-size:${is80 ? '7.5pt' : '6.5pt'};color:#000;">
+        Terima Kasih • Selamat Berinternet
+      </div>
+    </div>
+  `;
+}
+
 // ===== PRINT BUILDER =====
 function buildPrintArea(selectedVouchers, layoutVal) {
   const printArea = $id('print-area');
   if (!printArea) return;
   printArea.innerHTML = '';
+
+  preparePrintStyles(layoutVal);
 
   const fragment = document.createDocumentFragment();
   const startNum = parseInt(state.settings.startNumber, 10) || 1;
@@ -4366,10 +4611,11 @@ function buildPrintArea(selectedVouchers, layoutVal) {
   if (isThermal) {
     const pageEl = document.createElement('div');
     pageEl.className = `print-page layout-${layoutVal}`;
+    const widthMm = layoutVal === 'thermal-80' ? 80 : 58;
 
     let html = selectedVouchers.map((v, vi) => {
       const num = startNum + vi;
-      return buildCardHTML(v, num, state.settings, false);
+      return buildThermalReceiptHTML(v, num, state.settings, widthMm);
     }).join('');
 
     pageEl.innerHTML = html;
