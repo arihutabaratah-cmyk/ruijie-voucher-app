@@ -1752,13 +1752,28 @@ function showThermalPrinterModal() {
     </div>
     <div class="modal-body" style="max-height:82vh;overflow-y:auto;">
       
+      <!-- Panduan PIN Pairing Windows (PENTING) -->
+      <div style="background:#fef3c7;border:1.5px solid #f59e0b;border-radius:8px;padding:0.8rem;margin-bottom:0.85rem;font-size:0.77rem;color:#92400e;line-height:1.5;">
+        <div style="font-weight:900;font-size:0.84rem;margin-bottom:0.35rem;display:flex;align-items:center;gap:0.35rem;">
+          <span>🔑 Cara Isi PIN Pairing CP-58B di Windows PC:</span>
+        </div>
+        <div>Di komputer PC Windows, permintaan PIN (<code>0000</code> atau <code>1234</code>) harus dimasukkan terlebih dahulu di <strong>Windows Settings</strong> (bukan langsung di browser):</div>
+        <div style="background:#fff;border:1px solid #fde68a;border-radius:6px;padding:0.5rem 0.7rem;margin-top:0.45rem;color:#1e293b;">
+          <div>1️⃣ Buka <strong>Settings Windows</strong> (Tekan tombol keyboard <kbd>Win + I</kbd>).</div>
+          <div>2️⃣ Masuk ke menu <strong>Bluetooth & devices</strong> ➔ Klik tombol <strong>Add device (+ Tambah perangkat)</strong>.</div>
+          <div>3️⃣ Pilih <strong>Bluetooth</strong> ➔ Klik nama printer <strong>CP-58B / POS-58</strong> yang terdeteksi.</div>
+          <div>4️⃣ Windows akan meminta PIN ➔ Ketik <strong>0000</strong> (atau <strong>1234</strong>) lalu klik <strong>Connect</strong>.</div>
+          <div>5️⃣ Setelah statusnya <em>"Paired / Terhubung"</em> di Windows, klik tombol <strong>"⚡ Hubungkan Port CP-58B"</strong> di bawah ini!</div>
+        </div>
+      </div>
+
       <!-- Pilihan 1: Web Serial / Bluetooth Windows (Khusus CP-58B) -->
       <div style="background:var(--surface-alt);border:1.5px solid var(--primary);border-radius:10px;padding:0.95rem;margin-bottom:1rem;">
         <div style="font-size:0.88rem;font-weight:850;color:var(--primary);margin-bottom:0.4rem;display:flex;align-items:center;gap:0.4rem;">
-          <span>⚡ 1. Koneksi Langsung CP-58B (Serial / Bluetooth Windows / USB)</span>
+          <span>⚡ 1. Hubungkan Port CP-58B (Setelah di-Pair di Windows)</span>
         </div>
         <p style="font-size:0.77rem;color:var(--text);line-height:1.45;margin-bottom:0.65rem;">
-          Hubungkan kabel USB atau pair via Bluetooth di Windows (PIN: <code>0000</code> / <code>1234</code>):
+          Klik tombol di bawah untuk menyambungkan port komunikasi data langsung ke CP-58B:
         </p>
 
         <div style="background:#ffffff;border:1px solid #cbd5e1;border-radius:6px;padding:0.65rem 0.8rem;margin-bottom:0.75rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.4rem;">
@@ -1772,7 +1787,7 @@ function showThermalPrinterModal() {
         </div>
 
         <div style="font-size:0.76rem;font-weight:800;color:var(--text);margin-bottom:0.4rem;">
-          🧪 Tes Cetak Struk 58mm (Tanpa Format A4):
+          🧪 Tes Cetak Struk 58mm:
         </div>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
           <button class="btn btn-primary btn-sm" onclick="testPrintThermal(58)" style="font-weight:800;">
