@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Portal Mitra Agen Hotspot — E-Wallet Voucher POS</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤝</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --primary-light: #eff6ff;
+      --accent: #06b6d4;
+      --success: #10b981;
+      --success-dark: #059669;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface-alt: #f1f5f9;
+      --text: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      --border: #e2e8f0;
+      --border-dark: #cbd5e1;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+      --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      --radius: 16px;
+      --radius-sm: 10px;
+      --radius-xs: 6px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding-bottom: 70px;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 480px;
+      background: var(--surface);
+      min-height: 100vh;
+      box-shadow: 0 0 25px rgba(0,0,0,0.06);
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Top App Bar */
+    .top-bar {
+      background: #ffffff;
+      padding: 0.9rem 1.1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+
+    .brand-info {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .brand-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #2563eb, #06b6d4);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      font-weight: 800;
+      box-shadow: 0 2px 6px rgba(37,99,235,0.25);
+    }
+
+    .brand-text h1 {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1.2;
+    }
+
+    .brand-text p {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .agent-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+      border-radius: 20px;
+      padding: 0.2rem 0.5rem;
+      font-size: 0.7rem;
+      font-weight: 750;
+    }
+
+    /* Main Content Area */
+    .main-content {
+      padding: 1rem;
+    }
+
+    /* E-Wallet Card (GoPay / DANA Style) */
+    .ewallet-card {
+      background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #0284c7 100%);
+      color: #ffffff;
+      border-radius: 18px;
+      padding: 1.25rem;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 10px 20px -5px rgba(37,99,235,0.35);
+      margin-bottom: 1.2rem;
+    }
+
+    .ewallet-card::before {
+      content: '';
+      position: absolute;
+      width: 150px;
+      height: 150px;
+      background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 70%);
+      top: -40px;
+      right: -30px;
+      border-radius: 50%;
+    }
+
+    .ewallet-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .ewallet-label {
+      font-size: 0.76rem;
+      color: #bfdbfe;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .btn-eye-toggle {
+      background: rgba(255,255,255,0.15);
+      border: none;
+      color: white;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+    }
+
+    .ewallet-agent-name {
+      font-size: 0.78rem;
+      font-weight: 750;
+      color: #e0e7ff;
+      background: rgba(0,0,0,0.2);
+      padding: 0.2rem 0.6rem;
+      border-radius: 20px;
+    }
+
+    .ewallet-balance {
+      font-size: 1.85rem;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.9rem;
+      display: flex;
+      align-items: baseline;
+      gap: 0.3rem;
+    }
+
+    .ewallet-balance small {
+      font-size: 1.05rem;
+      font-weight: 700;
+      opacity: 0.9;
+    }
+
+    .ewallet-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: rgba(0,0,0,0.18);
+      border-radius: 12px;
+      padding: 0.6rem 0.8rem;
+      gap: 0.5rem;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .stat-item {
+      font-size: 0.72rem;
+      color: #e0f2fe;
+    }
+
+    .stat-item strong {
+      display: block;
+      font-size: 0.85rem;
+      color: #ffffff;
+      font-weight: 800;
+      margin-top: 1px;
+    }
+
+    /* Quick Action Buttons Grid */
+    .quick-actions-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.6rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .quick-action-btn {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 0.75rem 0.4rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .quick-action-btn:active {
+      transform: scale(0.95);
+      background: var(--surface-alt);
+    }
+
+    .action-icon-circle {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+    }
+
+    .icon-topup { background: #dcfce7; color: #16a34a; }
+    .icon-history { background: #e0f2fe; color: #0284c7; }
+    .icon-printer { background: #fef3c7; color: #d97706; }
+    .icon-cs { background: #f3e8ff; color: #9333ea; }
+
+    .action-label {
+      font-size: 0.72rem;
+      font-weight: 750;
+      color: var(--text);
+      text-align: center;
+      line-height: 1.15;
+    }
+
+    /* Section Title */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .section-title {
+      font-size: 0.92rem;
+      font-weight: 850;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .section-subtitle {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    /* Package Cards (Catalogue) */
+    .package-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .package-card {
+      background: #ffffff;
+      border: 1.5px solid var(--border);
+      border-radius: 16px;
+      padding: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      transition: all 0.2s ease;
+      box-shadow: var(--shadow-sm);
+      position: relative;
+    }
+
+    .package-card:hover {
+      border-color: var(--primary);
+      box-shadow: var(--shadow);
+    }
+
+    .package-info {
+      flex: 1;
+    }
+
+    .package-badge-row {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .badge-speed {
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 0.68rem;
+      font-weight: 800;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      border: 1px solid #bfdbfe;
+    }
+
+    .badge-stock {
+      background: #ecfdf5;
+      color: #065f46;
+      font-size: 0.68rem;
+      font-weight: 800;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+    }
+
+    .badge-stock.empty {
+      background: #fef2f2;
+      color: #991b1b;
+    }
+
+    .package-name {
+      font-size: 0.98rem;
+      font-weight: 850;
+      color: var(--text);
+      margin-bottom: 0.3rem;
+    }
+
+    .package-price-row {
+      display: flex;
+      align-items: baseline;
+      gap: 0.45rem;
+    }
+
+    .package-price {
+      font-size: 1.15rem;
+      font-weight: 900;
+      color: var(--primary);
+    }
+
+    .package-profit-badge {
+      font-size: 0.7rem;
+      font-weight: 800;
+      color: #15803d;
+      background: #dcfce7;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+    }
+
+    .btn-buy-package {
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      padding: 0.65rem 1rem;
+      font-size: 0.82rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      box-shadow: 0 3px 8px rgba(37,99,235,0.25);
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .btn-buy-package:active {
+      transform: scale(0.96);
+      background: var(--primary-dark);
+    }
+
+    .btn-buy-package:disabled {
+      background: var(--border-dark);
+      color: var(--text-muted);
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* Modal Sheet Styling (E-Wallet Style) */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.25s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal-sheet {
+      background: #ffffff;
+      width: 100%;
+      max-width: 480px;
+      border-top-left-radius: 24px;
+      border-top-right-radius: 24px;
+      padding: 1.25rem 1.25rem 1.75rem;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      max-height: 88vh;
+      overflow-y: auto;
+      box-shadow: 0 -10px 30px rgba(0,0,0,0.15);
+    }
+
+    .modal-overlay.active .modal-sheet {
+      transform: translateY(0);
+    }
+
+    .modal-drag-handle {
+      width: 40px;
+      height: 4px;
+      background: var(--border-dark);
+      border-radius: 10px;
+      margin: 0 auto 0.9rem;
+    }
+
+    .sheet-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .sheet-title {
+      font-size: 1.05rem;
+      font-weight: 850;
+      color: var(--text);
+    }
+
+    .btn-close-sheet {
+      background: var(--surface-alt);
+      border: none;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-weight: 800;
+      color: var(--text-secondary);
+    }
+
+    /* Voucher Receipt Display in Modal */
+    .receipt-container {
+      background: #ffffff;
+      border: 2px dashed #0f172a;
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .receipt-store-title {
+      font-size: 1.1rem;
+      font-weight: 900;
+      color: #0f172a;
+    }
+
+    .receipt-voucher-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.6rem;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      color: #1e3a8a;
+      background: #eff6ff;
+      border: 1.5px solid #3b82f6;
+      border-radius: 8px;
+      padding: 0.5rem 0.75rem;
+      margin: 0.75rem 0;
+      user-select: all;
+    }
+
+    .receipt-meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.4rem;
+      font-size: 0.76rem;
+      text-align: left;
+      background: #f8fafc;
+      padding: 0.6rem;
+      border-radius: 6px;
+      margin-bottom: 0.6rem;
+    }
+
+    .receipt-action-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      margin-top: 0.8rem;
+    }
+
+    .btn-action-sheet {
+      padding: 0.75rem;
+      border-radius: 12px;
+      font-size: 0.82rem;
+      font-weight: 800;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+    }
+
+    .btn-wa { background: #22c55e; color: white; }
+    .btn-print-receipt { background: #1e293b; color: white; }
+    .btn-copy { background: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; }
+    .btn-done { background: var(--primary); color: white; grid-column: 1 / -1; }
+
+    /* Quantity Stepper */
+    .qty-stepper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      margin: 1rem 0;
+    }
+
+    .btn-stepper {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border-dark);
+      background: white;
+      font-size: 1.2rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .qty-display {
+      font-size: 1.5rem;
+      font-weight: 900;
+      min-width: 50px;
+      text-align: center;
+      color: var(--primary);
+    }
+
+    /* History List Items */
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .history-icon-box {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      margin-right: 0.6rem;
+    }
+
+    /* Toast Notification */
+    #toast-container {
+      position: fixed;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      width: 90%;
+      max-width: 420px;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: #1e293b;
+      color: white;
+      padding: 0.75rem 1rem;
+      border-radius: 12px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      animation: toastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Top Header Bar -->
+    <header class="top-bar">
+      <div class="brand-info">
+        <div class="brand-avatar">🤝</div>
+        <div class="brand-text">
+          <h1 id="top-store-name">Hotspot Agent Portal</h1>
+          <p id="top-agent-title">Mitra Resmi Terverifikasi</p>
+        </div>
+      </div>
+      <div>
+        <button class="btn-eye-toggle" id="btn-switch-agent" title="Ganti / Logout Agen" style="background:var(--surface-alt);color:var(--text-secondary);width:auto;border-radius:20px;padding:0.3rem 0.65rem;font-size:0.75rem;font-weight:750;">
+          🔄 Ganti Agen
+        </button>
+      </div>
+    </header>
+
+    <!-- Main App Container -->
+    <main class="main-content">
+      
+      <!-- 💳 E-Wallet Balance Card -->
+      <section class="ewallet-card">
+        <div class="ewallet-header">
+          <div class="ewallet-label">
+            <span>SALDO DEPOSIT AGEN</span>
+            <button class="btn-eye-toggle" id="btn-toggle-balance-vis" title="Sembunyikan / Tampilkan Saldo">👁️</button>
+          </div>
+          <div class="ewallet-agent-name" id="card-agent-name">Memuat...</div>
+        </div>
+
+        <div class="ewallet-balance" id="card-balance-display">
+          <small>Rp</small> <span id="card-balance-val">0</span>
+        </div>
+
+        <div class="ewallet-stats">
+          <div class="stat-item">
+            <span>Pembelian Hari Ini</span>
+            <strong id="card-today-buy">0 Voucher</strong>
+          </div>
+          <div class="stat-item">
+            <span>Estimasi Margin Laba</span>
+            <strong id="card-today-profit" style="color:#6ee7b7;">Rp 0</strong>
+          </div>
+        </div>
+      </section>
+
+      <!-- ⚡ Quick Actions Grid -->
+      <section class="quick-actions-grid">
+        <div class="quick-action-btn" id="btn-action-topup">
+          <div class="action-icon-circle icon-topup">➕</div>
+          <span class="action-label">Top Up Saldo</span>
+        </div>
+        <div class="quick-action-btn" id="btn-action-history">
+          <div class="action-icon-circle icon-history">📜</div>
+          <span class="action-label">Riwayat Mutasi</span>
+        </div>
+        <div class="quick-action-btn" id="btn-action-printer">
+          <div class="action-icon-circle icon-printer">🖨️</div>
+          <span class="action-label">Printer Thermal</span>
+        </div>
+        <div class="quick-action-btn" id="btn-action-cs">
+          <div class="action-icon-circle icon-cs">💬</div>
+          <span class="action-label">CS Admin</span>
+        </div>
+      </section>
+
+      <!-- 🛒 Package Catalogue (Beli Voucher) -->
+      <section>
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">⚡ Beli Paket Voucher Hotspot</h2>
+            <div class="section-subtitle">Pilih paket langsung dari stok database pusat</div>
+          </div>
+          <span class="agent-status-badge" id="badge-total-stock">Stok: 0 pcs</span>
+        </div>
+
+        <!-- Package Grid Dynamic Container -->
+        <div class="package-grid" id="package-list-container">
+          <div style="text-align:center;padding:2rem;color:var(--text-muted);font-size:0.85rem;">
+            Sedang memuat katalog paket...
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- 📦 MODAL: Checkout / Konfirmasi Pembelian -->
+  <div class="modal-overlay" id="modal-checkout">
+    <div class="modal-sheet">
+      <div class="modal-drag-handle"></div>
+      <div class="sheet-header">
+        <h3 class="sheet-title">🛒 Konfirmasi Pembelian</h3>
+        <button class="btn-close-sheet" onclick="closeSheet('modal-checkout')">✕</button>
+      </div>
+
+      <div style="background:var(--surface-alt);border-radius:12px;padding:0.9rem;margin-bottom:1rem;">
+        <div style="font-size:0.78rem;color:var(--text-muted);font-weight:700;">PAKET HOTSPOT</div>
+        <div style="font-size:1.15rem;font-weight:900;color:var(--text);margin-bottom:0.2rem;" id="checkout-pkg-name">-</div>
+        <div style="font-size:0.8rem;color:var(--primary);font-weight:750;" id="checkout-pkg-spec">-</div>
+      </div>
+
+      <div style="text-align:center;font-size:0.8rem;font-weight:750;color:var(--text-secondary);">Jumlah Voucher yang Ingin Dibeli:</div>
+      <div class="qty-stepper">
+        <button class="btn-stepper" id="btn-qty-minus">−</button>
+        <span class="qty-display" id="checkout-qty-val">1</span>
+        <button class="btn-stepper" id="btn-qty-plus">＋</button>
+      </div>
+
+      <div style="background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:0.75rem 0.9rem;margin-bottom:1.2rem;font-size:0.8rem;line-height:1.6;">
+        <div style="display:flex;justify-content:space-between;">
+          <span style="color:var(--text-secondary);">Harga Normal Pembeli:</span>
+          <strong id="checkout-price-normal">Rp 0</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;color:#059669;font-weight:750;">
+          <span>Harga Khusus Agen:</span>
+          <span id="checkout-price-agent">Rp 0</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;border-top:1px dashed var(--border-dark);padding-top:0.4rem;margin-top:0.4rem;font-weight:900;font-size:0.92rem;">
+          <span>Total Potong Saldo:</span>
+          <span style="color:var(--primary);" id="checkout-total-deduct">Rp 0</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--text-muted);">
+          <span>Sisa Saldo Deposit Setelah Beli:</span>
+          <span id="checkout-balance-after">Rp 0</span>
+        </div>
+      </div>
+
+      <button class="btn-action-sheet btn-done" id="btn-confirm-purchase" style="font-size:0.95rem;">
+        ⚡ Beli & Rilis Voucher Sekarang
+      </button>
+    </div>
+  </div>
+
+  <!-- 📄 MODAL: Struk Hasil Pembelian Siap Cetak / Kirim WA -->
+  <div class="modal-overlay" id="modal-receipt">
+    <div class="modal-sheet">
+      <div class="modal-drag-handle"></div>
+      <div class="sheet-header">
+        <h3 class="sheet-title">🎉 Voucher Berhasil Dibeli!</h3>
+        <button class="btn-close-sheet" onclick="closeSheet('modal-receipt')">✕</button>
+      </div>
+
+      <div class="receipt-container" id="receipt-printable-area">
+        <div class="receipt-store-title" id="rcpt-store-name">WIFI HOTSPOT</div>
+        <div style="font-size:0.75rem;color:#64748b;margin-bottom:0.4rem;">SSID: <strong id="rcpt-ssid">-</strong></div>
+        <div style="border-top:1px dashed #cbd5e1;margin:0.4rem 0;"></div>
+
+        <div style="font-size:0.85rem;font-weight:800;color:#0f172a;" id="rcpt-pkg-name">Paket 1 Hari</div>
+        <div style="font-size:0.75rem;color:#475569;" id="rcpt-pkg-price">Rp 5.000 • 24 Jam</div>
+
+        <div class="receipt-voucher-code" id="rcpt-voucher-code">RJ-000000</div>
+
+        <div class="receipt-meta-grid">
+          <div>⏳ Masa Aktif: <strong id="rcpt-periode">24 Jam</strong></div>
+          <div>🚀 Kecepatan: <strong id="rcpt-speed">10 Mbps</strong></div>
+          <div>📦 Kuota: <strong id="rcpt-quota">Unlimited</strong></div>
+          <div>🏪 Mitra Agen: <strong id="rcpt-agent-name">-</strong></div>
+        </div>
+
+        <div style="font-size:0.72rem;color:#64748b;line-height:1.3;">
+          Hubungkan ke WiFi ➔ Masukkan kode voucher di atas pada halaman login browser.
+        </div>
+      </div>
+
+      <div class="receipt-action-buttons">
+        <button class="btn-action-sheet btn-print-receipt" id="btn-rcpt-print">
+          🖨️ Cetak Thermal 58mm
+        </button>
+        <button class="btn-action-sheet btn-wa" id="btn-rcpt-wa">
+          📱 Kirim ke WhatsApp
+        </button>
+        <button class="btn-action-sheet btn-copy" id="btn-rcpt-copy">
+          📋 Salin Kode
+        </button>
+        <button class="btn-action-sheet btn-done" onclick="closeSheet('modal-receipt')">
+          ✅ Selesai & Beli Lagi
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ➕ MODAL: Top Up Saldo Deposit -->
+  <div class="modal-overlay" id="modal-topup">
+    <div class="modal-sheet">
+      <div class="modal-drag-handle"></div>
+      <div class="sheet-header">
+        <h3 class="sheet-title">➕ Isi Saldo Deposit Agen</h3>
+        <button class="btn-close-sheet" onclick="closeSheet('modal-topup')">✕</button>
+      </div>
+
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:0.9rem;margin-bottom:1rem;font-size:0.8rem;color:#1e40af;line-height:1.5;">
+        <div style="font-weight:800;margin-bottom:0.25rem;">💳 Cara Top Up Saldo Deposit:</div>
+        <div>1. Lakukan transfer / scan QRIS ke rekening Pengelola Hotspot.</div>
+        <div>2. Konfirmasi bukti transfer ke WhatsApp Admin.</div>
+        <div>3. Admin akan langsung menginput saldo deposit ke akun Anda dalam 1-3 menit!</div>
+      </div>
+
+      <button class="btn-action-sheet btn-wa" id="btn-topup-chat-admin" style="width:100%;font-size:0.9rem;">
+        💬 Chat WhatsApp Admin untuk Top Up
+      </button>
+    </div>
+  </div>
+
+  <!-- 📜 MODAL: Riwayat Mutasi & Transaksi -->
+  <div class="modal-overlay" id="modal-history">
+    <div class="modal-sheet">
+      <div class="modal-drag-handle"></div>
+      <div class="sheet-header">
+        <h3 class="sheet-title">📜 Riwayat Mutasi Transaksi</h3>
+        <button class="btn-close-sheet" onclick="closeSheet('modal-history')">✕</button>
+      </div>
+
+      <div id="history-items-container" style="max-height:60vh;overflow-y:auto;">
+        <!-- Dynamic History Items -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 🔑 MODAL: Switch / Login Agent -->
+  <div class="modal-overlay" id="modal-login">
+    <div class="modal-sheet">
+      <div class="modal-drag-handle"></div>
+      <div class="sheet-header">
+        <h3 class="sheet-title">🔐 Masuk ke Portal Agen</h3>
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <label style="font-size:0.8rem;font-weight:750;display:block;margin-bottom:0.4rem;">Pilih Akun Mitra Agen:</label>
+        <select id="login-agent-select" style="width:100%;padding:0.75rem;border-radius:10px;border:1.5px solid var(--border);font-size:0.9rem;font-weight:750;">
+          <!-- Populated from state.resellers -->
+        </select>
+      </div>
+
+      <div style="margin-bottom:1.25rem;">
+        <label style="font-size:0.8rem;font-weight:750;display:block;margin-bottom:0.4rem;">PIN Keamanan Agen (Default: 1234):</label>
+        <input type="password" id="login-agent-pin" placeholder="Masukkan 4-6 digit PIN" maxlength="6" style="width:100%;padding:0.75rem;border-radius:10px;border:1.5px solid var(--border);font-size:1.1rem;text-align:center;font-weight:900;letter-spacing:0.2em;">
+      </div>
+
+      <button class="btn-action-sheet btn-done" id="btn-submit-login" style="font-size:0.95rem;">
+        🚀 Masuk ke Dashboard
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast Notification Area -->
+  <div id="toast-container"></div>
+
+  <script src="agent.js"></script>
+</body>
+</html>

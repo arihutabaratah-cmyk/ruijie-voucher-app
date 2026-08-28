@@ -2521,6 +2521,10 @@ function showResellerModal() {
 
   const resellerStats = {};
   state.resellers.forEach(r => {
+    if (typeof r.balance !== 'number') r.balance = 50000;
+    if (!r.pin) r.pin = '1234';
+    if (typeof r.discountPercent !== 'number') r.discountPercent = 10;
+    if (!Array.isArray(r.transactions)) r.transactions = [];
     resellerStats[r.id] = { reseller: r, totalVouchers: 0, printedVouchers: 0, unprintedVouchers: 0, totalOmset: 0 };
   });
 
@@ -2538,35 +2542,38 @@ function showResellerModal() {
   const cardsHtml = state.resellers.map(r => {
     const s = resellerStats[r.id] || { totalVouchers: 0, printedVouchers: 0, unprintedVouchers: 0, totalOmset: 0 };
     return `
-      <div class="reseller-card" id="reseller-card-${r.id}">
-        <div class="reseller-card-header">
-          <div class="reseller-name">🤝 ${esc(r.name)}</div>
-          <span class="badge" style="background:var(--primary-light);color:var(--primary);font-size:0.72rem;font-weight:800;">
-            ${s.totalVouchers} pcs Dialokasikan
+      <div class="reseller-card" id="reseller-card-${r.id}" style="border: 1.5px solid var(--border); border-radius: 12px; padding: 1rem; margin-bottom: 0.85rem; background: var(--surface);">
+        <div class="reseller-card-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;">
+          <div class="reseller-name" style="font-size:1.05rem;font-weight:900;color:var(--text);">🤝 ${esc(r.name)}</div>
+          <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.75rem;font-weight:800;border:1px solid #86efac;padding:0.2rem 0.55rem;border-radius:20px;">
+            💳 Saldo: Rp ${formatNumber(r.balance || 0)}
           </span>
         </div>
-        <div class="reseller-meta">
-          <div>📞 <strong>${esc(r.phone || '-')}</strong> • 📍 ${esc(r.address || '-')}</div>
+        <div class="reseller-meta" style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:0.6rem;line-height:1.45;">
+          <div>📞 <strong>${esc(r.phone || '-')}</strong> • 📍 ${esc(r.address || '-')} • 🔑 PIN: <code>${esc(r.pin || '1234')}</code> (Diskon Agen: <strong>${r.discountPercent || 10}%</strong>)</div>
           ${r.note ? `<div style="font-style:italic;color:var(--text-muted);margin-top:2px;">📝 ${esc(r.note)}</div>` : ''}
         </div>
-        <div class="reseller-stat-row">
+        <div class="reseller-stat-row" style="display:flex;gap:0.8rem;background:var(--surface-alt);padding:0.5rem 0.75rem;border-radius:8px;font-size:0.76rem;margin-bottom:0.75rem;flex-wrap:wrap;">
           <span>Stok Dialokasikan: <strong>${s.totalVouchers} pcs</strong></span>
           <span style="color:var(--success);">Terjual: <strong>${s.printedVouchers} pcs</strong></span>
           <span style="color:var(--warning);">Sisa: <strong>${s.unprintedVouchers} pcs</strong></span>
+          <span>Nilai Stok: <strong style="color:var(--primary);">Rp ${formatNumber(s.totalOmset)}</strong></span>
         </div>
-        <div class="reseller-stat-row">
-          <span>Total Nilai Stok Agen:</span>
-          <strong style="color:var(--primary);font-size:0.92rem;">Rp ${formatNumber(s.totalOmset)}</strong>
-        </div>
-        <div class="reseller-card-actions" style="grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));">
-          <button class="btn btn-primary btn-sm" onclick="showAssignResellerModal('${r.id}')" title="Alokasikan voucher ke agen ini">
+        <div class="reseller-card-actions" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:0.4rem;">
+          <button class="btn btn-primary btn-sm" onclick="showTopUpAgentModal('${r.id}')" style="font-weight:800;background:#15803d;">
+            💰 Top Up Saldo
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="copyAgentPortalLink('${r.id}')" style="font-weight:750;">
+            🔗 Link E-Wallet
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="showAssignResellerModal('${r.id}')" title="Alokasikan voucher ke agen ini">
             ⚡ Alokasi Stok
           </button>
           <button class="btn btn-secondary btn-sm" onclick="printResellerVouchers('${r.id}')" title="Cetak lembaran voucher untuk agen ini">
             🖨️ Cetak Voucher
           </button>
           <button class="btn btn-secondary btn-sm" onclick="printSuratJalan('${r.id}')" title="Cetak Surat Serah Terima & Distribusi">
-            📄 Surat Jalan Agen
+            📄 Surat Jalan
           </button>
           <button class="btn btn-secondary btn-sm" onclick="showEditResellerForm('${r.id}')" title="Edit Data Agen">
             ✏️ Edit Agen
@@ -2581,16 +2588,21 @@ function showResellerModal() {
 
   const html = `
     <div class="modal-header">
-      <h3>🤝 Manajemen Mitra & Agen Hotspot</h3>
+      <h3>🤝 Manajemen Mitra & Agen Hotspot (E-Wallet Portal)</h3>
       <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
     </div>
-    <div class="modal-body">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem;flex-wrap:wrap;gap:0.5rem;">
-        <p style="font-size:0.82rem;color:var(--text-secondary);margin:0;">
-          Kelola mitra agen resmi, alokasi stok voucher, komisi/bagi hasil, dan cetak surat serah terima / nota agen.
-        </p>
-        <div style="display:flex;gap:0.4rem;">
-          <button class="btn btn-secondary btn-sm" onclick="showAssignResellerModal()">⚡ Alokasi Stok ke Agen</button>
+    <div class="modal-body" style="max-height:80vh;overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem;flex-wrap:wrap;gap:0.5rem;background:#eff6ff;padding:0.75rem 0.9rem;border-radius:10px;border:1px solid #bfdbfe;">
+        <div>
+          <div style="font-size:0.86rem;font-weight:850;color:#1e40af;">📲 Portal E-Wallet Agen Mandiri (GoPay / DANA Style)</div>
+          <p style="font-size:0.76rem;color:#3b82f6;margin:0;">
+            Agen dapat login ke <strong>agent.html</strong> untuk membeli voucher sendiri menggunakan Saldo Deposit & cetak struk thermal.
+          </p>
+        </div>
+        <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+          <a href="agent.html" target="_blank" class="btn btn-secondary btn-sm" style="font-weight:750;text-decoration:none;display:inline-flex;align-items:center;gap:0.3rem;">
+            🚀 Buka Portal Agen
+          </a>
           <button class="btn btn-primary btn-sm" id="btn-add-new-reseller">＋ Tambah Agen Baru</button>
         </div>
       </div>
@@ -2606,6 +2618,136 @@ function showResellerModal() {
 
   openModal(html, 'modal-wide');
   on('btn-add-new-reseller', showAddResellerForm);
+}
+
+// ===== 💰 TOP UP SALDO AGENT MODAL =====
+function showTopUpAgentModal(resellerId) {
+  const reseller = state.resellers.find(r => r.id === resellerId);
+  if (!reseller) return;
+
+  const html = `
+    <div class="modal-header">
+      <h3>💰 Top Up Saldo Deposit — ${esc(reseller.name)}</h3>
+      <button class="btn-icon" onclick="showResellerModal()" title="Kembali">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--surface-alt);border-radius:10px;padding:0.85rem;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:0.75rem;color:var(--text-muted);font-weight:700;">SALDO DEPOSIT SAAT INI</div>
+          <div style="font-size:1.35rem;font-weight:900;color:var(--success);">Rp ${formatNumber(reseller.balance || 0)}</div>
+        </div>
+        <div style="font-size:0.78rem;color:var(--text-secondary);text-align:right;">
+          <div>🔑 PIN: <strong>${esc(reseller.pin || '1234')}</strong></div>
+          <div>📞 ${esc(reseller.phone || '-')}</div>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:0.75rem;">
+        <label for="m-topup-nominal" style="font-weight:800;font-size:0.85rem;">Jumlah Penambahan Saldo (Rp) *</label>
+        <input type="number" id="m-topup-nominal" class="form-input" min="1000" step="5000" value="50000" style="font-size:1.15rem;font-weight:900;text-align:center;" autofocus>
+      </div>
+
+      <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:1.2rem;">
+        <button class="btn btn-secondary btn-sm" onclick="$id('m-topup-nominal').value = 25000;">+Rp 25.000</button>
+        <button class="btn btn-secondary btn-sm" onclick="$id('m-topup-nominal').value = 50000;">+Rp 50.000</button>
+        <button class="btn btn-secondary btn-sm" onclick="$id('m-topup-nominal').value = 100000;">+Rp 100.000</button>
+        <button class="btn btn-secondary btn-sm" onclick="$id('m-topup-nominal').value = 200000;">+Rp 200.000</button>
+        <button class="btn btn-secondary btn-sm" onclick="$id('m-topup-nominal').value = 500000;">+Rp 500.000</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="showResellerModal()">Batal</button>
+      <button class="btn btn-primary" id="btn-submit-topup" style="background:#15803d;font-weight:800;">
+        ⚡ Tambahkan Saldo Sekarang
+      </button>
+    </div>
+  `;
+
+  openModal(html);
+
+  on('btn-submit-topup', () => {
+    const amount = parseFloat($id('m-topup-nominal')?.value || '0');
+    if (amount <= 0 || isNaN(amount)) {
+      showToast('Masukkan jumlah top up yang valid!', 'error');
+      $id('m-topup-nominal')?.focus();
+      return;
+    }
+
+    reseller.balance = (reseller.balance || 0) + amount;
+    if (!Array.isArray(reseller.transactions)) reseller.transactions = [];
+
+    const trxRecord = {
+      id: 'trx_' + Date.now(),
+      timestamp: new Date().toISOString(),
+      type: 'TOPUP',
+      amount: amount,
+      desc: `Top up saldo oleh Admin Hotspot`
+    };
+
+    reseller.transactions.unshift(trxRecord);
+
+    logActivity('RESELLER_EDIT', `Top up saldo agen ${reseller.name} sebesar Rp ${formatNumber(amount)} (Saldo baru: Rp ${formatNumber(reseller.balance)})`);
+    saveState();
+    showToast(`✅ Berhasil top up Rp ${formatNumber(amount)} ke ${reseller.name}!`);
+    showResellerModal();
+  });
+}
+
+// ===== 🔗 COPY AGENT PORTAL LINK MODAL =====
+function copyAgentPortalLink(resellerId) {
+  const reseller = state.resellers.find(r => r.id === resellerId);
+  if (!reseller) return;
+
+  const baseUrl = window.location.origin + window.location.pathname.replace('index.html', '').replace(/\/$/, '');
+  const portalUrl = `${baseUrl}/agent.html?id=${reseller.id}&pin=${reseller.pin || '1234'}`;
+
+  const shareText = `Halo *${reseller.name}*,\n\n` +
+    `Berikut link Portal Agen Resmi Hotspot Anda:\n` +
+    `👉 ${portalUrl}\n\n` +
+    `🔑 *PIN Keamanan:* ${reseller.pin || '1234'}\n` +
+    `💳 *Saldo Deposit:* Rp ${formatNumber(reseller.balance || 0)}\n\n` +
+    `Anda dapat langsung membeli voucher hotspot dan mencetak struk thermal secara mandiri dari link di atas. Terima kasih!`;
+
+  const waUrl = `https://api.whatsapp.com/send?phone=${reseller.phone || ''}&text=${encodeURIComponent(shareText)}`;
+
+  const html = `
+    <div class="modal-header">
+      <h3>🔗 Link Portal E-Wallet Agen — ${esc(reseller.name)}</h3>
+      <button class="btn-icon" onclick="showResellerModal()" title="Kembali">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:0.85rem;margin-bottom:1rem;font-size:0.8rem;color:#1e40af;line-height:1.5;">
+        <div>Bagikan link khusus di bawah ini kepada mitra agen Anda. Agen dapat membuka link ini dari HP/Laptop untuk membeli voucher secara mandiri menggunakan saldo deposit:</div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:1rem;">
+        <label style="font-weight:800;font-size:0.82rem;">Link Khusus Portal Agen (Langsung Login):</label>
+        <input type="text" id="agent-portal-url-field" class="form-input" value="${esc(portalUrl)}" readonly style="font-family:monospace;font-size:0.82rem;background:#f8fafc;">
+      </div>
+
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" id="btn-copy-portal-url" style="font-weight:800;">
+          📋 Salin Link ke Clipboard
+        </button>
+        <a href="${waUrl}" target="_blank" class="btn btn-primary btn-sm" style="background:#22c55e;font-weight:800;text-decoration:none;display:inline-flex;align-items:center;gap:0.3rem;">
+          📱 Kirim Link via WhatsApp Agen
+        </a>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="showResellerModal()">Tutup</button>
+    </div>
+  `;
+
+  openModal(html);
+
+  on('btn-copy-portal-url', () => {
+    navigator.clipboard.writeText(portalUrl).then(() => {
+      showToast('📋 Link portal agen berhasil disalin ke clipboard!', 'success');
+    }).catch(() => {
+      showToast('Silakan salin link secara manual');
+    });
+  });
 }
 
 function showAddResellerForm() {
@@ -2630,9 +2772,25 @@ function showAddResellerForm() {
             <input type="text" id="m-res-address" class="form-input" placeholder="Contoh: Area Komplek Melati / Blok B">
           </div>
         </div>
-        <div class="form-group">
-          <label for="m-res-note">Catatan / Skema Komisi Agen</label>
-          <input type="text" id="m-res-note" class="form-input" placeholder="Contoh: Fee agen Rp 500/voucher, setoran tiap hari Senin">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="m-res-balance">Saldo Awal Deposit (Rp)</label>
+            <input type="number" id="m-res-balance" class="form-input" value="50000" min="0" step="10000">
+          </div>
+          <div class="form-group">
+            <label for="m-res-pin">PIN Keamanan (4-6 Digit)</label>
+            <input type="text" id="m-res-pin" class="form-input" value="1234" maxlength="6">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="m-res-discount">Diskon / Komisi Agen (%)</label>
+            <input type="number" id="m-res-discount" class="form-input" value="10" min="0" max="100">
+          </div>
+          <div class="form-group">
+            <label for="m-res-note">Catatan Tambahan</label>
+            <input type="text" id="m-res-note" class="form-input" placeholder="Contoh: Setoran mingguan">
+          </div>
         </div>
       </div>
     </div>
@@ -2652,16 +2810,30 @@ function showAddResellerForm() {
       return;
     }
 
+    const initBalance = parseFloat($id('m-res-balance')?.value || '50000') || 0;
+    const pin = ($id('m-res-pin')?.value || '1234').trim();
+    const discountPercent = parseFloat($id('m-res-discount')?.value || '10') || 10;
+
     const newRes = {
       id: 'res_' + Date.now(),
       name: name,
       phone: ($id('m-res-phone')?.value || '').trim(),
       address: ($id('m-res-address')?.value || '').trim(),
-      note: ($id('m-res-note')?.value || '').trim()
+      balance: initBalance,
+      pin: pin,
+      discountPercent: discountPercent,
+      note: ($id('m-res-note')?.value || '').trim(),
+      transactions: initBalance > 0 ? [{
+        id: 'trx_' + Date.now(),
+        timestamp: new Date().toISOString(),
+        type: 'TOPUP',
+        amount: initBalance,
+        desc: 'Saldo awal pendaftaran agen'
+      }] : []
     };
 
     state.resellers.push(newRes);
-    logActivity('RESELLER_ADD', `Menambah agen baru: ${name}`);
+    logActivity('RESELLER_ADD', `Menambah agen baru: ${name} (Saldo: Rp ${formatNumber(initBalance)}, PIN: ${pin})`);
     saveState();
     renderResellerFilterSelect();
     showToast(`Agen "${name}" berhasil ditambahkan!`);
@@ -2694,9 +2866,19 @@ function showEditResellerForm(resellerId) {
             <input type="text" id="m-edit-res-address" class="form-input" value="${esc(reseller.address || '')}" placeholder="Contoh: Area Komplek Melati / Blok B">
           </div>
         </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="m-edit-res-pin">PIN Keamanan Agen (4-6 Digit)</label>
+            <input type="text" id="m-edit-res-pin" class="form-input" value="${esc(reseller.pin || '1234')}" maxlength="6">
+          </div>
+          <div class="form-group">
+            <label for="m-edit-res-discount">Diskon / Komisi Agen (%)</label>
+            <input type="number" id="m-edit-res-discount" class="form-input" value="${reseller.discountPercent || 10}" min="0" max="100">
+          </div>
+        </div>
         <div class="form-group">
-          <label for="m-edit-res-note">Catatan / Skema Komisi Agen</label>
-          <input type="text" id="m-edit-res-note" class="form-input" value="${esc(reseller.note || '')}" placeholder="Contoh: Fee agen Rp 500/voucher, setoran tiap Senin">
+          <label for="m-edit-res-note">Catatan Tambahan</label>
+          <input type="text" id="m-edit-res-note" class="form-input" value="${esc(reseller.note || '')}" placeholder="Contoh: Fee agen Rp 500/voucher">
         </div>
       </div>
     </div>
@@ -2719,6 +2901,8 @@ function showEditResellerForm(resellerId) {
     reseller.name = updatedName;
     reseller.phone = ($id('m-edit-res-phone')?.value || '').trim();
     reseller.address = ($id('m-edit-res-address')?.value || '').trim();
+    reseller.pin = ($id('m-edit-res-pin')?.value || '1234').trim();
+    reseller.discountPercent = parseFloat($id('m-edit-res-discount')?.value || '10') || 10;
     reseller.note = ($id('m-edit-res-note')?.value || '').trim();
 
     // Synchronize resellerName on all assigned vouchers
@@ -2728,7 +2912,7 @@ function showEditResellerForm(resellerId) {
       }
     });
 
-    logActivity('RESELLER_EDIT', `Mengubah data agen: ${updatedName}`);
+    logActivity('RESELLER_EDIT', `Mengubah data agen: ${updatedName} (PIN: ${reseller.pin})`);
     saveState();
     renderResellerFilterSelect();
     renderTable();
