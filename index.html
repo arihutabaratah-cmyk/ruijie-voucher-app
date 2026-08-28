@@ -70,7 +70,7 @@
           <div class="header-dropdown-menu" id="header-dropdown-menu">
             <div class="dropdown-header">🛠️ Navigasi & Konfigurasi</div>
             <a class="dropdown-item admin-only" id="menu-item-sheets">📊 Database Google Spreadsheet</a>
-            <a class="dropdown-item admin-only" id="menu-item-reseller">🏪 Manajemen Reseller & Agen</a>
+            <a class="dropdown-item admin-only" id="menu-item-reseller">🤝 Manajemen Mitra & Agen</a>
             <a class="dropdown-item" id="menu-item-audit">📜 Log Aktivitas Kasir (Audit Trail)</a>
             <a class="dropdown-item admin-only" id="menu-item-presets">🏪 Ganti Profil Toko / SSID</a>
             <a class="dropdown-item" href="landing.html">🌟 Info & Panduan (Landing Page)</a>
@@ -371,8 +371,8 @@
 
         <!-- Filter Reseller Dropdown -->
         <div class="filter-group admin-only">
-          <select id="filter-reseller-select" class="form-input form-input-sm">
-            <option value="all">Semua Reseller / Warung</option>
+          <select id="filter-reseller-select" class="form-input form-input-sm" title="Filter Voucher berdasarkan Mitra / Agen Hotspot">
+            <option value="all">Semua Agen / Mitra</option>
           </select>
         </div>
 
@@ -404,7 +404,7 @@
           <!-- Primary Actions: Import Ruijie & Add -->
           <button class="btn btn-primary admin-only" id="btn-import" title="Import file CSV / Excel langsung dari Ruijie Cloud">📁 Import File Ruijie</button>
           <button class="btn btn-secondary admin-only" id="btn-add">＋ Tambah</button>
-          <button class="btn btn-secondary admin-only" id="btn-assign-reseller" title="Titipkan voucher terpilih ke Reseller / Warung">🏪 Titip Warung</button>
+          <button class="btn btn-secondary admin-only" id="btn-assign-reseller" title="Kelola dan Alokasikan voucher ke Mitra / Agen Hotspot">🤝 Menu Agen</button>
           <button class="btn btn-secondary" id="btn-toggle-printed" title="Ubah status voucher terpilih (Belum / Sudah Dicetak)">🏷️ Ubah Status</button>
           <button class="btn btn-secondary" id="btn-export-pdf" title="Export Lembar Cetak sebagai Dokumen PDF Presisi Ukuran">📄 Export PDF</button>
           <button class="btn btn-secondary" id="btn-export-png" title="Download Lembar Cetak sebagai Gambar PNG">🖼️ Export PNG</button>

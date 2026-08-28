@@ -2504,20 +2504,20 @@ function quickPrintPackage(pkgName, qty = 1) {
   renderPreview();
 }
 
-// ===== RESELLER & AGENT MANAGEMENT =====
+// ===== 🤝 MITRA & AGENT MANAGEMENT MODULE =====
 function renderResellerFilterSelect() {
   const select = $id('filter-reseller-select');
   if (!select) return;
 
-  let options = `<option value="all">Semua Reseller / Warung</option><option value="direct">Tanpa Reseller (Langsung)</option>`;
+  let options = `<option value="all">Semua Agen / Mitra</option><option value="direct">Penjualan Langsung (Non-Agen)</option>`;
   state.resellers.forEach(r => {
-    options += `<option value="${r.id}" ${state.filterReseller === r.id ? 'selected' : ''}>🏪 ${esc(r.name)}</option>`;
+    options += `<option value="${r.id}" ${state.filterReseller === r.id ? 'selected' : ''}>🤝 ${esc(r.name)}</option>`;
   });
   select.innerHTML = options;
 }
 
 function showResellerModal() {
-  if (!requirePro('Manajemen Reseller & Surat Jalan')) return;
+  if (!requirePro('Manajemen Mitra & Agen Hotspot')) return;
 
   const resellerStats = {};
   state.resellers.forEach(r => {
@@ -2540,9 +2540,9 @@ function showResellerModal() {
     return `
       <div class="reseller-card" id="reseller-card-${r.id}">
         <div class="reseller-card-header">
-          <div class="reseller-name">🏪 ${esc(r.name)}</div>
+          <div class="reseller-name">🤝 ${esc(r.name)}</div>
           <span class="badge" style="background:var(--primary-light);color:var(--primary);font-size:0.72rem;font-weight:800;">
-            ${s.totalVouchers} pcs Dititip
+            ${s.totalVouchers} pcs Dialokasikan
           </span>
         </div>
         <div class="reseller-meta">
@@ -2550,28 +2550,28 @@ function showResellerModal() {
           ${r.note ? `<div style="font-style:italic;color:var(--text-muted);margin-top:2px;">📝 ${esc(r.note)}</div>` : ''}
         </div>
         <div class="reseller-stat-row">
-          <span>Stok Dititip: <strong>${s.totalVouchers} pcs</strong></span>
+          <span>Stok Dialokasikan: <strong>${s.totalVouchers} pcs</strong></span>
           <span style="color:var(--success);">Terjual: <strong>${s.printedVouchers} pcs</strong></span>
           <span style="color:var(--warning);">Sisa: <strong>${s.unprintedVouchers} pcs</strong></span>
         </div>
         <div class="reseller-stat-row">
-          <span>Total Nilai Titipan:</span>
+          <span>Total Nilai Stok Agen:</span>
           <strong style="color:var(--primary);font-size:0.92rem;">Rp ${formatNumber(s.totalOmset)}</strong>
         </div>
         <div class="reseller-card-actions" style="grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));">
-          <button class="btn btn-primary btn-sm" onclick="showAssignResellerModal('${r.id}')" title="Titip voucher ke warung ini">
-            ⚡ Titip Voucher
+          <button class="btn btn-primary btn-sm" onclick="showAssignResellerModal('${r.id}')" title="Alokasikan voucher ke agen ini">
+            ⚡ Alokasi Stok
           </button>
-          <button class="btn btn-secondary btn-sm" onclick="printResellerVouchers('${r.id}')" title="Cetak lembaran voucher untuk warung ini">
+          <button class="btn btn-secondary btn-sm" onclick="printResellerVouchers('${r.id}')" title="Cetak lembaran voucher untuk agen ini">
             🖨️ Cetak Voucher
           </button>
-          <button class="btn btn-secondary btn-sm" onclick="printSuratJalan('${r.id}')" title="Cetak Surat Jalan Tanda Terima">
-            📄 Surat Jalan
+          <button class="btn btn-secondary btn-sm" onclick="printSuratJalan('${r.id}')" title="Cetak Surat Serah Terima & Distribusi">
+            📄 Surat Jalan Agen
           </button>
-          <button class="btn btn-secondary btn-sm" onclick="showEditResellerForm('${r.id}')" title="Edit Data Warung">
-            ✏️ Edit Profil
+          <button class="btn btn-secondary btn-sm" onclick="showEditResellerForm('${r.id}')" title="Edit Data Agen">
+            ✏️ Edit Agen
           </button>
-          <button class="btn btn-danger btn-sm" onclick="deleteReseller('${r.id}')" title="Hapus Warung">
+          <button class="btn btn-danger btn-sm" onclick="deleteReseller('${r.id}')" title="Hapus Agen">
             🗑️ Hapus
           </button>
         </div>
@@ -2581,22 +2581,22 @@ function showResellerModal() {
 
   const html = `
     <div class="modal-header">
-      <h3>🏪 Manajemen Reseller & Titip Warung</h3>
+      <h3>🤝 Manajemen Mitra & Agen Hotspot</h3>
       <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
     </div>
     <div class="modal-body">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem;flex-wrap:wrap;gap:0.5rem;">
         <p style="font-size:0.82rem;color:var(--text-secondary);margin:0;">
-          Kelola mitra warung/agen, titip voucher otomatis per jumlah, dan cetak langsung lembaran/surat jalan.
+          Kelola mitra agen resmi, alokasi stok voucher, komisi/bagi hasil, dan cetak surat serah terima / nota agen.
         </p>
         <div style="display:flex;gap:0.4rem;">
-          <button class="btn btn-secondary btn-sm" onclick="showAssignResellerModal()">⚡ Titip Cepat per Jumlah</button>
-          <button class="btn btn-primary btn-sm" id="btn-add-new-reseller">＋ Tambah Reseller</button>
+          <button class="btn btn-secondary btn-sm" onclick="showAssignResellerModal()">⚡ Alokasi Stok ke Agen</button>
+          <button class="btn btn-primary btn-sm" id="btn-add-new-reseller">＋ Tambah Agen Baru</button>
         </div>
       </div>
 
       <div class="reseller-card-grid">
-        ${cardsHtml || '<div style="color:var(--text-muted);padding:1.5rem;text-align:center;background:var(--surface-alt);border-radius:var(--radius-xs);border:1px dashed var(--border);">Belum ada reseller. Klik "Tambah Reseller" untuk mulai mendaftarkan warung mitra.</div>'}
+        ${cardsHtml || '<div style="color:var(--text-muted);padding:1.5rem;text-align:center;background:var(--surface-alt);border-radius:var(--radius-xs);border:1px dashed var(--border);">Belum ada Mitra / Agen terdaftar. Klik "Tambah Agen Baru" untuk mulai mendaftarkan mitra resmi Anda.</div>'}
       </div>
     </div>
     <div class="modal-footer">
@@ -2611,34 +2611,34 @@ function showResellerModal() {
 function showAddResellerForm() {
   const html = `
     <div class="modal-header">
-      <h3>Tambah Reseller / Warung Baru</h3>
+      <h3>Tambah Mitra / Agen Hotspot Baru</h3>
       <button class="btn-icon" onclick="showResellerModal()" title="Kembali">✕</button>
     </div>
     <div class="modal-body">
       <div class="modal-form">
         <div class="form-group">
-          <label for="m-res-name">Nama Warung / Agen *</label>
-          <input type="text" id="m-res-name" class="form-input" placeholder="Contoh: Warung Bu Ani / Kios Pojok" autofocus>
+          <label for="m-res-name">Nama Mitra / Agen Hotspot *</label>
+          <input type="text" id="m-res-name" class="form-input" placeholder="Contoh: Agent StarNet / Mitra David / Konter Mandiri" autofocus>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label for="m-res-phone">No. WhatsApp / HP</label>
+            <label for="m-res-phone">No. WhatsApp / HP Agen</label>
             <input type="text" id="m-res-phone" class="form-input" placeholder="Contoh: 08123456789">
           </div>
           <div class="form-group">
-            <label for="m-res-address">Alamat / Lokasi</label>
-            <input type="text" id="m-res-address" class="form-input" placeholder="Contoh: Jl. Melati No. 12">
+            <label for="m-res-address">Lokasi / Wilayah Distribusi</label>
+            <input type="text" id="m-res-address" class="form-input" placeholder="Contoh: Area Komplek Melati / Blok B">
           </div>
         </div>
         <div class="form-group">
-          <label for="m-res-note">Catatan / Perjanjian Bagi Hasil</label>
-          <input type="text" id="m-res-note" class="form-input" placeholder="Contoh: Fee warung Rp 500/voucher, setoran mingguan">
+          <label for="m-res-note">Catatan / Skema Komisi Agen</label>
+          <input type="text" id="m-res-note" class="form-input" placeholder="Contoh: Fee agen Rp 500/voucher, setoran tiap hari Senin">
         </div>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="showResellerModal()">Batal</button>
-      <button class="btn btn-primary" id="btn-save-reseller">Simpan Reseller</button>
+      <button class="btn btn-primary" id="btn-save-reseller">Simpan Data Agen</button>
     </div>
   `;
 
@@ -2647,7 +2647,7 @@ function showAddResellerForm() {
   on('btn-save-reseller', () => {
     const name = ($id('m-res-name')?.value || '').trim();
     if (!name) {
-      showToast('Nama reseller wajib diisi', 'error');
+      showToast('Nama agen wajib diisi', 'error');
       $id('m-res-name')?.focus();
       return;
     }
@@ -2661,10 +2661,10 @@ function showAddResellerForm() {
     };
 
     state.resellers.push(newRes);
-    logActivity('RESELLER_ADD', `Menambah reseller baru: ${name}`);
+    logActivity('RESELLER_ADD', `Menambah agen baru: ${name}`);
     saveState();
     renderResellerFilterSelect();
-    showToast(`Reseller "${name}" berhasil ditambahkan!`);
+    showToast(`Agen "${name}" berhasil ditambahkan!`);
     showResellerModal();
   });
 }
@@ -2675,28 +2675,28 @@ function showEditResellerForm(resellerId) {
 
   const html = `
     <div class="modal-header">
-      <h3>✏️ Edit Profil Reseller / Warung</h3>
+      <h3>✏️ Edit Profil Mitra / Agen</h3>
       <button class="btn-icon" onclick="showResellerModal()" title="Kembali">✕</button>
     </div>
     <div class="modal-body">
       <div class="modal-form">
         <div class="form-group">
-          <label for="m-edit-res-name">Nama Warung / Agen *</label>
+          <label for="m-edit-res-name">Nama Mitra / Agen Hotspot *</label>
           <input type="text" id="m-edit-res-name" class="form-input" value="${esc(reseller.name)}" required autofocus>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label for="m-edit-res-phone">No. WhatsApp / HP</label>
+            <label for="m-edit-res-phone">No. WhatsApp / HP Agen</label>
             <input type="text" id="m-edit-res-phone" class="form-input" value="${esc(reseller.phone || '')}" placeholder="Contoh: 08123456789">
           </div>
           <div class="form-group">
-            <label for="m-edit-res-address">Alamat / Lokasi</label>
-            <input type="text" id="m-edit-res-address" class="form-input" value="${esc(reseller.address || '')}" placeholder="Contoh: Jl. Melati No. 12">
+            <label for="m-edit-res-address">Lokasi / Wilayah Distribusi</label>
+            <input type="text" id="m-edit-res-address" class="form-input" value="${esc(reseller.address || '')}" placeholder="Contoh: Area Komplek Melati / Blok B">
           </div>
         </div>
         <div class="form-group">
-          <label for="m-edit-res-note">Catatan / Perjanjian Bagi Hasil</label>
-          <input type="text" id="m-edit-res-note" class="form-input" value="${esc(reseller.note || '')}" placeholder="Contoh: Fee warung Rp 500/voucher, setoran tiap Sabtu">
+          <label for="m-edit-res-note">Catatan / Skema Komisi Agen</label>
+          <input type="text" id="m-edit-res-note" class="form-input" value="${esc(reseller.note || '')}" placeholder="Contoh: Fee agen Rp 500/voucher, setoran tiap Senin">
         </div>
       </div>
     </div>
@@ -2711,7 +2711,7 @@ function showEditResellerForm(resellerId) {
   on('btn-update-reseller', () => {
     const updatedName = ($id('m-edit-res-name')?.value || '').trim();
     if (!updatedName) {
-      showToast('Nama reseller wajib diisi!', 'error');
+      showToast('Nama agen wajib diisi!', 'error');
       $id('m-edit-res-name')?.focus();
       return;
     }
@@ -2728,11 +2728,11 @@ function showEditResellerForm(resellerId) {
       }
     });
 
-    logActivity('RESELLER_EDIT', `Mengubah data reseller: ${updatedName}`);
+    logActivity('RESELLER_EDIT', `Mengubah data agen: ${updatedName}`);
     saveState();
     renderResellerFilterSelect();
     renderTable();
-    showToast(`Profil reseller "${updatedName}" berhasil diperbarui!`);
+    showToast(`Profil agen "${updatedName}" berhasil diperbarui!`);
     showResellerModal();
   });
 }
@@ -2743,9 +2743,9 @@ function deleteReseller(resellerId) {
 
   const assignedCount = state.vouchers.filter(v => v.resellerId === resellerId).length;
 
-  let confirmMsg = `Yakin ingin menghapus profil reseller "🏪 ${reseller.name}"?`;
+  let confirmMsg = `Yakin ingin menghapus data agen "🤝 ${reseller.name}"?`;
   if (assignedCount > 0) {
-    confirmMsg += `\n\n⚠️ Terdapat ${assignedCount} voucher yang saat ini berstatus dititipkan ke warung ini. Voucher tersebut akan dikembalikan ke status stok utama (Langsung / Unassigned).`;
+    confirmMsg += `\n\n⚠️ Terdapat ${assignedCount} voucher yang saat ini dialokasikan ke agen ini. Voucher tersebut akan dikembalikan ke status stok utama (Non-Agen / Langsung).`;
   }
 
   if (!confirm(confirmMsg)) return;
@@ -2764,12 +2764,12 @@ function deleteReseller(resellerId) {
     state.filterReseller = 'all';
   }
 
-  logActivity('RESELLER_DELETE', `Menghapus reseller ${reseller.name} (${assignedCount} voucher dikembalikan ke stok utama)`);
+  logActivity('RESELLER_DELETE', `Menghapus agen ${reseller.name} (${assignedCount} voucher dikembalikan ke stok utama)`);
   saveState();
   renderResellerFilterSelect();
   renderTable();
   renderPreview();
-  showToast(`Reseller "${reseller.name}" berhasil dihapus.`);
+  showToast(`Data agen "${reseller.name}" berhasil dihapus.`);
   showResellerModal();
 }
 
@@ -2786,7 +2786,7 @@ function printResellerVouchers(resellerId, customVouchers = null) {
   }
 
   if (!toPrint || toPrint.length === 0) {
-    showToast(`Tidak ada voucher untuk warung "${reseller ? reseller.name : 'Reseller'}" yang bisa dicetak.`, 'error');
+    showToast(`Tidak ada voucher untuk agen "${reseller ? reseller.name : 'Agen'}" yang bisa dicetak.`, 'error');
     return;
   }
 
@@ -2799,7 +2799,7 @@ function printResellerVouchers(resellerId, customVouchers = null) {
     v.printedAt = new Date().toISOString();
   });
 
-  logActivity('PRINT_RESELLER', `Cetak ${toPrint.length} voucher titipan untuk ${reseller ? reseller.name : 'Warung'}`);
+  logActivity('PRINT_RESELLER', `Cetak ${toPrint.length} voucher agen untuk ${reseller ? reseller.name : 'Agen'}`);
   saveState();
   checkStockAlerts();
   triggerBackgroundAutoSync();
@@ -2809,15 +2809,15 @@ function printResellerVouchers(resellerId, customVouchers = null) {
     renderQuickPOSGrid();
     renderTable();
     renderPreview();
-    showToast(`🖨️ Berhasil mencetak ${toPrint.length} voucher titipan untuk "🏪 ${reseller ? reseller.name : 'Warung'}"!`);
+    showToast(`🖨️ Berhasil mencetak ${toPrint.length} voucher untuk "🤝 ${reseller ? reseller.name : 'Agen'}"!`);
   }, 120);
 }
 
 function showAssignResellerModal(preSelectedResellerId = null) {
-  if (!requirePro('Titip Voucher ke Warung Reseller')) return;
+  if (!requirePro('Alokasi Voucher ke Mitra Agen')) return;
 
   if (state.resellers.length === 0) {
-    showToast('Belum ada data warung/reseller. Silakan tambah reseller terlebih dahulu.', 'warning');
+    showToast('Belum ada data agen/mitra. Silakan tambah agen terlebih dahulu.', 'warning');
     showAddResellerForm();
     return;
   }
@@ -2830,7 +2830,7 @@ function showAssignResellerModal(preSelectedResellerId = null) {
 
   const resellerOptionsHtml = state.resellers.map(r => `
     <option value="${r.id}" ${preSelectedResellerId === r.id ? 'selected' : ''}>
-      🏪 ${esc(r.name)} (${esc(r.phone || '-')})
+      🤝 ${esc(r.name)} (${esc(r.phone || '-')})
     </option>
   `).join('');
 
@@ -2840,7 +2840,7 @@ function showAssignResellerModal(preSelectedResellerId = null) {
 
   const html = `
     <div class="modal-header">
-      <h3>⚡ Alokasi Titip Voucher ke Warung / Reseller</h3>
+      <h3>⚡ Alokasi Stok Voucher ke Mitra / Agen</h3>
       <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
     </div>
     <div class="modal-body">
@@ -2856,7 +2856,7 @@ function showAssignResellerModal(preSelectedResellerId = null) {
 
       <!-- Reseller Target Selector -->
       <div class="form-group" style="margin-bottom:0.85rem;">
-        <label for="m-assign-reseller-target" style="font-weight:750;">Pilih Warung / Reseller Tujuan *</label>
+        <label for="m-assign-reseller-target" style="font-weight:750;">Pilih Mitra / Agen Tujuan *</label>
         <select id="m-assign-reseller-target" class="form-input" style="font-weight:750;">
           ${resellerOptionsHtml}
         </select>
@@ -2879,8 +2879,8 @@ function showAssignResellerModal(preSelectedResellerId = null) {
           <div class="form-group">
             <label for="m-assign-status-filter" style="font-size:0.76rem;font-weight:750;">Ambil Dari Voucher</label>
             <select id="m-assign-status-filter" class="form-input">
-              <option value="unassigned_unprinted" selected>Belum Dititip & Belum Terjual</option>
-              <option value="unassigned_all">Semua yang Belum Dititip</option>
+              <option value="unassigned_unprinted" selected>Belum Dialokasikan & Belum Terjual</option>
+              <option value="unassigned_all">Semua yang Belum Masuk Agen</option>
               <option value="all_unprinted">Semua yang Belum Terjual</option>
             </select>
           </div>
@@ -2888,7 +2888,7 @@ function showAssignResellerModal(preSelectedResellerId = null) {
 
         <div class="form-group" style="margin-bottom:0.6rem;">
           <label for="m-assign-qty-input" style="font-size:0.76rem;font-weight:750;">
-            Jumlah Voucher yang Ingin Dititipkan (pcs) *
+            Jumlah Voucher yang Ingin Dialokasikan (pcs) *
           </label>
           <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;">
             <input type="number" id="m-assign-qty-input" class="form-input" min="1" value="25" style="max-width:110px;font-size:1.05rem;font-weight:850;text-align:center;">
@@ -2909,7 +2909,7 @@ function showAssignResellerModal(preSelectedResellerId = null) {
       <!-- Section B: From Table Checkboxes -->
       <div id="section-assign-checked" style="display:${hasManualChecked ? 'block' : 'none'};background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.9rem;margin-bottom:1rem;">
         <div style="font-size:0.84rem;font-weight:800;color:var(--primary);margin-bottom:0.4rem;">
-          📋 Titipkan Baris yang Dicentang:
+          📋 Alokasikan Baris yang Dicentang:
         </div>
         <p style="font-size:0.82rem;color:var(--text);margin:0;">
           Anda sedang memilih <strong>${checkedVouchers.length}</strong> voucher dari tabel.
@@ -2918,7 +2918,7 @@ function showAssignResellerModal(preSelectedResellerId = null) {
 
       <!-- Action: Reset / Tarik Kembali ke Stok Utama -->
       <div style="background:var(--surface);border:1px dashed var(--border);border-radius:var(--radius-xs);padding:0.6rem 0.8rem;display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:0.75rem;color:var(--text-secondary);">Ingin menarik kembali voucher dari warung?</span>
+        <span style="font-size:0.75rem;color:var(--text-secondary);">Ingin menarik kembali voucher dari agen ke stok utama?</span>
         <button class="btn btn-secondary btn-sm" id="btn-unassign-reseller" style="font-size:0.72rem;color:var(--danger);">
           ↩️ Tarik Kembali ke Stok Utama
         </button>
@@ -2927,14 +2927,14 @@ function showAssignResellerModal(preSelectedResellerId = null) {
     <div class="modal-footer" style="justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
       <button class="btn btn-secondary" onclick="closeModal()">Batal</button>
       <div style="display:flex;gap:0.45rem;flex-wrap:wrap;">
-        <button class="btn btn-secondary" id="btn-execute-assign-surat-jalan" style="font-weight:750;" title="Simpan titipan dan langsung cetak Surat Jalan">
+        <button class="btn btn-secondary" id="btn-execute-assign-surat-jalan" style="font-weight:750;" title="Simpan alokasi dan langsung cetak Surat Serah Terima / Jalan">
           📄 Simpan & Cetak Surat Jalan
         </button>
-        <button class="btn btn-secondary" id="btn-execute-assign-print" style="font-weight:750;" title="Simpan titipan dan langsung cetak Lembar Voucher">
+        <button class="btn btn-secondary" id="btn-execute-assign-print" style="font-weight:750;" title="Simpan alokasi dan langsung cetak Lembar Voucher">
           🖨️ Simpan & Langsung Cetak Voucher
         </button>
         <button class="btn btn-primary" id="btn-execute-assign" style="font-weight:800;">
-          ⚡ Simpan Saja
+          ⚡ Simpan Alokasi
         </button>
       </div>
     </div>
@@ -2987,9 +2987,9 @@ function showAssignResellerModal(preSelectedResellerId = null) {
     }
 
     liveInfo.innerHTML = `
-      <div>📦 <strong>Tersedia:</strong> ${candidates.length} voucher siap dititipkan.</div>
-      <div>🏪 <strong>Target Warung:</strong> ${targetRes ? esc(targetRes.name) : '-'}</div>
-      <div>⚡ <strong>Akan Dititipkan:</strong> ${actualAssign} voucher (Estimasi Nilai Titipan: <strong>Rp ${formatNumber(sampleVal)}</strong>)</div>
+      <div>📦 <strong>Tersedia:</strong> ${candidates.length} voucher siap dialokasikan.</div>
+      <div>🤝 <strong>Target Agen:</strong> ${targetRes ? esc(targetRes.name) : '-'}</div>
+      <div>⚡ <strong>Akan Dialokasikan:</strong> ${actualAssign} voucher (Estimasi Nilai Stok: <strong>Rp ${formatNumber(sampleVal)}</strong>)</div>
     `;
 
     if (candidates.length === 0) {
@@ -3037,7 +3037,7 @@ function showAssignResellerModal(preSelectedResellerId = null) {
     const targetRes = state.resellers.find(r => r.id === targetResId);
 
     if (!targetRes) {
-      showToast('Pilih warung / reseller tujuan!', 'error');
+      showToast('Pilih mitra / agen tujuan!', 'error');
       return;
     }
 
@@ -3058,7 +3058,7 @@ function showAssignResellerModal(preSelectedResellerId = null) {
         return;
       }
       if (candidates.length === 0) {
-        showToast('Tidak ada voucher yang tersedia untuk dititipkan!', 'error');
+        showToast('Tidak ada voucher yang tersedia untuk dialokasikan!', 'error');
         return;
       }
       vouchersToAssign = candidates.slice(0, qty);
@@ -3069,7 +3069,7 @@ function showAssignResellerModal(preSelectedResellerId = null) {
       v.resellerName = targetRes.name;
     });
 
-    logActivity('STATUS_CHANGE', `Menitipkan ${vouchersToAssign.length} voucher ke ${targetRes.name}`);
+    logActivity('STATUS_CHANGE', `Mengalokasikan ${vouchersToAssign.length} voucher ke agen ${targetRes.name}`);
     saveState();
     renderTable();
     renderPreview();
@@ -3081,7 +3081,7 @@ function showAssignResellerModal(preSelectedResellerId = null) {
       printSuratJalan(targetRes.id);
     } else {
       closeModal();
-      showToast(`⚡ Berhasil menitipkan ${vouchersToAssign.length} voucher ke "🏪 ${targetRes.name}"!`);
+      showToast(`⚡ Berhasil mengalokasikan ${vouchersToAssign.length} voucher ke "🤝 ${targetRes.name}"!`);
     }
   }
 
@@ -3098,7 +3098,7 @@ function showAssignResellerModal(preSelectedResellerId = null) {
         v.resellerId = null;
         v.resellerName = null;
       });
-      logActivity('STATUS_CHANGE', `Menarik ${checked.length} voucher kembali ke stok utama`);
+      logActivity('STATUS_CHANGE', `Menarik ${checked.length} voucher agen kembali ke stok utama`);
       saveState();
       renderTable();
       renderPreview();
@@ -3111,21 +3111,21 @@ function showAssignResellerModal(preSelectedResellerId = null) {
 
       const resVouchers = state.vouchers.filter(v => v.resellerId === targetResId);
       if (resVouchers.length === 0) {
-        showToast(`Tidak ada voucher yang sedang dititipkan di ${targetRes.name}.`, 'warning');
+        showToast(`Tidak ada voucher yang sedang dialokasikan di agen ${targetRes.name}.`, 'warning');
         return;
       }
 
-      if (confirm(`Tarik kembali SEMUA ${resVouchers.length} voucher dari warung "${targetRes.name}" ke stok utama?`)) {
+      if (confirm(`Tarik kembali SEMUA ${resVouchers.length} voucher dari agen "${targetRes.name}" ke stok utama?`)) {
         resVouchers.forEach(v => {
           v.resellerId = null;
           v.resellerName = null;
         });
-        logActivity('STATUS_CHANGE', `Menarik semua ${resVouchers.length} voucher dari ${targetRes.name}`);
+        logActivity('STATUS_CHANGE', `Menarik semua ${resVouchers.length} voucher dari agen ${targetRes.name}`);
         saveState();
         renderTable();
         renderPreview();
         closeModal();
-        showToast(`Semua ${resVouchers.length} voucher dari ${targetRes.name} berhasil dikembalikan ke stok utama.`);
+        showToast(`Semua ${resVouchers.length} voucher dari agen ${targetRes.name} berhasil dikembalikan ke stok utama.`);
       }
     }
   });
@@ -3173,16 +3173,16 @@ function printSuratJalan(resellerId) {
           <div style="font-size:12px;">WiFi Hotspot Provider • SSID: ${esc(state.settings.ssid || '-')}</div>
         </div>
         <div style="text-align:right;">
-          <h3 style="font-size:16px;margin:0 0 4px;">SURAT JALAN & TANDA TERIMA</h3>
+          <h3 style="font-size:16px;margin:0 0 4px;">SURAT SERAH TERIMA & DISTRIBUSI AGEN</h3>
           <div style="font-size:12px;">Tanggal: ${new Date().toLocaleDateString('id-ID')}</div>
         </div>
       </div>
 
-      <div style="margin-bottom:15px;background:#f8fafc;padding:10px;border:1px solid #ccc;">
-        <div><strong>Penerima / Reseller:</strong> ${esc(reseller.name)}</div>
-        <div><strong>No. Telp / WA:</strong> ${esc(reseller.phone || '-')}</div>
-        <div><strong>Alamat:</strong> ${esc(reseller.address || '-')}</div>
-        ${reseller.note ? `<div><strong>Catatan:</strong> ${esc(reseller.note)}</div>` : ''}
+      <div style="margin-bottom:15px;background:#f8fafc;padding:10px;border:1px solid #ccc;border-radius:4px;">
+        <div><strong>Mitra / Agen Resmi:</strong> 🤝 ${esc(reseller.name)}</div>
+        <div><strong>No. WhatsApp / HP:</strong> ${esc(reseller.phone || '-')}</div>
+        <div><strong>Wilayah Distribusi:</strong> ${esc(reseller.address || '-')}</div>
+        ${reseller.note ? `<div><strong>Skema Komisi / Catatan:</strong> ${esc(reseller.note)}</div>` : ''}
       </div>
 
       <table style="width:100%;border-collapse:collapse;margin-bottom:15px;">
@@ -3196,9 +3196,9 @@ function printSuratJalan(resellerId) {
           </tr>
         </thead>
         <tbody>
-          ${rowsHtml || '<tr><td colspan="5" style="text-align:center;padding:10px;">Belum ada voucher yang ditugaskan ke reseller ini.</td></tr>'}
+          ${rowsHtml || '<tr><td colspan="5" style="text-align:center;padding:10px;">Belum ada voucher yang dialokasikan ke agen ini.</td></tr>'}
           <tr style="background:#f1f5f9;font-weight:bold;">
-            <td colspan="4" style="border:1px solid #000;padding:8px;text-align:right;">TOTAL TAGIHAN / SETORAN:</td>
+            <td colspan="4" style="border:1px solid #000;padding:8px;text-align:right;">TOTAL NILAI VOUCHER DI AGEN:</td>
             <td style="border:1px solid #000;padding:8px;text-align:right;font-size:15px;">Rp ${formatNumber(totalRp)}</td>
           </tr>
         </tbody>
@@ -3211,7 +3211,7 @@ function printSuratJalan(resellerId) {
           <div style="border-top:1px solid #000;font-weight:bold;">( ${esc(activePreset.name)} )</div>
         </div>
         <div style="width:200px;">
-          <div>Yang Menerima / Agen,</div>
+          <div>Mitra / Agen Hotspot,</div>
           <div style="height:60px;"></div>
           <div style="border-top:1px solid #000;font-weight:bold;">( ${esc(reseller.name)} )</div>
         </div>
@@ -4628,7 +4628,7 @@ function renderTable() {
       : `<span class="badge-status badge-status-unprinted badge-status-toggle" data-index="${i}" title="Klik untuk ubah status">🟢 Belum Dicetak</span>`;
 
     const resellerBadge = v.resellerName
-      ? `<span class="badge-reseller" title="Dititipkan ke ${esc(v.resellerName)}">🏪 ${esc(v.resellerName)}</span>`
+      ? `<span class="badge-reseller" title="Alokasi Agen: ${esc(v.resellerName)}">🤝 ${esc(v.resellerName)}</span>`
       : `<span style="color:var(--text-muted);font-size:0.75rem;">-</span>`;
 
     return `
