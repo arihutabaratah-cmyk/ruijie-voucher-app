@@ -1674,9 +1674,9 @@ select.form-input {
 .v-card-preview .v-code-value {
   font-family: var(--font-mono);
   font-weight: 900;
-  font-size: 8.8px;
+  font-size: 10.2px;
   color: #000000;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   line-height: 1.2;
   word-break: break-all;
 }
@@ -1707,8 +1707,9 @@ select.form-input {
 }
 
 .v-card-preview .v-meta-price .v-meta-val {
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 900 !important;
+  color: #000000 !important;
+  font-size: 5.8px !important;
 }
 
 .v-card-preview .v-sub-grid {

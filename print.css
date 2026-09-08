@@ -406,7 +406,7 @@
     font-family: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
     font-weight: 900;
     color: #000000;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     line-height: 1.15;
     word-break: break-all;
   }
@@ -435,8 +435,9 @@
   }
 
   .v-card .v-meta-price .v-meta-val {
-    font-weight: 800;
-    color: #0f172a;
+    font-weight: 900 !important;
+    color: #000000 !important;
+    font-size: 1.15em !important;
   }
 
   /* Sub Grid: Speed & Quota */
@@ -504,9 +505,10 @@
   .print-page.layout-16 .v-sn-badge { font-size: 7.5pt; padding: 0.6mm 1.5mm; }
   .print-page.layout-16 .v-top { padding-bottom: 1.2mm; }
   .print-page.layout-16 .v-code-box { padding: 2mm 1mm; margin: 1mm 0; }
-  .print-page.layout-16 .v-code-label { font-size: 6pt; margin-bottom: 0.4mm; }
-  .print-page.layout-16 .v-code-value { font-size: 13pt; }
-  .print-page.layout-16 .v-meta-grid { font-size: 8pt; padding-top: 1mm; }
+  .print-page.layout-16 .v-code-label { font-size: 6.5pt; margin-bottom: 0.4mm; }
+  .print-page.layout-16 .v-code-value { font-size: 14pt; }
+  .print-page.layout-16 .v-meta-grid { font-size: 8.5pt; padding-top: 1mm; }
+  .print-page.layout-16 .v-meta-price .v-meta-val { font-size: 9.8pt !important; }
   .print-page.layout-16 .v-sub-grid { font-size: 7pt; padding-top: 0.6mm; }
   .print-page.layout-16 .v-footer { font-size: 6.5pt; padding-top: 0.6mm; margin-top: 0.4mm; }
 
@@ -520,9 +522,10 @@
   .print-page.layout-20 .v-sn-badge { font-size: 6.8pt; padding: 0.5mm 1.2mm; }
   .print-page.layout-20 .v-top { padding-bottom: 1mm; }
   .print-page.layout-20 .v-code-box { padding: 1.2mm 0.8mm; margin: 0.8mm 0; }
-  .print-page.layout-20 .v-code-label { font-size: 5.2pt; margin-bottom: 0.3mm; }
-  .print-page.layout-20 .v-code-value { font-size: 11.5pt; }
-  .print-page.layout-20 .v-meta-grid { font-size: 7.2pt; padding-top: 0.8mm; }
+  .print-page.layout-20 .v-code-label { font-size: 5.5pt; margin-bottom: 0.3mm; }
+  .print-page.layout-20 .v-code-value { font-size: 12.5pt; }
+  .print-page.layout-20 .v-meta-grid { font-size: 7.5pt; padding-top: 0.8mm; }
+  .print-page.layout-20 .v-meta-price .v-meta-val { font-size: 8.8pt !important; }
   .print-page.layout-20 .v-sub-grid { font-size: 6.2pt; padding-top: 0.5mm; }
   .print-page.layout-20 .v-footer { font-size: 5.8pt; padding-top: 0.5mm; margin-top: 0.3mm; }
 
@@ -535,10 +538,11 @@
   .print-page.layout-25 .v-no-logo-ssid { font-size: 8.2pt; }
   .print-page.layout-25 .v-sn-badge { font-size: 6pt; padding: 0.4mm 1mm; }
   .print-page.layout-25 .v-top { padding-bottom: 0.8mm; }
-  .print-page.layout-25 .v-code-box { padding: 1.1mm 0.5mm; margin: 0.6mm 0; }
-  .print-page.layout-25 .v-code-label { font-size: 4.8pt; margin-bottom: 0.2mm; }
-  .print-page.layout-25 .v-code-value { font-size: 10pt; }
-  .print-page.layout-25 .v-meta-grid { font-size: 6.5pt; padding-top: 0.6mm; }
+  .print-page.layout-25 .v-code-box { padding: 1.2mm 0.5mm; margin: 0.6mm 0; }
+  .print-page.layout-25 .v-code-label { font-size: 5pt; margin-bottom: 0.2mm; }
+  .print-page.layout-25 .v-code-value { font-size: 11.2pt; }
+  .print-page.layout-25 .v-meta-grid { font-size: 7pt; padding-top: 0.6mm; }
+  .print-page.layout-25 .v-meta-price .v-meta-val { font-size: 8pt !important; }
   .print-page.layout-25 .v-sub-grid { font-size: 5.5pt; padding-top: 0.4mm; }
   .print-page.layout-25 .v-footer { font-size: 5.2pt; padding-top: 0.4mm; margin-top: 0.2mm; }
 
@@ -551,10 +555,11 @@
   .print-page.layout-30 .v-no-logo-ssid { font-size: 7.2pt; }
   .print-page.layout-30 .v-sn-badge { font-size: 5.2pt; padding: 0.3mm 0.8mm; }
   .print-page.layout-30 .v-top { padding-bottom: 0.6mm; }
-  .print-page.layout-30 .v-code-box { padding: 0.8mm 0.4mm; margin: 0.4mm 0; }
-  .print-page.layout-30 .v-code-label { font-size: 4.2pt; margin-bottom: 0.1mm; }
-  .print-page.layout-30 .v-code-value { font-size: 8.8pt; }
-  .print-page.layout-30 .v-meta-grid { font-size: 5.8pt; padding-top: 0.4mm; }
+  .print-page.layout-30 .v-code-box { padding: 0.9mm 0.4mm; margin: 0.4mm 0; }
+  .print-page.layout-30 .v-code-label { font-size: 4.5pt; margin-bottom: 0.1mm; }
+  .print-page.layout-30 .v-code-value { font-size: 9.8pt; }
+  .print-page.layout-30 .v-meta-grid { font-size: 6.2pt; padding-top: 0.4mm; }
+  .print-page.layout-30 .v-meta-price .v-meta-val { font-size: 7.2pt !important; }
   .print-page.layout-30 .v-sub-grid { font-size: 5pt; padding-top: 0.3mm; }
   .print-page.layout-30 .v-footer { font-size: 4.8pt; padding-top: 0.3mm; margin-top: 0.2mm; }
 
@@ -783,10 +788,11 @@
   .print-page.layout-thermal-58 .v-ssid-inline { font-size: 8pt; }
   .print-page.layout-thermal-58 .v-no-logo-ssid { font-size: 10pt; }
   .print-page.layout-thermal-58 .v-sn-badge { font-size: 7.5pt; padding: 0.6mm 1.5mm; }
-  .print-page.layout-thermal-58 .v-code-box { padding: 1.5mm 1mm; margin: 1mm 0; }
-  .print-page.layout-thermal-58 .v-code-label { font-size: 6pt; }
-  .print-page.layout-thermal-58 .v-code-value { font-size: 12pt; }
-  .print-page.layout-thermal-58 .v-meta-grid { font-size: 7.5pt; padding-top: 1mm; }
+  .print-page.layout-thermal-58 .v-code-box { padding: 1.8mm 1.2mm; margin: 1.2mm 0; }
+  .print-page.layout-thermal-58 .v-code-label { font-size: 6.5pt; }
+  .print-page.layout-thermal-58 .v-code-value { font-size: 14pt !important; letter-spacing: 0.12em !important; }
+  .print-page.layout-thermal-58 .v-meta-grid { font-size: 8pt; padding-top: 1mm; }
+  .print-page.layout-thermal-58 .v-meta-price .v-meta-val { font-size: 10pt !important; }
   .print-page.layout-thermal-58 .v-sub-grid { font-size: 6.5pt; padding-top: 0.8mm; }
   .print-page.layout-thermal-58 .v-footer { font-size: 6pt; padding-top: 0.8mm; margin-top: 0.5mm; }
 
@@ -798,10 +804,11 @@
   .print-page.layout-thermal-80 .v-ssid-inline { font-size: 9pt; }
   .print-page.layout-thermal-80 .v-no-logo-ssid { font-size: 12pt; }
   .print-page.layout-thermal-80 .v-sn-badge { font-size: 8.5pt; padding: 0.8mm 1.8mm; }
-  .print-page.layout-thermal-80 .v-code-box { padding: 2mm 1.5mm; margin: 1.2mm 0; }
-  .print-page.layout-thermal-80 .v-code-label { font-size: 7pt; }
-  .print-page.layout-thermal-80 .v-code-value { font-size: 14pt; }
-  .print-page.layout-thermal-80 .v-meta-grid { font-size: 8.5pt; padding-top: 1.2mm; }
+  .print-page.layout-thermal-80 .v-code-box { padding: 2.5mm 1.8mm; margin: 1.4mm 0; }
+  .print-page.layout-thermal-80 .v-code-label { font-size: 7.5pt; }
+  .print-page.layout-thermal-80 .v-code-value { font-size: 17pt !important; letter-spacing: 0.14em !important; }
+  .print-page.layout-thermal-80 .v-meta-grid { font-size: 9pt; padding-top: 1.2mm; }
+  .print-page.layout-thermal-80 .v-meta-price .v-meta-val { font-size: 11.5pt !important; }
   .print-page.layout-thermal-80 .v-sub-grid { font-size: 7.5pt; padding-top: 1mm; }
   .print-page.layout-thermal-80 .v-footer { font-size: 7pt; padding-top: 1mm; margin-top: 0.8mm; }
 

@@ -441,34 +441,44 @@ function printAgentThermalReceipt() {
           text-align: center;
           box-sizing: border-box;
         }
-        .store { font-size: 14px; font-weight: bold; }
+        .store { font-size: 14px; font-weight: 900; }
         .ssid { font-size: 10px; margin-bottom: 4px; }
-        .line { border-top: 1px dashed #000; margin: 4px 0; }
-        .code {
-          font-size: 18px;
-          font-weight: bold;
+        .line { border-top: 1.5px dashed #000; margin: 4px 0; }
+        .pkg { font-size: 12px; font-weight: bold; margin-bottom: 2px; }
+        .price { font-size: 16px; font-weight: 900; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .code-box {
           border: 2px dashed #000;
-          padding: 4px;
+          border-radius: 6px;
+          padding: 6px 4px;
           margin: 6px 0;
-          letter-spacing: 2px;
         }
-        .meta { font-size: 9px; text-align: left; line-height: 1.4; }
+        .code-label { font-size: 9px; font-weight: bold; letter-spacing: 1px; margin-bottom: 3px; }
+        .code {
+          font-size: 21px;
+          font-weight: 900;
+          letter-spacing: 3px;
+          font-family: monospace, 'Courier New', Courier;
+        }
+        .meta { font-size: 9.5px; text-align: left; line-height: 1.45; }
       </style>
     </head>
     <body>
       <div class="store">${esc(storeName)}</div>
       <div class="ssid">SSID: ${esc(ssid)}</div>
       <div class="line"></div>
-      <div style="font-size:11px;font-weight:bold;">${esc(v.paket || 'Voucher Hotspot')}</div>
-      <div>Rp ${formatNumber(v.harga)}</div>
-      <div class="code">${esc(v.code)}</div>
+      <div class="pkg">${esc(v.paket || 'Voucher Hotspot')}</div>
+      <div class="price">Rp ${formatNumber(v.harga)}</div>
+      <div class="code-box">
+        <div class="code-label">KODE VOUCHER / PASSWORD</div>
+        <div class="code">${esc(v.code)}</div>
+      </div>
       <div class="meta">
-        <div>⏳ Masa Aktif : ${esc(v.periode || '24 Jam')}</div>
-        <div>🚀 Kecepatan  : ${esc(v.speed || '10 Mbps')}</div>
-        <div>🏪 Mitra Agen : ${esc(currentAgent.name)}</div>
+        <div>⏳ Masa Aktif : <strong>${esc(v.periode || '24 Jam')}</strong></div>
+        <div>🚀 Kecepatan  : <strong>${esc(v.speed || '10 Mbps')}</strong></div>
+        <div>🏪 Mitra Agen : <strong>${esc(currentAgent.name)}</strong></div>
       </div>
       <div class="line"></div>
-      <div style="font-size:8px;">Hubungkan ke WiFi lalu masukkan kode voucher di atas. Terima kasih!</div>
+      <div style="font-size:8.5px;">Hubungkan ke WiFi lalu masukkan kode voucher di atas. Terima kasih!</div>
       <script>
         window.onload = function() {
           setTimeout(function() {
