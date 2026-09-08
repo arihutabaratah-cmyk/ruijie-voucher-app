@@ -4167,15 +4167,93 @@ function parseCSVLine(line, delimiter) {
   return result;
 }
 
+function normalizeRuijiePrice(raw, pkgName = '') {
+  if (raw == null) raw = '';
+  let str = String(raw).trim().toLowerCase();
+
+  // If price is empty or "0", try to extract price from package name
+  // e.g. "Paket 5K", "Paket 5.000", "Paket 5rb", "5000 1Hari"
+  if ((!str || str === '0') && pkgName) {
+    const pkgLower = String(pkgName).toLowerCase();
+    const kMatch = pkgLower.match(/(\d+(?:[.,]\d+)?)\s*(?:k|rb|ribu)/);
+    if (kMatch) {
+      const val = parseFloat(kMatch[1].replace(',', '.'));
+      if (!isNaN(val) && val > 0) return String(Math.round(val * 1000));
+    }
+    const numMatch = pkgLower.match(/(?:rp\.?|idr)?\s*(\d{4,6})/);
+    if (numMatch) {
+      return numMatch[1];
+    }
+  }
+
+  if (!str) return '';
+
+  // Handle '5k', '5rb', '5 rb', '5ribu'
+  if (str.includes('k') || str.includes('rb') || str.includes('ribu')) {
+    const num = parseFloat(str.replace(/[^\d.]/g, '')) || 0;
+    return String(Math.round(num * 1000));
+  }
+
+  // Handle Indonesian thousand dot separator: "5.000", "10.000", "20.000", "100.000"
+  if (/^\d{1,3}\.\d{3}$/.test(str)) {
+    return str.replace(/\./g, '');
+  }
+
+  // If formatted as "5,00" or "5.00" (decimal currencies from cloud export)
+  if (/^\d+[,.]00$/.test(str)) {
+    const intPart = parseInt(str.replace(/[,.]00$/, ''), 10);
+    if (intPart > 0 && intPart < 500) {
+      return String(intPart * 1000);
+    }
+    return String(intPart);
+  }
+
+  const num = parseFloat(str.replace(/[^\d.]/g, ''));
+  if (isNaN(num) || num <= 0) return '';
+
+  // In Indonesian WiFi hotspot context, a price < 500 (e.g. 1, 2, 3, 5, 10, 15, 20, 25, 50, 100)
+  // means thousands (Rp 5.000, Rp 10.000, etc.)
+  if (num > 0 && num < 500) {
+    return String(Math.round(num * 1000));
+  }
+
+  return String(Math.round(num));
+}
+
 function parseRuijieRows(rows) {
   if (!rows || rows.length < 2) return [];
 
   let start = 0;
   const first = rows[0];
+  let colMap = {
+    code: 0,
+    paket: 1,
+    status: 2,
+    disabled: 3,
+    harga: 4,
+    periode: 5,
+    createdAt: 10,
+    quota: 15,
+    speed: 16
+  };
+
   if (first && first[0] != null) {
-    const val = String(first[0]).toLowerCase();
-    if (val.includes('kode') || val.includes('voucher') || val.includes('code') || val.includes('no')) {
+    const firstStr = String(first[0]).toLowerCase();
+    if (firstStr.includes('kode') || firstStr.includes('voucher') || firstStr.includes('code') || firstStr.includes('no')) {
       start = 1;
+      // Scan header row to map actual column indices dynamically
+      first.forEach((h, idx) => {
+        const header = String(h || '').trim().toLowerCase();
+        if (header.includes('kode') || header === 'code' || header.includes('voucher')) colMap.code = idx;
+        else if (header.includes('grup') || header.includes('group') || header.includes('paket') || header.includes('profile')) colMap.paket = idx;
+        else if (header === 'status') colMap.status = idx;
+        else if (header.includes('dinonaktif') || header.includes('disable')) colMap.disabled = idx;
+        else if (header.includes('harga') || header.includes('price') || header.includes('tarif')) colMap.harga = idx;
+        else if (header.includes('periode') || header.includes('period') || header.includes('durasi') || header.includes('validity')) colMap.periode = idx;
+        else if (header.includes('dibuat') || header.includes('created')) colMap.createdAt = idx;
+        else if (header.includes('lalu lintas') || header.includes('traffic') || header.includes('kuota') || header.includes('quota')) colMap.quota = idx;
+        else if (header.includes('kecepatan') || header.includes('speed') || header.includes('batasan unggah') || header.includes('upload/download')) colMap.speed = idx;
+      });
     }
   }
 
@@ -4185,28 +4263,33 @@ function parseRuijieRows(rows) {
     if (!c || c.length < 2) continue;
 
     const cells = c.map(cell => String(cell == null ? '' : cell).trim());
-    const code = cells[0];
+    const code = cells[colMap.code];
     if (!code) continue;
 
-    const status = cells[2] || '';
-    const disabled = cells[3] || '';
+    const status = cells[colMap.status] || '';
+    const disabled = cells[colMap.disabled] || '';
 
     if (status && status !== 'Tidak digunakan' && status !== 'Unused') continue;
     if (disabled && disabled !== 'Tidak' && disabled !== 'No') continue;
 
     let quota = '';
-    if (cells[15]) {
-      const parts = cells[15].split('/');
-      quota = parts.length >= 2 ? parts[parts.length - 1].trim() : cells[15].trim();
+    const rawQuota = cells[colMap.quota] || '';
+    if (rawQuota) {
+      const parts = rawQuota.split('/');
+      quota = parts.length >= 2 ? parts[parts.length - 1].trim() : rawQuota.trim();
     }
+
+    const paket = cells[colMap.paket] || 'Reguler';
+    const rawHarga = cells[colMap.harga] || '';
+    const cleanHarga = normalizeRuijiePrice(rawHarga, paket);
 
     results.push({
       code: code,
-      paket: cells[1] || 'Reguler',
-      harga: cells[4] || '',
-      periode: cells[5] || '',
-      createdAt: cells[10] || new Date().toISOString(),
-      speed: cells[16] || '',
+      paket: paket,
+      harga: cleanHarga,
+      periode: cells[colMap.periode] || '',
+      createdAt: cells[colMap.createdAt] || new Date().toISOString(),
+      speed: cells[colMap.speed] || '',
       quota: quota,
       resellerId: null,
       resellerName: null,
@@ -4250,9 +4333,9 @@ function showImportPreview(uploadedVouchers) {
   let tableRows = showing.map((v, i) => `
     <tr>
       <td>${i + 1}</td>
-      <td class="col-code">${esc(v.code)}</td>
+      <td class="col-code"><span class="table-code-badge">${esc(v.code)}</span></td>
       <td>${esc(v.paket)}</td>
-      <td>${v.harga ? 'Rp ' + esc(v.harga) : '-'}</td>
+      <td style="font-size:0.95rem;font-weight:900;color:#0f172a;">${v.harga ? (state.settings.pricePrefix || 'Rp ') + formatNumber(v.harga) : '-'}</td>
       <td>${esc(v.periode) || '-'}</td>
       <td><span class="badge-status badge-status-unprinted">Baru</span></td>
     </tr>
@@ -4823,9 +4906,9 @@ function renderTable() {
           <input type="checkbox" class="row-checkbox" data-index="${i}" ${isSelected ? 'checked' : ''}>
         </td>
         <td class="col-no">#${String(startNum + i).padStart(3, '0')}</td>
-        <td class="col-code">${esc(v.code)}</td>
-        <td>${esc(v.paket)}</td>
-        <td>${v.harga ? state.settings.pricePrefix + formatNumber(v.harga) : '-'}</td>
+        <td class="col-code"><span class="table-code-badge">${esc(v.code)}</span></td>
+        <td style="font-weight:750;">${esc(v.paket)}</td>
+        <td style="font-size:0.95rem;font-weight:900;color:#0f172a;">${v.harga ? (state.settings.pricePrefix || 'Rp ') + formatNumber(v.harga) : '-'}</td>
         <td>${esc(v.periode) || '-'}</td>
         <td>${resellerBadge}</td>
         <td>${statusBadge}</td>
@@ -5403,14 +5486,24 @@ function loadState() {
       if (parsed.activeShift) state.activeShift = parsed.activeShift;
       if (Array.isArray(parsed.auditLogs)) state.auditLogs = parsed.auditLogs;
       if (Array.isArray(parsed.vouchers)) {
-        state.vouchers = parsed.vouchers.map(v => ({
-          ...v,
-          printed: !!v.printed,
-          printedAt: v.printedAt || null,
-          resellerId: v.resellerId || null,
-          resellerName: v.resellerName || null,
-          selected: v.selected !== false
-        }));
+        state.vouchers = parsed.vouchers.map(v => {
+          let h = v.harga;
+          if (h) {
+            const p = parseFloat(String(h).replace(/[^\d.]/g, ''));
+            if (p > 0 && p < 500) {
+              h = String(Math.round(p * 1000));
+            }
+          }
+          return {
+            ...v,
+            harga: h,
+            printed: !!v.printed,
+            printedAt: v.printedAt || null,
+            resellerId: v.resellerId || null,
+            resellerName: v.resellerName || null,
+            selected: v.selected !== false
+          };
+        });
       }
       if (Array.isArray(parsed.resellers) && parsed.resellers.length > 0) {
         state.resellers = parsed.resellers;
@@ -5468,10 +5561,16 @@ function chunkArray(arr, size) {
 }
 
 function formatNumber(num) {
-  if (!num) return '0';
-  const clean = String(num).replace(/[^\d]/g, '');
-  if (!clean) return String(num);
-  return parseInt(clean, 10).toLocaleString('id-ID');
+  if (!num && num !== 0) return '0';
+  let str = String(num).trim();
+  let clean = str.replace(/[^\d.]/g, '');
+  let val = parseFloat(clean);
+  if (isNaN(val)) return str;
+  // If val < 500 (e.g. 1, 2, 3, 5, 10, 20, 25, 50, 100), it's in thousands (e.g. 5 -> 5.000)
+  if (val > 0 && val < 500) {
+    val = val * 1000;
+  }
+  return Math.round(val).toLocaleString('id-ID');
 }
 
 function esc(str) {

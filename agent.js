@@ -20,8 +20,12 @@ function esc(str) {
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 function formatNumber(num) {
-  const n = parseFloat(String(num).replace(/[^\d.-]/g, '')) || 0;
-  return n.toLocaleString('id-ID');
+  if (!num && num !== 0) return '0';
+  let n = parseFloat(String(num).replace(/[^\d.-]/g, '')) || 0;
+  if (n > 0 && n < 500) {
+    n = n * 1000;
+  }
+  return Math.round(n).toLocaleString('id-ID');
 }
 
 function showToast(msg, type = 'info') {

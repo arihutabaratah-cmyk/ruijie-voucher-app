@@ -1,26 +1,29 @@
-const CACHE_NAME = 'ruijie-voucher-pwa-v1';
+const CACHE_NAME = 'ruijie-voucher-pwa-v6';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './index.css',
   './print.css',
   './main.js',
+  './agent.html',
+  './agent.js',
   './qrcode.min.js',
   './xlsx.mini.min.js',
   './manifest.json',
   './icon.svg'
 ];
 
-// Install: Pre-cache core assets
+// Install: Pre-cache core assets & skip waiting
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(ASSETS_TO_CACHE);
-    }).then(() => self.skipWaiting())
+    })
   );
 });
 
-// Activate: Clean up old caches
+// Activate: Delete all old caches and claim clients immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -35,14 +38,13 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch: Stale-While-Revalidate Strategy (Load from Cache first, then update in background)
+// Fetch: Network First for fresh assets, fallback to Cache for offline support
 self.addEventListener('fetch', (event) => {
-  // Only cache GET requests
   if (event.request.method !== 'GET') return;
 
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request).then((networkResponse) => {
+    fetch(event.request)
+      .then((networkResponse) => {
         if (networkResponse && networkResponse.status === 200) {
           const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
@@ -50,12 +52,9 @@ self.addEventListener('fetch', (event) => {
           });
         }
         return networkResponse;
-      }).catch(() => {
-        // Offline fallback
-        return cachedResponse;
-      });
-
-      return cachedResponse || fetchPromise;
-    })
+      })
+      .catch(() => {
+        return caches.match(event.request);
+      })
   );
 });
