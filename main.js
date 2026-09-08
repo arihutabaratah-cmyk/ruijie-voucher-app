@@ -554,6 +554,7 @@ function bindEvents() {
 
   // Reseller & Pro & Rekap Tools
   on('btn-assign-reseller', 'click', showAssignResellerModal);
+  on('btn-route-audit', 'click', showRouteAuditModal);
   on('btn-rekap', 'click', showRekapModal);
   on('btn-export-pdf', 'click', exportPDF);
   on('btn-export-png', 'click', exportPreviewAsPNG);
@@ -2319,7 +2320,8 @@ function renderQuickPOSGrid() {
       pkgMap[pkg] = { name: pkg, harga: v.harga || '0', unprintedCount: 0, totalCount: 0 };
     }
     pkgMap[pkg].totalCount++;
-    if (!v.printed) {
+    // Hanya hitung stok bebas yang belum terjual ke agen dan belum dicetak kasir
+    if (!v.printed && !v.resellerId && !v.soldBy) {
       pkgMap[pkg].unprintedCount++;
     }
   });
@@ -2605,23 +2607,30 @@ function renderPackageBillingAnalytics() {
 }
 
 function quickPrintPackage(pkgName, qty = 1) {
-  const matches = state.vouchers.filter(v => !v.printed && (v.paket || 'Reguler') === pkgName);
+  // Hanya ambil voucher yang benar-benar bebas (belum dicetak, belum dibeli agen, belum ada penjual)
+  const matches = state.vouchers.filter(v => !v.printed && !v.resellerId && !v.soldBy && (v.paket || 'Reguler') === pkgName);
   if (matches.length === 0) {
     showToast(`Stok voucher ${pkgName} habis! Silakan import voucher baru.`, 'error');
     return;
   }
 
   const toPrint = matches.slice(0, qty);
+  const cashierName = (state.activeShift && state.activeShift.cashierName) || state.currentUser?.name || state.currentUser?.username || 'Kasir Utama';
+  const nowIso = new Date().toISOString();
+
   toPrint.forEach(v => {
-    v.printed = true;
-    v.printedAt = new Date().toISOString();
-    v.selected = false;
     const priceVal = parseFloat(String(v.harga).replace(/[^\d.]/g, '')) || 0;
+    v.printed = true;
+    v.printedAt = nowIso;
+    v.soldBy = `Kasir POS (${cashierName})`;
+    v.soldAt = nowIso;
+    v.soldPrice = priceVal;
+    v.selected = false;
     if (state.activeShift) {
       state.activeShift.salesCount = (state.activeShift.salesCount || 0) + 1;
       state.activeShift.salesOmset = (state.activeShift.salesOmset || 0) + priceVal;
     }
-    logActivity('PRINT_POS', `Cetak POS 1x [${v.code}] ${pkgName} (Rp ${formatNumber(v.harga)})`);
+    logActivity('PRINT_POS', `Cetak POS 1x [${v.code}] ${pkgName} oleh ${cashierName} (Rp ${formatNumber(v.harga)})`);
   });
 
   const layoutVal = (state.settings.layout && state.settings.layout.startsWith('thermal')) ? state.settings.layout : 'thermal-58';
@@ -2671,10 +2680,18 @@ function renderResellerFilterSelect() {
   const select = $id('filter-reseller-select');
   if (!select) return;
 
-  let options = `<option value="all">Semua Agen / Mitra</option><option value="direct">Penjualan Langsung (Non-Agen)</option>`;
-  state.resellers.forEach(r => {
-    options += `<option value="${r.id}" ${state.filterReseller === r.id ? 'selected' : ''}>🤝 ${esc(r.name)}</option>`;
-  });
+  let options = `
+    <option value="all" ${state.filterReseller === 'all' ? 'selected' : ''}>🌐 Semua Rute (Semua Data)</option>
+    <option value="stock" ${state.filterReseller === 'stock' ? 'selected' : ''}>🟢 Stok Bebas (Siap Jual)</option>
+    <option value="kasir" ${state.filterReseller === 'kasir' ? 'selected' : ''}>🛒 Terjual oleh Kasir POS</option>
+    <option value="agents_all" ${state.filterReseller === 'agents_all' ? 'selected' : ''}>🤝 Terjual ke Semua Mitra Agen</option>
+  `;
+  if (Array.isArray(state.resellers)) {
+    state.resellers.forEach(r => {
+      const val = `agent_${r.id}`;
+      options += `<option value="${val}" ${state.filterReseller === val || state.filterReseller === r.id ? 'selected' : ''}>&nbsp;&nbsp;↳ 🤝 Mitra: ${esc(r.name)}</option>`;
+    });
+  }
   select.innerHTML = options;
 }
 
@@ -3573,6 +3590,215 @@ function printSuratJalan(resellerId) {
   }
 }
 
+// ===== 🧭 ROUTE & ZERO-DISCREPANCY AUDIT MODULE =====
+function showRouteAuditModal() {
+  if (!requirePro('Audit Rute Distribusi & Rekonsiliasi')) return;
+
+  const totalVouchers = state.vouchers.length;
+  const stockVouchers = state.vouchers.filter(v => !v.printed && !v.resellerId && !v.soldBy);
+  const cashierVouchers = state.vouchers.filter(v => v.printed && !v.resellerId && !v.soldByAgent);
+  const agentVouchers = state.vouchers.filter(v => v.resellerId || v.soldByAgent);
+
+  let stockNominal = 0;
+  stockVouchers.forEach(v => stockNominal += parseFloat(String(v.harga).replace(/[^\d.]/g, '')) || 0);
+
+  let cashierNominal = 0;
+  cashierVouchers.forEach(v => cashierNominal += parseFloat(String(v.soldPrice || v.harga).replace(/[^\d.]/g, '')) || 0);
+
+  let agentNominal = 0;
+  agentVouchers.forEach(v => agentNominal += parseFloat(String(v.soldPrice || v.harga).replace(/[^\d.]/g, '')) || 0);
+
+  const totalNominal = stockNominal + cashierNominal + agentNominal;
+  const classifiedCount = stockVouchers.length + cashierVouchers.length + agentVouchers.length;
+  const diffCount = totalVouchers - classifiedCount;
+
+  // Breakdown per agent
+  const agentStats = {};
+  if (Array.isArray(state.resellers)) {
+    state.resellers.forEach(r => {
+      agentStats[r.id] = { reseller: r, total: 0, printed: 0, unprinted: 0, omset: 0 };
+    });
+  }
+
+  agentVouchers.forEach(v => {
+    const resId = v.resellerId || 'unmatched';
+    if (!agentStats[resId]) {
+      agentStats[resId] = {
+        reseller: { id: resId, name: v.resellerName || 'Agen Tanpa ID', phone: '-' },
+        total: 0,
+        printed: 0,
+        unprinted: 0,
+        omset: 0
+      };
+    }
+    const stat = agentStats[resId];
+    stat.total++;
+    const p = parseFloat(String(v.soldPrice || v.harga).replace(/[^\d.]/g, '')) || 0;
+    stat.omset += p;
+    if (v.printed) stat.printed++;
+    else stat.unprinted++;
+  });
+
+  const agentRowsHtml = Object.values(agentStats).map(s => {
+    return `
+      <tr>
+        <td style="font-weight:750;">🤝 ${esc(s.reseller.name)}</td>
+        <td style="text-align:center;">${s.total} pcs</td>
+        <td style="text-align:center;color:var(--success);font-weight:750;">${s.printed} pcs</td>
+        <td style="text-align:center;color:var(--warning);font-weight:750;">${s.unprinted} pcs</td>
+        <td style="text-align:right;font-weight:800;color:var(--primary);">Rp ${formatNumber(s.omset)}</td>
+        <td style="text-align:center;">
+          <button class="btn btn-secondary btn-sm" onclick="filterByRouteFromModal('agent_${s.reseller.id}')" style="font-size:0.75rem;padding:0.2rem 0.5rem;">
+            🔍 Lihat
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  const html = `
+    <div class="modal-header">
+      <h3>🧭 Audit Rute Voucher & Neraca Selisih Nol</h3>
+      <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- 4-Card Summary -->
+      <div class="rekap-card-grid-4" style="margin-bottom:1rem;">
+        <div class="rekap-card">
+          <div class="rekap-val">${totalVouchers}</div>
+          <div class="rekap-label">Total di Database</div>
+          <div style="font-size:0.72rem;color:var(--text-secondary);margin-top:2px;">Rp ${formatNumber(totalNominal)}</div>
+        </div>
+        <div class="rekap-card rekap-card-accent-green">
+          <div class="rekap-val" style="color:var(--success);">🟢 ${stockVouchers.length}</div>
+          <div class="rekap-label">Stok Bebas (Siap Jual)</div>
+          <div style="font-size:0.72rem;color:var(--text-secondary);margin-top:2px;">Rp ${formatNumber(stockNominal)}</div>
+        </div>
+        <div class="rekap-card">
+          <div class="rekap-val" style="color:var(--primary);">🛒 ${cashierVouchers.length}</div>
+          <div class="rekap-label">Terjual Kasir POS</div>
+          <div style="font-size:0.72rem;color:var(--text-secondary);margin-top:2px;">Rp ${formatNumber(cashierNominal)}</div>
+        </div>
+        <div class="rekap-card">
+          <div class="rekap-val" style="color:#8b5cf6;">🤝 ${agentVouchers.length}</div>
+          <div class="rekap-label">Terjual ke Mitra Agen</div>
+          <div style="font-size:0.72rem;color:var(--text-secondary);margin-top:2px;">Rp ${formatNumber(agentNominal)}</div>
+        </div>
+      </div>
+
+      <!-- Zero-Discrepancy Balance Sheet Banner -->
+      ${diffCount === 0 ? `
+        <div style="background:#dcfce7;border:1.5px solid #86efac;color:#15803d;padding:0.75rem 1rem;border-radius:8px;margin-bottom:1.15rem;display:flex;align-items:center;gap:0.75rem;">
+          <span style="font-size:1.4rem;">⚖️</span>
+          <div>
+            <div style="font-weight:850;font-size:0.92rem;">NERACA DISTRIBUSI SEIMBANG: 0 Pcs Selisih (100% Akurat)</div>
+            <div style="font-size:0.78rem;font-weight:600;color:#166534;margin-top:2px;">
+              Semua ${totalVouchers} voucher terverifikasi: ${stockVouchers.length} di stok fisik, ${cashierVouchers.length} terjual kasir, dan ${agentVouchers.length} di agen. Tidak ada voucher ganda atau tumpang tindih.
+            </div>
+          </div>
+        </div>
+      ` : `
+        <div style="background:#fee2e2;border:1.5px solid #fca5a5;color:#b91c1c;padding:0.75rem 1rem;border-radius:8px;margin-bottom:1.15rem;display:flex;align-items:center;gap:0.75rem;">
+          <span style="font-size:1.4rem;">⚠️</span>
+          <div>
+            <div style="font-weight:850;font-size:0.92rem;">Ditemukan Selisih: ${Math.abs(diffCount)} Voucher</div>
+            <div style="font-size:0.78rem;">Terdapat status voucher yang belum terkategori secara sempurna. Gunakan sinkronisasi rute untuk merapikan.</div>
+          </div>
+        </div>
+      `}
+
+      <!-- Breakdown Agen Table -->
+      <div style="font-weight:800;font-size:0.88rem;color:var(--text);margin-bottom:0.5rem;display:flex;justify-content:space-between;align-items:center;">
+        <span>🤝 Rincian Distribusi per Mitra Agen Hotspot</span>
+        <span style="font-size:0.75rem;color:var(--text-secondary);font-weight:normal;">Total: ${Object.keys(agentStats).length} Agen</span>
+      </div>
+
+      <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:1rem;">
+        <table class="data-table" style="margin:0;">
+          <thead>
+            <tr>
+              <th>Mitra Agen</th>
+              <th style="text-align:center;">Total</th>
+              <th style="text-align:center;">Terpakai / Cetak</th>
+              <th style="text-align:center;">Sisa</th>
+              <th style="text-align:right;">Nilai Omset</th>
+              <th style="text-align:center;">Filter</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${agentRowsHtml || '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:1rem;">Belum ada voucher yang dialokasikan ke agen.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Quick Route Switcher Filter Buttons -->
+      <div style="font-weight:750;font-size:0.82rem;margin-bottom:0.4rem;color:var(--text-secondary);">Tampilkan Langsung di Tabel Utama:</div>
+      <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.5rem;">
+        <button class="btn btn-secondary btn-sm" onclick="filterByRouteFromModal('all')">🌐 Semua (${totalVouchers})</button>
+        <button class="btn btn-secondary btn-sm" onclick="filterByRouteFromModal('stock')" style="color:var(--success);font-weight:750;">🟢 Stok Bebas (${stockVouchers.length})</button>
+        <button class="btn btn-secondary btn-sm" onclick="filterByRouteFromModal('kasir')" style="color:var(--primary);font-weight:750;">🛒 Terjual Kasir (${cashierVouchers.length})</button>
+        <button class="btn btn-secondary btn-sm" onclick="filterByRouteFromModal('agents_all')" style="color:#8b5cf6;font-weight:750;">🤝 Semua Mitra Agen (${agentVouchers.length})</button>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;justify-content:space-between;">
+      <button class="btn btn-secondary btn-sm" id="btn-export-route-audit-csv">📥 Export Audit & Rute (CSV)</button>
+      <button class="btn btn-primary" onclick="closeModal()">Tutup</button>
+    </div>
+  `;
+
+  openModal(html, 'modal-wide');
+  on('btn-export-route-audit-csv', exportRouteAuditCSV);
+}
+
+function filterByRouteFromModal(routeValue) {
+  state.filterReseller = routeValue;
+  const select = $id('filter-reseller-select');
+  if (select) select.value = routeValue;
+  renderTable();
+  renderPreview();
+  closeModal();
+  showToast(`Filter rute diubah: ${routeValue}`);
+}
+window.filterByRouteFromModal = filterByRouteFromModal;
+
+function exportRouteAuditCSV() {
+  let csv = `AUDIT RUTE DISTRIBUSI & PENJUALAN VOUCHER RUIJIE\n`;
+  csv += `Tanggal Audit:,"${new Date().toLocaleString('id-ID')}"\n`;
+  csv += `SSID WiFi:,"${state.settings.ssid || '-'}"\n`;
+  csv += `Total Voucher:,"${state.vouchers.length}"\n\n`;
+
+  csv += `No,Kode Voucher,Paket,Harga,Rute Distribusi,Penjual / Pemegang,Status Cetak,Waktu Penjualan / Cetak\n`;
+
+  state.vouchers.forEach((v, idx) => {
+    let rute = 'Stok Bebas (Belum Terjual)';
+    let penjual = '-';
+    if (v.resellerId || v.soldByAgent) {
+      rute = 'Mitra Agen Hotspot';
+      penjual = v.resellerName || 'Agen';
+    } else if (v.printed) {
+      rute = 'Kasir POS Langsung';
+      penjual = v.soldBy || 'Kasir';
+    }
+
+    const price = parseFloat(String(v.soldPrice || v.harga).replace(/[^\d.]/g, '')) || 0;
+    const waktu = v.soldAt || v.printedAt ? new Date(v.soldAt || v.printedAt).toLocaleString('id-ID') : '-';
+    const status = v.printed ? 'Sudah Dicetak / Terjual' : 'Belum Dicetak';
+
+    csv += `${idx + 1},"${v.code}","${v.paket || 'Reguler'}",${price},"${rute}","${penjual}","${status}","${waktu}"\n`;
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `audit_rute_voucher_${Date.now()}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  showToast('Laporan audit rute CSV berhasil didownload!');
+}
+
 // ===== PRESET STORE / PROFIL TOKO MODAL =====
 function showStorePresetsModal() {
   const optionsHtml = state.presets.map(p => `
@@ -4462,44 +4688,62 @@ function parseRuijieRows(rows) {
   return results;
 }
 
-// ===== SMART IMPORT PREVIEW =====
+// ===== SMART IMPORT & RECONCILIATION PREVIEW =====
 function showImportPreview(uploadedVouchers) {
-  const existingCodeMap = new Map();
-  state.vouchers.forEach((v, idx) => {
-    existingCodeMap.set(v.code.toLowerCase().trim(), idx);
+  const existingMap = new Map();
+  state.vouchers.forEach((v) => {
+    existingMap.set((v.code || '').toLowerCase().trim(), v);
   });
 
   const newVouchers = [];
-  const duplicateVouchers = [];
+  const agentVouchers = [];
+  const cashierVouchers = [];
+  const stockVouchers = [];
 
   uploadedVouchers.forEach(v => {
-    const cleanCode = v.code.toLowerCase().trim();
-    if (existingCodeMap.has(cleanCode)) {
-      duplicateVouchers.push(v);
-    } else {
+    const cleanCode = (v.code || '').toLowerCase().trim();
+    if (!existingMap.has(cleanCode)) {
       newVouchers.push(v);
+    } else {
+      const existing = existingMap.get(cleanCode);
+      if (existing.resellerId || existing.soldByAgent) {
+        agentVouchers.push({ ...v, existing });
+      } else if (existing.printed) {
+        cashierVouchers.push({ ...v, existing });
+      } else {
+        stockVouchers.push({ ...v, existing });
+      }
     }
   });
 
   const totalCount = uploadedVouchers.length;
   const newCount = newVouchers.length;
-  const dupCount = duplicateVouchers.length;
+  const agentCount = agentVouchers.length;
+  const kasirCount = cashierVouchers.length;
+  const dupCount = totalCount - newCount;
 
   const displayList = newCount > 0 ? newVouchers : uploadedVouchers;
   const maxShow = 6;
   const showing = displayList.slice(0, maxShow);
   const more = displayList.length - maxShow;
 
-  let tableRows = showing.map((v, i) => `
-    <tr>
-      <td>${i + 1}</td>
-      <td class="col-code"><span class="table-code-badge">${esc(v.code)}</span></td>
-      <td>${esc(v.paket)}</td>
-      <td style="font-size:0.95rem;font-weight:900;color:#0f172a;">${v.harga ? (state.settings.pricePrefix || 'Rp ') + formatNumber(v.harga) : '-'}</td>
-      <td>${esc(v.periode) || '-'}</td>
-      <td><span class="badge-status badge-status-unprinted">Baru</span></td>
-    </tr>
-  `).join('');
+  let tableRows = showing.map((v, i) => {
+    const isNew = !existingMap.has((v.code || '').toLowerCase().trim());
+    return `
+      <tr>
+        <td>${i + 1}</td>
+        <td class="col-code"><span class="table-code-badge">${esc(v.code)}</span></td>
+        <td>${esc(v.paket)}</td>
+        <td style="font-size:0.95rem;font-weight:900;color:#0f172a;">${v.harga ? (state.settings.pricePrefix || 'Rp ') + formatNumber(v.harga) : '-'}</td>
+        <td>${esc(v.periode) || '-'}</td>
+        <td>
+          ${isNew 
+            ? '<span class="badge-status badge-status-unprinted">✨ Baru</span>' 
+            : '<span class="badge-status" style="background:#e2e8f0;color:#475569;">Sudah Ada</span>'}
+        </td>
+      </tr>
+    `;
+  }).join('');
 
   if (more > 0) {
     tableRows += `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);font-style:italic;">...dan ${more} voucher lainnya</td></tr>`;
@@ -4507,30 +4751,35 @@ function showImportPreview(uploadedVouchers) {
 
   const html = `
     <div class="modal-header">
-      <h3>Import & Cegah Voucher Dobel</h3>
+      <h3>Import Ruijie Cloud & Rekonsiliasi Anti-Dobel</h3>
       <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
     </div>
     <div class="modal-body">
-      <div class="rekap-card-grid-3" style="margin-bottom:1rem;">
+      <!-- 4-Card Summary -->
+      <div class="rekap-card-grid-4" style="margin-bottom:1rem;">
         <div class="rekap-card">
           <div class="rekap-val">${totalCount}</div>
-          <div class="rekap-label">Total File</div>
+          <div class="rekap-label">Total di File</div>
         </div>
         <div class="rekap-card rekap-card-accent-green">
           <div class="rekap-val" style="color:var(--success);">✨ ${newCount}</div>
           <div class="rekap-label">Voucher Baru</div>
         </div>
         <div class="rekap-card">
-          <div class="rekap-val" style="color:var(--text-muted);">🔁 ${dupCount}</div>
-          <div class="rekap-label">Sudah Ada (Dobel)</div>
+          <div class="rekap-val" style="color:#8b5cf6;">🤝 ${agentCount}</div>
+          <div class="rekap-label">Milik Agen</div>
+        </div>
+        <div class="rekap-card">
+          <div class="rekap-val" style="color:var(--primary);">🛒 ${kasirCount}</div>
+          <div class="rekap-label">Terjual Kasir</div>
         </div>
       </div>
 
-      ${dupCount > 0 ? `
-        <div style="font-size:0.82rem;color:var(--text);background:var(--surface-alt);border:1px solid var(--border);padding:0.65rem 0.85rem;border-radius:var(--radius-xs);margin-bottom:0.9rem;">
-          💡 Ditemukan <strong>${dupCount}</strong> voucher yang sudah ada di sistem. Sistem otomatis memisahkan voucher baru agar <strong>tidak tercetak dobel</strong>.
-        </div>
-      ` : ''}
+      <div class="import-reconcile-box">
+        🛡️ <strong>Sistem Rekonsiliasi Cloud Aman:</strong> Dari <strong>${totalCount}</strong> voucher di file Ruijie, 
+        <strong>${dupCount} voucher sudah tercatat di sistem</strong> (${agentCount} milik agen, ${kasirCount} kasir, ${stockVouchers.length} stok bebas). 
+        Status kepemilikan dan penjualan voucher lama <strong>TETAP TERKUNCI & TIDAK AKAN DOBEL</strong>.
+      </div>
 
       <table class="data-table" style="background:var(--surface);">
         <thead>
@@ -4546,31 +4795,41 @@ function showImportPreview(uploadedVouchers) {
         <tbody>${tableRows}</tbody>
       </table>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
       <button class="btn btn-secondary" onclick="closeModal()">Batal</button>
-      ${newCount > 0 ? `
-        <button class="btn btn-primary" id="btn-confirm-import-new">✨ Import ${newCount} Voucher Baru Saja</button>
-      ` : ''}
-      <button class="btn btn-secondary" id="btn-confirm-replace-all">🔄 Ganti Semua Data (${totalCount})</button>
+      <div style="display:flex;gap:0.4rem;">
+        <button class="btn btn-secondary" id="btn-confirm-reconcile-all" title="Sinkronkan seluruh file tanpa mereset voucher yang sudah terjual">
+          🔄 Sinkronkan Seluruh File (${totalCount})
+        </button>
+        ${newCount > 0 ? `
+          <button class="btn btn-primary" id="btn-confirm-import-new" style="font-weight:800;background:#15803d;">
+            ✨ Tambahkan ${newCount} Voucher Baru ke Stok (Aman & Anti-Dobel)
+          </button>
+        ` : `
+          <button class="btn btn-secondary" disabled style="opacity:0.7;">
+            ✅ Semua Voucher Sudah Ada (Data Aman)
+          </button>
+        `}
+      </div>
     </div>
   `;
 
-  openModal(html);
+  openModal(html, 'modal-wide');
 
   on('btn-confirm-import-new', () => {
     importNewVouchersOnly(newVouchers);
     closeModal();
   });
 
-  on('btn-confirm-replace-all', () => {
-    replaceAllVouchers(uploadedVouchers);
+  on('btn-confirm-reconcile-all', () => {
+    reconcileAllVouchers(uploadedVouchers);
     closeModal();
   });
 }
 
 function importNewVouchersOnly(newVouchers) {
   if (newVouchers.length === 0) {
-    showToast('Tidak ada voucher baru untuk ditambahkan.', 'error');
+    showToast('Semua voucher dalam file sudah terdaftar di database. Tidak ada duplikasi.', 'info');
     return;
   }
 
@@ -4592,6 +4851,11 @@ function importNewVouchersOnly(newVouchers) {
   toAdd.forEach(v => {
     v.selected = true;
     v.printed = false;
+    v.printedAt = null;
+    v.resellerId = null;
+    v.resellerName = null;
+    v.soldBy = null;
+    v.soldAt = null;
   });
   state.vouchers.push(...toAdd);
   state.filter = 'unprinted';
@@ -4605,29 +4869,51 @@ function importNewVouchersOnly(newVouchers) {
   renderQuickPOSGrid();
   renderTable();
   renderPreview();
-  showToast(`Berhasil menambahkan ${toAdd.length} voucher baru`);
+  showToast(`✨ Berhasil menambahkan ${toAdd.length} voucher baru ke stok bebas!`);
 }
 
-function replaceAllVouchers(allVouchers) {
-  let toSet = allVouchers;
-  if (!state.isPro && allVouchers.length > FREE_TIER_MAX_VOUCHERS) {
-    toSet = allVouchers.slice(0, FREE_TIER_MAX_VOUCHERS);
-    showToast(`Versi Gratis dibatasi maksimal ${FREE_TIER_MAX_VOUCHERS} voucher. Upgrade ke PRO untuk kapasitas tanpa batas!`, 'error');
-  }
+function reconcileAllVouchers(allVouchers) {
+  const existingMap = new Map();
+  state.vouchers.forEach(v => {
+    existingMap.set((v.code || '').toLowerCase().trim(), v);
+  });
 
-  state.vouchers = toSet;
+  let newlyAdded = 0;
+  allVouchers.forEach(v => {
+    const cleanCode = (v.code || '').toLowerCase().trim();
+    if (!existingMap.has(cleanCode)) {
+      state.vouchers.push({
+        ...v,
+        printed: false,
+        printedAt: null,
+        resellerId: null,
+        resellerName: null,
+        soldBy: null,
+        soldAt: null,
+        selected: true
+      });
+      existingMap.set(cleanCode, v);
+      newlyAdded++;
+    }
+  });
+
   state.filter = 'all';
   $$('.filter-tab').forEach(tab => {
     tab.classList.toggle('active', tab.dataset.filter === 'all');
   });
 
-  logActivity('SYNC', `Ganti total database dengan ${toSet.length} voucher`);
+  logActivity('SYNC', `Rekonsiliasi file Ruijie: ${newlyAdded} voucher baru ditambahkan, data lama tetap terlindungi`);
   saveState();
   checkStockAlerts();
   renderQuickPOSGrid();
   renderTable();
   renderPreview();
-  showToast(`Seluruh daftar diganti dengan ${toSet.length} voucher`);
+  showToast(`✅ Rekonsiliasi selesai: ${newlyAdded} voucher baru ditambahkan. Status voucher lama tetap terkunci aman.`);
+}
+
+function replaceAllVouchers(allVouchers) {
+  // Alias to safe reconciliation to guarantee zero data loss
+  reconcileAllVouchers(allVouchers);
 }
 
 // ===== ADD MANUAL MODAL =====
@@ -4738,8 +5024,24 @@ function getFilteredVouchersWithIndices() {
       if (filter === 'printed' && !voucher.printed) return false;
 
       if (resellerFilter !== 'all') {
-        if (resellerFilter === 'direct' && voucher.resellerId) return false;
-        if (resellerFilter !== 'direct' && voucher.resellerId !== resellerFilter) return false;
+        if (resellerFilter === 'stock') {
+          // Stok Bebas (belum terjual, belum dicetak, bukan milik agen)
+          if (voucher.printed || voucher.resellerId || voucher.soldBy) return false;
+        } else if (resellerFilter === 'kasir') {
+          // Terjual oleh Kasir POS
+          const isKasir = voucher.printed && (!voucher.resellerId && !voucher.soldByAgent);
+          if (!isKasir) return false;
+        } else if (resellerFilter === 'agents_all') {
+          // Terjual ke Mitra Agen manapun
+          if (!voucher.resellerId && !voucher.soldByAgent) return false;
+        } else if (resellerFilter.startsWith('agent_')) {
+          const targetResId = resellerFilter.replace('agent_', '');
+          if (voucher.resellerId !== targetResId) return false;
+        } else if (resellerFilter === 'direct') {
+          if (voucher.resellerId) return false;
+        } else {
+          if (voucher.resellerId !== resellerFilter) return false;
+        }
       }
 
       if (autoArchive && voucher.printed && voucher.printedAt) {
@@ -4753,8 +5055,9 @@ function getFilteredVouchersWithIndices() {
         const codeMatch = (voucher.code || '').toLowerCase().includes(query);
         const pkgMatch = (voucher.paket || '').toLowerCase().includes(query);
         const resMatch = (voucher.resellerName || '').toLowerCase().includes(query);
+        const soldByMatch = (voucher.soldBy || '').toLowerCase().includes(query);
         const priceMatch = (voucher.harga || '').includes(query);
-        if (!codeMatch && !pkgMatch && !resMatch && !priceMatch) return false;
+        if (!codeMatch && !pkgMatch && !resMatch && !soldByMatch && !priceMatch) return false;
       }
 
       return true;
@@ -5059,9 +5362,16 @@ function renderTable() {
       ? `<span class="badge-status badge-status-printed badge-status-toggle" data-index="${i}" title="Klik untuk ubah status">⚪ Sudah Dicetak</span>`
       : `<span class="badge-status badge-status-unprinted badge-status-toggle" data-index="${i}" title="Klik untuk ubah status">🟢 Belum Dicetak</span>`;
 
-    const resellerBadge = v.resellerName
-      ? `<span class="badge-reseller" title="Alokasi Agen: ${esc(v.resellerName)}">🤝 ${esc(v.resellerName)}</span>`
-      : `<span style="color:var(--text-muted);font-size:0.75rem;">-</span>`;
+    let routeBadge = '';
+    if (v.resellerId || v.soldByAgent) {
+      const agentTitle = `Mitra Agen: ${esc(v.resellerName || 'Agen')}${v.soldAt ? ' | Terjual: ' + formatDateTime(v.soldAt) : ''}`;
+      routeBadge = `<span class="badge-route badge-route-agent" title="${agentTitle}">🤝 ${esc(v.resellerName || 'Mitra Agen')}</span>`;
+    } else if (v.printed) {
+      const posTitle = `Kasir POS: ${esc(v.soldBy || 'Kasir')}${v.soldAt || v.printedAt ? ' | Terjual: ' + formatDateTime(v.soldAt || v.printedAt) : ''}`;
+      routeBadge = `<span class="badge-route badge-route-pos" title="${posTitle}">🛒 ${esc(v.soldBy || 'Kasir POS')}</span>`;
+    } else {
+      routeBadge = `<span class="badge-route badge-route-stock" title="Stok aktif siap jual (belum terjual ke agen/kasir)">🟢 Stok Bebas</span>`;
+    }
 
     return `
       <tr class="${rowClass}">
@@ -5073,7 +5383,7 @@ function renderTable() {
         <td style="font-weight:750;">${esc(v.paket)}</td>
         <td style="font-size:0.95rem;font-weight:900;color:#0f172a;">${v.harga ? (state.settings.pricePrefix || 'Rp ') + formatNumber(v.harga) : '-'}</td>
         <td>${esc(v.periode) || '-'}</td>
-        <td>${resellerBadge}</td>
+        <td>${routeBadge}</td>
         <td>${statusBadge}</td>
         <td class="col-action admin-only">
           <button class="btn-icon btn-delete-row" data-index="${i}" title="Hapus voucher ini">🗑</button>
@@ -5554,16 +5864,16 @@ function executeBatchPrint(pages, perPage) {
   const layoutVal = state.settings.layout || '25';
   const neededCount = pages * perPage;
   
-  // Ambil hanya voucher yang BELUM dicetak secara berurutan
-  let toPrint = state.vouchers.filter(v => !v.printed).slice(0, neededCount);
+  // Ambil hanya voucher yang BELUM dicetak dan BELUM dialokasikan ke agen
+  let toPrint = state.vouchers.filter(v => !v.printed && !v.resellerId && !v.soldBy).slice(0, neededCount);
 
-  // Jika stok belum dicetak kosong (misal reprint), ambil dari awal daftar
+  // Jika stok belum dicetak kosong (misal reprint), ambil dari voucher bebas
   if (toPrint.length === 0) {
-    toPrint = state.vouchers.slice(0, neededCount);
+    toPrint = state.vouchers.filter(v => !v.resellerId).slice(0, neededCount);
   }
 
   if (toPrint.length === 0) {
-    showToast('Tidak ada voucher yang dapat dicetak.', 'error');
+    showToast('Tidak ada voucher stok bebas yang dapat dicetak.', 'error');
     return;
   }
 
@@ -5572,10 +5882,18 @@ function executeBatchPrint(pages, perPage) {
   // Bangun area print hanya untuk voucher terpilih tersebut
   buildPrintArea(toPrint, layoutVal);
 
+  const cashierName = state.currentUser?.name || state.currentUser?.username || 'Admin POS';
+  const nowIso = new Date().toISOString();
+
   // Tandai HANYA voucher yang dicetak tersebut sebagai "printed = true"
   toPrint.forEach(v => {
     v.printed = true;
-    v.printedAt = new Date().toISOString();
+    v.printedAt = nowIso;
+    if (!v.soldBy && !v.resellerId) {
+      v.soldBy = `Kasir POS (${cashierName})`;
+      v.soldAt = nowIso;
+      v.soldPrice = parseFloat(String(v.harga).replace(/[^\d.]/g, '')) || 0;
+    }
   });
 
   logActivity('PRINT_BATCH', `Cetak ${pages} lembar (${toPrint.length} voucher) Layout: ${layoutVal}`);
@@ -5956,6 +6274,17 @@ function formatNumber(num) {
     val = val * 1000;
   }
   return Math.round(val).toLocaleString('id-ID');
+}
+
+function formatDateTime(iso) {
+  if (!iso) return '-';
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return String(iso);
+    return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    return String(iso);
+  }
 }
 
 function esc(str) {

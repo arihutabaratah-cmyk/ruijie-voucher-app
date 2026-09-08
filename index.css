@@ -1498,6 +1498,58 @@ select.form-input {
   gap: 0.3rem;
 }
 
+/* Route & Custody Badges */
+.badge-route {
+  font-size: 0.72rem;
+  font-weight: 750;
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.badge-route-stock {
+  background: var(--success-light);
+  color: var(--success);
+  border: 1px solid var(--success-border);
+}
+
+.badge-route-pos {
+  background: var(--primary-light);
+  color: var(--primary);
+  border: 1px solid var(--primary-border);
+}
+
+.badge-route-agent {
+  background: rgba(139, 92, 246, 0.12);
+  color: #8b5cf6;
+  border: 1px solid rgba(139, 92, 246, 0.25);
+}
+
+.rekap-card-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+@media (max-width: 640px) {
+  .rekap-card-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.import-reconcile-box {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-xs);
+  margin-bottom: 0.9rem;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
 /* Selection Button Group */
 .btn-group-select {
   display: inline-flex;

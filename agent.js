@@ -3,7 +3,13 @@
 // Portal Mitra Agen Hotspot Mandiri (GoPay / DANA Style)
 // =============================================
 
-const STORAGE_KEY = 'ruijie_voucher_state';
+const STORAGE_KEY = 'ruijie_voucher_app_v12_pro_gated';
+const LEGACY_STORAGE_KEYS = [
+  'ruijie_voucher_app_v12_pro_gated',
+  'ruijie_voucher_app_v11_licensed',
+  'ruijie_voucher_app_v10_pro',
+  'ruijie_voucher_state'
+];
 const CURRENT_AGENT_KEY = 'current_active_agent_id';
 
 let appState = null;
@@ -55,13 +61,20 @@ function closeSheet(id) {
 
 // Load State from LocalStorage
 function loadAppState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      appState = JSON.parse(raw);
+  appState = null;
+  for (const key of LEGACY_STORAGE_KEYS) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && (Array.isArray(parsed.vouchers) || Array.isArray(parsed.resellers))) {
+          appState = parsed;
+          break;
+        }
+      }
+    } catch (e) {
+      console.error('Error loading key ' + key, e);
     }
-  } catch (e) {
-    console.error('Error loading app state:', e);
   }
 
   if (!appState) {
@@ -78,9 +91,10 @@ function loadAppState() {
     };
   }
 
+  if (!Array.isArray(appState.vouchers)) appState.vouchers = [];
+
   // Ensure resellers have proper properties
-  if (!appState.resellers || appState.resellers.length === 0) {
-    // Create demo agent if none exist
+  if (!Array.isArray(appState.resellers) || appState.resellers.length === 0) {
     appState.resellers = [{
       id: 'res_default',
       name: 'Agent StarNet',
@@ -104,7 +118,9 @@ function loadAppState() {
 
 function saveAppState() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+    const jsonStr = JSON.stringify(appState);
+    localStorage.setItem(STORAGE_KEY, jsonStr);
+    localStorage.setItem('ruijie_voucher_state', jsonStr); // Mirror for backward compatibility
   } catch (e) {
     console.error('Error saving state:', e);
   }
@@ -214,7 +230,7 @@ function renderPackageCatalogue() {
   let totalStock = 0;
 
   appState.vouchers.forEach(v => {
-    if (!v.printed) {
+    if (!v.printed && !v.resellerId && !v.soldBy) {
       totalStock++;
       const pkg = v.paket || 'Reguler';
       if (!packageMap[pkg]) {
@@ -342,8 +358,8 @@ function executePurchase() {
     return;
   }
 
-  // Find unprinted vouchers matching package
-  const matches = appState.vouchers.filter(v => !v.printed && (v.paket || 'Reguler') === pkgName);
+  // Find unprinted vouchers matching package that are unclaimed
+  const matches = appState.vouchers.filter(v => !v.printed && !v.resellerId && !v.soldBy && (v.paket || 'Reguler') === pkgName);
   if (matches.length < qty) {
     showToast(`Stok voucher ${pkgName} tidak mencukupi!`, 'error');
     return;
@@ -357,11 +373,24 @@ function executePurchase() {
     v.printedAt = nowIso;
     v.resellerId = currentAgent.id;
     v.resellerName = currentAgent.name;
+    v.soldBy = `Mitra Agen: ${currentAgent.name}`;
+    v.soldAt = nowIso;
+    v.soldPrice = agentPrice;
+    v.retailPrice = normalPrice;
     v.soldByAgent = true;
   });
 
   // Deduct agent balance
   currentAgent.balance -= totalDeduct;
+
+  // Record into audit log for admin tracking
+  if (!Array.isArray(appState.auditLogs)) appState.auditLogs = [];
+  appState.auditLogs.unshift({
+    timestamp: nowIso,
+    action: 'BUY_AGENT',
+    details: `Mitra Agen [${currentAgent.name}] membeli ${qty}x [${pkgName}] (${purchased.map(x => x.code).join(', ')})`,
+    user: currentAgent.name
+  });
 
   // Record transaction
   if (!Array.isArray(currentAgent.transactions)) {
@@ -664,9 +693,12 @@ function initEventListeners() {
     }
   });
 
+  // Sync button in header
+  $id('btn-sync-agent-cloud')?.addEventListener('click', () => syncAgentWithCloud(true));
+
   // Listen for storage events across tabs (if admin imports or tops up)
   window.addEventListener('storage', (e) => {
-    if (e.key === STORAGE_KEY) {
+    if (e.key === STORAGE_KEY || e.key === 'ruijie_voucher_state') {
       loadAppState();
       if (currentAgent) {
         const updated = appState.resellers.find(r => r.id === currentAgent.id);
@@ -677,9 +709,62 @@ function initEventListeners() {
   });
 }
 
+// Cloud Auto-Sync for Remote Agents (Smartphone / Tablet)
+async function syncAgentWithCloud(showNotice = false) {
+  loadAppState();
+  renderAgentDashboard();
+
+  const sheetsUrl = appState?.settings?.sheetsUrl;
+  if (!sheetsUrl) {
+    if (showNotice) showToast('✅ Data stok tersinkronisasi realtime!');
+    return;
+  }
+
+  if (showNotice) showToast('Menghubungkan ke Cloud Spreadsheet...');
+  try {
+    const res = await fetch(sheetsUrl);
+    const json = await res.json();
+    if (json && json.status === 'success' && Array.isArray(json.data)) {
+      const existingCodes = new Set(appState.vouchers.map(v => (v.code || '').toLowerCase().trim()));
+      let added = 0;
+      json.data.forEach(item => {
+        const code = (item.code || '').trim();
+        if (code && !existingCodes.has(code.toLowerCase())) {
+          appState.vouchers.push({
+            code: code,
+            paket: item.paket || 'Reguler',
+            harga: item.harga || '',
+            periode: item.periode || '',
+            speed: item.speed || '',
+            quota: item.quota || '',
+            resellerName: item.resellerName || null,
+            resellerId: item.resellerId || null,
+            printed: !!item.printed,
+            printedAt: item.printedAt || null,
+            soldBy: item.soldBy || null,
+            soldAt: item.soldAt || null,
+            selected: true
+          });
+          existingCodes.add(code.toLowerCase());
+          added++;
+        }
+      });
+      saveAppState();
+      renderAgentDashboard();
+      if (showNotice) {
+        showToast(added > 0 ? `✨ Berhasil menarik ${added} voucher baru dari Cloud!` : '✅ Stok Cloud sudah sinkron & mutakhir.');
+      }
+    }
+  } catch (err) {
+    console.log('Cloud sync info:', err);
+    if (showNotice) showToast('Data offline tersinkron. (Pastikan link Sheets aktif)', 'info');
+  }
+}
+
 // Bootstrap
 document.addEventListener('DOMContentLoaded', () => {
   loadAppState();
   initAuth();
   initEventListeners();
+  syncAgentWithCloud(false);
 });

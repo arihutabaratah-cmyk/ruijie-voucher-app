@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Aplikasi Cetak Voucher WiFi Ruijie — Database Google Spreadsheet, Theme Store, Audit Trail Kasir, Stock Alert, A4 Hemat, Thermal POS, Stiker Label Tom & Jerry">
   <title>VoucherHub Pro — Enterprise Hotspot Billing Dashboard & Studio Ruijie</title>
-  <link rel="stylesheet" href="index.css?v=2.7">
+  <link rel="stylesheet" href="index.css?v=2.8">
   <link rel="stylesheet" href="print.css?v=2.7">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#2563eb">
@@ -567,6 +567,7 @@
             <button class="btn btn-secondary admin-only" id="btn-add">＋ Tambah</button>
             <button class="btn btn-secondary admin-only" id="btn-assign-reseller" title="Kelola dan Alokasikan voucher ke Mitra / Agen Hotspot">🤝 Menu Agen</button>
             <button class="btn btn-secondary" id="btn-toggle-printed" title="Ubah status voucher terpilih (Belum / Sudah Dicetak)">🏷️ Ubah Status</button>
+            <button class="btn btn-secondary admin-only" id="btn-route-audit" title="Audit rute distribusi voucher dan pastikan tidak ada selisih">🧭 Cek Rute & Selisih</button>
             <button class="btn btn-secondary" id="btn-export-pdf" title="Export Lembar Cetak sebagai Dokumen PDF Presisi Ukuran">📄 Export PDF</button>
             <button class="btn btn-secondary" id="btn-export-png" title="Download Lembar Cetak sebagai Gambar PNG">🖼️ Export PNG</button>
             <button class="btn btn-danger admin-only" id="btn-delete-selected" title="Hapus voucher yang dicentang">🗑 Hapus</button>
@@ -588,7 +589,7 @@
                 <th>Paket</th>
                 <th>Harga</th>
                 <th>Periode</th>
-                <th>Reseller / Warung</th>
+                <th>Rute & Penjual</th>
                 <th>Status Cetak</th>
                 <th class="admin-only">Aksi</th>
               </tr>
@@ -708,6 +709,6 @@
 
   <script src="xlsx.mini.min.js"></script>
   <script src="qrcode.min.js"></script>
-  <script src="main.js?v=2.7"></script>
+  <script src="main.js?v=2.8"></script>
 </body>
 </html>

@@ -661,7 +661,10 @@
           <p id="top-agent-title">Mitra Resmi Terverifikasi</p>
         </div>
       </div>
-      <div>
+      <div style="display:flex;gap:0.4rem;align-items:center;">
+        <button class="btn-eye-toggle" id="btn-sync-agent-cloud" title="Tarik data stok voucher terbaru dari Cloud / Spreadsheet" style="background:var(--primary-light);color:var(--primary);width:auto;border-radius:20px;padding:0.3rem 0.65rem;font-size:0.75rem;font-weight:750;border:1px solid rgba(37,99,235,0.3);">
+          ☁️ Sync
+        </button>
         <button class="btn-eye-toggle" id="btn-switch-agent" title="Ganti / Logout Agen" style="background:var(--surface-alt);color:var(--text-secondary);width:auto;border-radius:20px;padding:0.3rem 0.65rem;font-size:0.75rem;font-weight:750;">
           🔄 Ganti Agen
         </button>
@@ -899,6 +902,6 @@
   <!-- Toast Notification Area -->
   <div id="toast-container"></div>
 
-  <script src="agent.js?v=2.6"></script>
+  <script src="agent.js?v=2.8"></script>
 </body>
 </html>
