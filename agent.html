@@ -681,7 +681,10 @@
             <span>SALDO DEPOSIT AGEN</span>
             <button class="btn-eye-toggle" id="btn-toggle-balance-vis" title="Sembunyikan / Tampilkan Saldo">👁️</button>
           </div>
-          <div class="ewallet-agent-name" id="card-agent-name">Memuat...</div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
+            <div class="ewallet-agent-name" id="card-agent-name">Memuat...</div>
+            <div id="card-agent-tier"></div>
+          </div>
         </div>
 
         <div class="ewallet-balance" id="card-balance-display">
@@ -690,11 +693,15 @@
 
         <div class="ewallet-stats">
           <div class="stat-item">
-            <span>Pembelian Hari Ini</span>
+            <span>Level Kemitraan</span>
+            <strong id="card-stat-tier" style="color:#fde047;">🥈 Silver (10%)</strong>
+          </div>
+          <div class="stat-item">
+            <span>Hari Ini</span>
             <strong id="card-today-buy">0 Voucher</strong>
           </div>
           <div class="stat-item">
-            <span>Estimasi Margin Laba</span>
+            <span>Estimasi Laba</span>
             <strong id="card-today-profit" style="color:#6ee7b7;">Rp 0</strong>
           </div>
         </div>
@@ -902,6 +909,6 @@
   <!-- Toast Notification Area -->
   <div id="toast-container"></div>
 
-  <script src="agent.js?v=2.8"></script>
+  <script src="agent.js?v=2.9"></script>
 </body>
 </html>

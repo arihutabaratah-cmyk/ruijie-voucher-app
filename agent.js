@@ -175,6 +175,29 @@ function showLoginModal() {
   openSheet('modal-login');
 }
 
+// ===== 🏆 AGENT TIERS & LEVEL MANAGEMENT =====
+const AGENT_TIERS = [
+  { id: 'bronze', name: '🥉 Level 1 (Bronze)', discount: 5, badge: '🥉 Bronze', color: '#b45309', bg: '#fef3c7' },
+  { id: 'silver', name: '🥈 Level 2 (Silver)', discount: 10, badge: '🥈 Silver', color: '#475569', bg: '#f1f5f9' },
+  { id: 'gold', name: '🥇 Level 3 (Gold)', discount: 15, badge: '🥇 Gold', color: '#a16207', bg: '#fef9c3' },
+  { id: 'platinum', name: '💎 Level 4 (Platinum)', discount: 20, badge: '💎 Platinum', color: '#0e7490', bg: '#cffafe' },
+  { id: 'custom', name: '⚙️ Level Khusus / Custom', discount: null, badge: '⭐ Khusus', color: '#7c3aed', bg: '#f3e8ff' }
+];
+
+function getAgentTier(agent) {
+  if (!agent) return AGENT_TIERS[1];
+  if (agent.level) {
+    const found = AGENT_TIERS.find(t => t.id === agent.level);
+    if (found) return found;
+  }
+  const disc = typeof agent.discountPercent === 'number' ? agent.discountPercent : 10;
+  if (disc <= 5) return AGENT_TIERS[0];
+  if (disc <= 10) return AGENT_TIERS[1];
+  if (disc <= 15) return AGENT_TIERS[2];
+  if (disc <= 20) return AGENT_TIERS[3];
+  return AGENT_TIERS[4];
+}
+
 // Render Dashboard
 function renderAgentDashboard() {
   if (!currentAgent) return;
@@ -182,8 +205,21 @@ function renderAgentDashboard() {
   const activePreset = (appState.presets && appState.presets.find(p => p.id === appState.activePresetId)) || null;
   const storeName = (activePreset && activePreset.name) || appState.settings.storeName || 'Hotspot Provider';
 
+  const tier = getAgentTier(currentAgent);
+
   $id('top-store-name').textContent = storeName;
+  $id('top-agent-title').textContent = `${tier.name} • ${currentAgent.name}`;
   $id('card-agent-name').textContent = `🤝 ${currentAgent.name}`;
+
+  const tierBadgeEl = $id('card-agent-tier');
+  if (tierBadgeEl) {
+    tierBadgeEl.innerHTML = `<span style="background:rgba(255,255,255,0.22);color:#ffffff;border:1px solid rgba(255,255,255,0.35);padding:0.15rem 0.55rem;border-radius:20px;font-size:0.72rem;font-weight:850;display:inline-flex;align-items:center;gap:3px;">${tier.badge} • Diskon ${currentAgent.discountPercent || 10}%</span>`;
+  }
+
+  const statTierEl = $id('card-stat-tier');
+  if (statTierEl) {
+    statTierEl.textContent = `${tier.badge} (${currentAgent.discountPercent || 10}%)`;
+  }
 
   updateBalanceDisplay();
   calculateTodayStats();
@@ -262,9 +298,22 @@ function renderPackageCatalogue() {
     return;
   }
 
-  const discountRate = (currentAgent.discountPercent || 10) / 100;
+  const tier = getAgentTier(currentAgent);
+  const discountPercent = currentAgent.discountPercent || tier.discount || 10;
+  const discountRate = discountPercent / 100;
 
-  container.innerHTML = packages.map(p => {
+  const tierHeaderHtml = `
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:0.6rem 0.85rem;margin-bottom:0.75rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.4rem;">
+      <div style="font-size:0.78rem;font-weight:750;color:#1e293b;">
+        Level Kemitraan: <strong style="color:${tier.color};">${tier.name}</strong>
+      </div>
+      <div style="font-size:0.74rem;font-weight:800;color:#15803d;background:#dcfce7;padding:0.2rem 0.6rem;border-radius:20px;">
+        Diskon Saldo ${discountPercent}%
+      </div>
+    </div>
+  `;
+
+  const cardsHtml = packages.map(p => {
     const agentPrice = Math.round(p.normalPrice * (1 - discountRate));
     const profitPerPcs = p.normalPrice - agentPrice;
     const isOut = p.availableCount <= 0;
@@ -282,7 +331,7 @@ function renderPackageCatalogue() {
             <div class="package-profit-badge">+Laba Rp ${formatNumber(profitPerPcs)}</div>
           </div>
           <div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px;">
-            Harga Jual: Rp ${formatNumber(p.normalPrice)} • ${esc(p.periode)}
+            Harga Jual: Rp ${formatNumber(p.normalPrice)} • ${esc(p.periode)} (Diskon Level ${discountPercent}%)
           </div>
         </div>
         <button class="btn-buy-package" onclick="openCheckoutModal('${esc(p.name)}', ${p.normalPrice}, ${agentPrice}, '${esc(p.periode)}', '${esc(p.speed)}', '${esc(p.quota)}', ${p.availableCount})" ${isOut ? 'disabled' : ''}>
@@ -291,6 +340,8 @@ function renderPackageCatalogue() {
       </div>
     `;
   }).join('');
+
+  container.innerHTML = tierHeaderHtml + cardsHtml;
 }
 
 // Checkout Modal Logic
@@ -321,7 +372,9 @@ function updateCheckoutSheetValues() {
   $id('checkout-pkg-spec').textContent = `🚀 ${speed} • ⏳ ${periode}`;
   $id('checkout-qty-val').textContent = currentCheckoutQty;
   $id('checkout-price-normal').textContent = `Rp ${formatNumber(normalPrice * currentCheckoutQty)}`;
-  $id('checkout-price-agent').textContent = `Rp ${formatNumber(agentPrice)} / pcs`;
+  const tier = getAgentTier(currentAgent);
+  const discountPercent = currentAgent.discountPercent || tier.discount || 10;
+  $id('checkout-price-agent').textContent = `Rp ${formatNumber(agentPrice)} / pcs (${tier.badge} -${discountPercent}%)`;
   $id('checkout-total-deduct').textContent = `Rp ${formatNumber(totalDeduct)}`;
 
   const balAfterEl = $id('checkout-balance-after');
@@ -463,7 +516,15 @@ function printAgentThermalReceipt() {
       <title>Struk Voucher ${esc(v.code)}</title>
       <meta charset="utf-8">
       <style>
-        @page { size: 58mm 210mm !important; margin: 0mm !important; }
+        @page { size: 58mm auto !important; margin: 0mm !important; }
+        @media print {
+          html, body {
+            width: 58mm !important;
+            max-width: 58mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+        }
         body {
           font-family: monospace, 'Courier New', Courier, sans-serif;
           margin: 0;

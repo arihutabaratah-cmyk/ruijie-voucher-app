@@ -1591,7 +1591,7 @@ function preparePrintStyles(layoutVal = '25') {
   if (layoutVal === 'thermal-58' || layoutVal === 'receipt') {
     styleEl.textContent = `
       @page {
-        size: 58mm 210mm !important;
+        size: 58mm auto !important;
         margin: 0mm !important;
       }
       @media print {
@@ -1625,7 +1625,7 @@ function preparePrintStyles(layoutVal = '25') {
   } else if (layoutVal === 'thermal-80') {
     styleEl.textContent = `
       @page {
-        size: 80mm 297mm !important;
+        size: 80mm auto !important;
         margin: 0mm !important;
       }
       @media print {
@@ -1677,60 +1677,80 @@ function preparePrintStyles(layoutVal = '25') {
   }
 }
 
-// ===== 🖨️ THERMAL PRINTER SETUP & TEST PRINT (PC & MOBILE) =====
+// ===== 🖨️ THERMAL PRINTER HARDWARE ENGINE & ESC/POS DRIVER =====
+window.activeSerialPort = null;
+window.activeUsbDevice = null;
+window.activeUsbInterfaceNumber = 0;
+window.activeUsbEndpointOut = 1;
+window.activeBluetoothDevice = null;
+window.activeBluetoothChar = null;
+let isSerialWriting = false;
+let isUsbWriting = false;
+let isBluetoothWriting = false;
+let selectedBaudRate = 9600;
+
 function showThermalPrinterModal() {
-  const isSerialConnected = !!window.activeSerialPort;
+  const isSerialConnected = !!(window.activeSerialPort && window.activeSerialPort.writable);
   const isUsbConnected = !!window.activeUsbDevice;
-  const isBTConnected = !!state.bluetoothDevice;
+  const isBTConnected = !!window.activeBluetoothChar;
   const currentLayout = state.settings.layout || '25';
 
   const html = `
     <div class="modal-header">
-      <h3>🖨️ Panduan & Koneksi Printer Thermal CP-58B / POS-58</h3>
+      <h3>🖨️ Panduan & Koneksi Printer Thermal POS (CX58D / CP-58B)</h3>
       <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
     </div>
     <div class="modal-body" style="max-height:82vh;overflow-y:auto;">
       
-      <!-- Panduan PIN Pairing Windows (PENTING) -->
-      <div style="background:#fef3c7;border:1.5px solid #f59e0b;border-radius:8px;padding:0.8rem;margin-bottom:0.85rem;font-size:0.77rem;color:#92400e;line-height:1.5;">
-        <div style="font-weight:900;font-size:0.84rem;margin-bottom:0.35rem;display:flex;align-items:center;gap:0.35rem;">
-          <span>🔑 Cara Isi PIN Pairing CP-58B di Windows PC:</span>
+      <!-- PENTING: Penjelasan Mengapa CX58D hanya 'Remove Device' di Windows -->
+      <div style="background:#fef3c7;border:1.5px solid #f59e0b;border-radius:8px;padding:0.85rem;margin-bottom:0.95rem;font-size:0.77rem;color:#92400e;line-height:1.5;">
+        <div style="font-weight:900;font-size:0.86rem;margin-bottom:0.35rem;display:flex;align-items:center;gap:0.35rem;">
+          <span>💡 Mengapa di Windows Bluetooth CX58D hanya ada tombol "Remove device"?</span>
         </div>
-        <div>Di komputer PC Windows, permintaan PIN (<code>0000</code> atau <code>1234</code>) harus dimasukkan terlebih dahulu di <strong>Windows Settings</strong> (bukan langsung di browser):</div>
-        <div style="background:#fff;border:1px solid #fde68a;border-radius:6px;padding:0.5rem 0.7rem;margin-top:0.45rem;color:#1e293b;">
-          <div>1️⃣ Buka <strong>Settings Windows</strong> (Tekan tombol keyboard <kbd>Win + I</kbd>).</div>
-          <div>2️⃣ Masuk ke menu <strong>Bluetooth & devices</strong> ➔ Klik tombol <strong>Add device (+ Tambah perangkat)</strong>.</div>
-          <div>3️⃣ Pilih <strong>Bluetooth</strong> ➔ Klik nama printer <strong>CP-58B / POS-58</strong> yang terdeteksi.</div>
-          <div>4️⃣ Windows akan meminta PIN ➔ Ketik <strong>0000</strong> (atau <strong>1234</strong>) lalu klik <strong>Connect</strong>.</div>
-          <div>5️⃣ Setelah statusnya <em>"Paired / Terhubung"</em> di Windows, klik tombol <strong>"⚡ Hubungkan Port CP-58B"</strong> di bawah ini!</div>
+        <div>Printer Bluetooth thermal portabel seperti <strong>CX58D / CP-58B / POS-58</strong> oleh Windows didaftarkan sebagai <strong>Port Serial Komunikasi (Virtual COM Port)</strong>, bukan sebagai printer dokumen kertas biasa. Itu sebabnya di Windows Settings tidak ada pilihan "Print" melainkan hanya "Remove device".</div>
+        <div style="background:#fff;border:1px solid #fde68a;border-radius:6px;padding:0.55rem 0.75rem;margin-top:0.45rem;color:#1e293b;">
+          <div style="font-weight:800;margin-bottom:0.25rem;color:#b45309;">✅ Cara Mudah Menggunakannya (Tanpa Perlu Driver Windows):</div>
+          <div>1️⃣ Pastikan CX58D sudah di-Pair di <strong>Windows Settings</strong> (PIN: <code>0000</code> atau <code>1234</code>).</div>
+          <div>2️⃣ Di bawah ini, pilih <strong>Baud Rate: 9600</strong> lalu klik tombol <strong>"⚡ Hubungkan Port CX58D / Serial"</strong>.</div>
+          <div>3️⃣ Browser akan menampilkan jendela popup ➔ <strong>Pilih nama Port COM (misal COM3, COM4, atau Bluetooth Serial)</strong> ➔ Klik <strong>Connect</strong>.</div>
+          <div>4️⃣ Selesai! Web akan mencetak struk langsung (Direct ESC/POS) ke printer tanpa lewat dialog print!</div>
         </div>
       </div>
 
-      <!-- Pilihan 1: Web Serial / Bluetooth Windows (Khusus CP-58B) -->
+      <!-- KONEKSI 1: SERIAL / BLUETOOTH COM PORT (CX58D / CP-58B) -->
       <div style="background:var(--surface-alt);border:1.5px solid var(--primary);border-radius:10px;padding:0.95rem;margin-bottom:1rem;">
         <div style="font-size:0.88rem;font-weight:850;color:var(--primary);margin-bottom:0.4rem;display:flex;align-items:center;gap:0.4rem;">
-          <span>⚡ 1. Hubungkan Port CP-58B (Setelah di-Pair di Windows)</span>
+          <span>⚡ 1. Port Serial / CX58D Bluetooth Windows (Paling Direkomendasikan)</span>
         </div>
         <p style="font-size:0.77rem;color:var(--text);line-height:1.45;margin-bottom:0.65rem;">
-          Klik tombol di bawah untuk menyambungkan port komunikasi data langsung ke CP-58B:
+          Hubungkan port komunikasi data langsung ke CX58D / CP-58B:
         </p>
 
-        <div style="background:#ffffff;border:1px solid #cbd5e1;border-radius:6px;padding:0.65rem 0.8rem;margin-bottom:0.75rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.4rem;">
+        <div style="background:#ffffff;border:1px solid #cbd5e1;border-radius:6px;padding:0.65rem 0.8rem;margin-bottom:0.75rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
           <div>
-            <div style="font-size:0.78rem;font-weight:800;color:var(--primary);">Status Port CP-58B:</div>
-            <div style="font-size:0.72rem;color:var(--text-secondary);"><strong style="color:${isSerialConnected ? 'var(--success)' : 'var(--text-muted)'};">${isSerialConnected ? '🟢 Terhubung ke Port Serial CP-58B' : '⚪ Belum Terhubung'}</strong></div>
+            <div style="font-size:0.78rem;font-weight:800;color:var(--primary);">Status Port Serial:</div>
+            <div style="font-size:0.74rem;font-weight:800;color:${isSerialConnected ? 'var(--success)' : 'var(--text-muted)'};">
+              ${isSerialConnected ? '🟢 Terhubung ke Port Serial (Siap Cetak)' : '⚪ Belum Terhubung'}
+            </div>
           </div>
-          <button class="btn ${isSerialConnected ? 'btn-secondary' : 'btn-primary'} btn-sm" id="btn-modal-connect-serial" style="font-size:0.75rem;font-weight:800;">
-            ${isSerialConnected ? '🔄 Putus / Ganti Port' : '⚡ Hubungkan Port CP-58B'}
-          </button>
+          <div style="display:flex;align-items:center;gap:0.4rem;">
+            <select id="m-serial-baud" class="form-input" style="padding:0.3rem 0.5rem;font-size:0.75rem;font-weight:700;width:auto;">
+              <option value="9600" ${selectedBaudRate === 9600 ? 'selected' : ''}>9600 Baud (Standar CX58D)</option>
+              <option value="38400" ${selectedBaudRate === 38400 ? 'selected' : ''}>38400 Baud</option>
+              <option value="115200" ${selectedBaudRate === 115200 ? 'selected' : ''}>115200 Baud</option>
+            </select>
+            <button class="btn ${isSerialConnected ? 'btn-secondary' : 'btn-primary'} btn-sm" id="btn-modal-connect-serial" style="font-size:0.75rem;font-weight:800;">
+              ${isSerialConnected ? '🔄 Putus Koneksi' : '⚡ Hubungkan Port CX58D'}
+            </button>
+          </div>
         </div>
 
         <div style="font-size:0.76rem;font-weight:800;color:var(--text);margin-bottom:0.4rem;">
-          🧪 Tes Cetak Struk 58mm:
+          🧪 Tes Cetak Struk Langsung ke Printer:
         </div>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
           <button class="btn btn-primary btn-sm" onclick="testPrintThermal(58)" style="font-weight:800;">
-            🧪 Test Print Struk 58mm (CP-58B)
+            🧪 Test Print Struk 58mm (CX58D / CP-58B)
           </button>
           <button class="btn btn-secondary btn-sm" onclick="testPrintThermal(80)">
             🧪 Test Print Struk 80mm
@@ -1738,51 +1758,53 @@ function showThermalPrinterModal() {
         </div>
       </div>
 
-      <!-- Pilihan 2: Dialog Print Windows / Chrome (Jalur Driver POS-58) -->
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:0.95rem;margin-bottom:1rem;">
-        <div style="font-size:0.86rem;font-weight:850;color:var(--text);margin-bottom:0.4rem;">
-          🖨️ 2. Panduan Dialog Cetak Chrome / Edge PC (Agar Tidak Format A4)
+      <!-- KONEKSI 2 & 3: DIRECT WEBUSB & WEB BLUETOOTH -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:0.85rem;margin-bottom:1rem;">
+        <div style="font-size:0.84rem;font-weight:800;color:var(--text);margin-bottom:0.5rem;">
+          🔌 2. Opsi Kabel USB Langsung (WebUSB) & Bluetooth BLE
         </div>
-        <p style="font-size:0.76rem;color:var(--text-secondary);line-height:1.45;margin-bottom:0.55rem;">
-          Saat jendela print browser muncul di PC:
+        <p style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:0.6rem;">
+          Jika Anda menyambungkan kabel USB langsung dari printer ke PC/Laptop, atau via HP Android:
         </p>
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:0.6rem 0.8rem;font-size:0.75rem;color:#0f172a;line-height:1.5;">
-          <div>1️⃣ <strong>Destination (Tujuan):</strong> Pilih nama printer Anda (contoh: <em>POS-58 / CP-58B</em>).</div>
-          <div>2️⃣ <strong>Paper size:</strong> Pilih <code>58mm</code> / <code>Receipt</code> / <code>Roll Paper</code>.</div>
-          <div>3️⃣ <strong>Margins:</strong> Pilih <strong>None (Tanpa Margin)</strong>.</div>
-          <div>4️⃣ <strong>Options:</strong> <strong>Hapus centang</strong> "Headers and footers".</div>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+          <button class="btn ${isUsbConnected ? 'btn-primary' : 'btn-secondary'} btn-sm" id="btn-modal-connect-usb">
+            ${isUsbConnected ? '🟢 WebUSB Terhubung (Putus)' : '🔌 Hubungkan Kabel USB (WebUSB)'}
+          </button>
+          <button class="btn ${isBTConnected ? 'btn-primary' : 'btn-secondary'} btn-sm" id="btn-modal-connect-bt">
+            ${isBTConnected ? '🟢 Bluetooth Terhubung (Putus)' : '📶 Hubungkan Bluetooth BLE (Android/Mac)'}
+          </button>
         </div>
       </div>
 
-      <!-- Pilihan 3: Direct WebUSB & Mobile Bluetooth -->
-      <div style="background:var(--surface-alt);border:1px solid var(--border);border-radius:10px;padding:0.85rem;margin-bottom:0.85rem;">
-        <div style="font-size:0.84rem;font-weight:800;color:var(--text);margin-bottom:0.5rem;">
-          📱 3. Opsi Lain (Direct USB & Bluetooth Android)
+      <!-- PANDUAN PRINT BIASA (BROWSER DIALOG) -->
+      <div style="background:var(--surface-alt);border:1px solid var(--border);border-radius:10px;padding:0.85rem;margin-bottom:1rem;">
+        <div style="font-size:0.84rem;font-weight:800;color:var(--text);margin-bottom:0.4rem;">
+          📄 3. Jika Mencetak Lewat Jendela Print Biasa (Agar Tidak Terpotong Jadi A4)
         </div>
-        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-          <button class="btn btn-secondary btn-sm" id="btn-modal-connect-usb">
-            ${isUsbConnected ? '🟢 USB Terhubung' : '🔌 Hubungkan via WebUSB'}
-          </button>
-          <button class="btn btn-secondary btn-sm" id="btn-modal-connect-bt">
-            ${isBTConnected ? '🟢 Bluetooth Terhubung' : '📶 Hubungkan Bluetooth Android'}
-          </button>
+        <p style="font-size:0.75rem;color:var(--text-secondary);line-height:1.45;margin-bottom:0.45rem;">
+          Aplikasi kami sudah otomatis mengatur ukuran kertas struk roll terus-menerus (continuous roll). Saat dialog cetak Chrome/Edge muncul, pastikan:
+        </p>
+        <div style="background:#ffffff;border:1px solid #cbd5e1;border-radius:6px;padding:0.55rem 0.75rem;font-size:0.74rem;color:#1e293b;line-height:1.5;">
+          <div>1️⃣ <strong>Paper size (Ukuran Kertas):</strong> Pilih <code>58mm</code> / <code>Receipt</code> / <code>Roll Paper 58 x MAX</code>.</div>
+          <div>2️⃣ <strong>Margins (Margin):</strong> Pilih <strong>None (Tanpa Margin)</strong>.</div>
+          <div>3️⃣ <strong>Options:</strong> <strong>Hapus centang</strong> "Headers and footers".</div>
         </div>
       </div>
 
       <!-- Layout Selector Shortcut -->
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.8rem;">
         <div style="font-size:0.78rem;font-weight:800;color:var(--text);margin-bottom:0.35rem;">
-          ⚙️ Format Layout Kertas Cetak Saat Ini:
+          ⚙️ Pilih Format Kertas Cetak Aktif:
         </div>
         <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
           <button class="btn ${currentLayout === 'thermal-58' ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="setPaperLayoutFromModal('thermal-58')">
-            🧾 Thermal 58mm (Aktif)
+            🧾 Thermal 58mm Roll (CX58D)
           </button>
           <button class="btn ${currentLayout === 'thermal-80' ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="setPaperLayoutFromModal('thermal-80')">
-            🧾 Thermal 80mm
+            🧾 Thermal 80mm Roll
           </button>
           <button class="btn ${!currentLayout.startsWith('thermal') ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="setPaperLayoutFromModal('25')">
-            📄 Kertas A4 (25/hal)
+            📄 Lembar Kertas A4 (25/hal)
           </button>
         </div>
       </div>
@@ -1809,134 +1831,38 @@ function setPaperLayoutFromModal(layoutVal) {
   showThermalPrinterModal();
 }
 
-function testPrintThermal(widthMm = 58) {
-  const layoutVal = `thermal-${widthMm}`;
-  const testVoucher = {
-    code: 'RJ-TEST99',
-    paket: 'Paket 1 Hari',
-    harga: '5000',
-    periode: '24 Jam',
-    speed: '10 Mbps',
-    quota: 'Unlimited',
-    printed: false,
-    selected: false
-  };
+function updatePrinterButtonUI() {
+  const btn = $id('btn-thermal-printer-setup');
+  if (!btn) return;
 
-  const rawBytes = generateESCPOSVoucher(testVoucher, 1, state.settings);
-
-  // 1. Try Serial first (best for CP-58B on PC)
-  if (window.activeSerialPort) {
-    sendRawESCPOSViaSerial(rawBytes).then(success => {
-      if (success) {
-        showToast('⚡ Berhasil test print via Port Serial CP-58B!');
-      } else {
-        triggerBrowserTestPrint(testVoucher, layoutVal, widthMm);
-      }
-    });
-    return;
+  if (window.activeSerialPort && window.activeSerialPort.writable) {
+    btn.innerHTML = '⚡ CP-58B / CX58D Serial';
+    btn.className = 'btn btn-primary btn-sm';
+    btn.title = 'Terhubung ke Printer Thermal via Serial COM Port';
+  } else if (window.activeUsbDevice) {
+    btn.innerHTML = '🔌 USB Thermal';
+    btn.className = 'btn btn-primary btn-sm';
+    btn.title = `Terhubung ke WebUSB: ${window.activeUsbDevice.productName || 'Thermal'}`;
+  } else if (window.activeBluetoothChar) {
+    btn.innerHTML = '📶 BT Thermal';
+    btn.className = 'btn btn-primary btn-sm';
+    btn.title = 'Terhubung ke Bluetooth Thermal';
+  } else {
+    btn.innerHTML = '🖨️ Printer Thermal';
+    btn.className = 'btn btn-secondary btn-sm';
+    btn.title = 'Pengaturan & Panduan Printer Thermal (USB PC / Bluetooth)';
   }
-
-  // 2. Try USB
-  if (window.activeUsbDevice) {
-    sendRawESCPOSViaUSB(rawBytes).then(success => {
-      if (success) {
-        showToast('⚡ Berhasil test print via Direct USB!');
-      } else {
-        triggerBrowserTestPrint(testVoucher, layoutVal, widthMm);
-      }
-    });
-    return;
-  }
-
-  // 3. Fallback to Browser Print Dialog
-  triggerBrowserTestPrint(testVoucher, layoutVal, widthMm);
 }
 
-function triggerBrowserTestPrint(testVoucher, layoutVal, widthMm) {
-  const receiptHtml = buildThermalReceiptHTML(testVoucher, 1, state.settings, widthMm);
-  printThermalPopout(receiptHtml, widthMm);
-}
-
-function printThermalPopout(receiptHtml, widthMm = 58) {
-  const win = window.open('', '_blank', 'width=380,height=600,top=100,left=100');
-  if (!win) {
-    // If popup blocked, fallback to in-page print area
-    const printArea = $id('print-area');
-    if (printArea) {
-      printArea.innerHTML = `<div class="print-page layout-thermal-${widthMm}">${receiptHtml}</div>`;
-      preparePrintStyles(`thermal-${widthMm}`);
-      window.print();
-    }
-    return;
-  }
-
-  win.document.write(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Struk Voucher ${widthMm}mm</title>
-      <meta charset="utf-8">
-      <style>
-        @page {
-          size: ${widthMm === 80 ? '80mm 297mm' : '58mm 210mm'} !important;
-          margin: 0mm !important;
-        }
-        @media print {
-          html, body {
-            width: ${widthMm}mm !important;
-            max-width: ${widthMm}mm !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #ffffff !important;
-          }
-          .thermal-receipt-box {
-            width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 auto !important;
-            padding: 2mm 1mm !important;
-            border: none !important;
-            box-shadow: none !important;
-          }
-        }
-        body {
-          font-family: monospace, 'Courier New', Courier, sans-serif;
-          margin: 0;
-          padding: 2mm;
-          background: #ffffff;
-          color: #000000;
-          width: ${widthMm}mm;
-          box-sizing: border-box;
-        }
-      </style>
-    </head>
-    <body>
-      ${receiptHtml}
-      <script>
-        window.onload = function() {
-          setTimeout(function() {
-            window.focus();
-            window.print();
-            setTimeout(function() { window.close(); }, 1000);
-          }, 200);
-        };
-      </script>
-    </body>
-    </html>
-  `);
-  win.document.close();
-  showToast(`🖨️ Membuka struk thermal roll ${widthMm}mm...`);
-}
-
-// ===== ⚡ DIRECT WEB SERIAL ENGINE (CP-58B / BLUETOOTH WINDOWS / COM PORT) =====
-window.activeSerialPort = null;
-
+// ===== ⚡ DIRECT WEB SERIAL ENGINE (CX58D / CP-58B / COM PORT) =====
 async function handleConnectSerial() {
   if (window.activeSerialPort) {
     try {
       await window.activeSerialPort.close();
     } catch (e) {}
     window.activeSerialPort = null;
-    showToast('Port Serial CP-58B diputuskan.');
+    updatePrinterButtonUI();
+    showToast('Port Serial CP-58B / CX58D diputuskan.');
     if ($id('modal-overlay')?.classList.contains('active')) {
       showThermalPrinterModal();
     }
@@ -1949,31 +1875,34 @@ async function handleConnectSerial() {
   }
 
   try {
-    showToast('Pilih Port CP-58B / Bluetooth Serial di daftar popup...');
+    const baudSelect = $id('m-serial-baud');
+    const baud = baudSelect ? parseInt(baudSelect.value, 10) : 9600;
+    selectedBaudRate = baud;
+
+    showToast('Pilih Port COM CP-58B / CX58D di daftar popup Chrome...');
     const port = await navigator.serial.requestPort();
-    await port.open({ baudRate: 9600 });
+    await port.open({ baudRate: baud });
     window.activeSerialPort = port;
 
-    const btn = $id('btn-thermal-printer-setup');
-    if (btn) {
-      btn.textContent = `⚡ CP-58B Serial`;
-      btn.classList.add('btn-primary');
-    }
-
-    showToast('✅ Berhasil terhubung ke Port Serial CP-58B!');
+    updatePrinterButtonUI();
+    showToast(`✅ Berhasil terhubung ke Port Serial CX58D (${baud} baud)!`);
     if ($id('modal-overlay')?.classList.contains('active')) {
       showThermalPrinterModal();
     }
   } catch (err) {
     console.warn('Serial connect error:', err);
     if (err.name !== 'NotFoundError') {
-      showToast('Info Serial: ' + (err.message || 'Gunakan mode print biasa'), 'info');
+      showToast('Info Serial: ' + (err.message || 'Port sedang dipakai atau tidak cocok'), 'info');
     }
   }
 }
 
 async function sendRawESCPOSViaSerial(commandsUint8Array) {
   if (!window.activeSerialPort || !window.activeSerialPort.writable) return false;
+  while (isSerialWriting) {
+    await new Promise(r => setTimeout(r, 40));
+  }
+  isSerialWriting = true;
   try {
     const writer = window.activeSerialPort.writable.getWriter();
     await writer.write(commandsUint8Array);
@@ -1982,9 +1911,236 @@ async function sendRawESCPOSViaSerial(commandsUint8Array) {
   } catch (err) {
     console.warn('Serial write error:', err);
     return false;
+  } finally {
+    isSerialWriting = false;
   }
 }
 
+// ===== 🔌 DIRECT WEBUSB ENGINE (PRINTER CLASS 7 / USB CABLE) =====
+async function handleConnectUSB() {
+  if (window.activeUsbDevice) {
+    try {
+      await window.activeUsbDevice.close();
+    } catch (e) {}
+    window.activeUsbDevice = null;
+    updatePrinterButtonUI();
+    showToast('Koneksi WebUSB diputuskan.');
+    if ($id('modal-overlay')?.classList.contains('active')) {
+      showThermalPrinterModal();
+    }
+    return;
+  }
+
+  if (!navigator.usb) {
+    showToast('WebUSB didukung di Google Chrome / Microsoft Edge di PC Windows & Android OTG.', 'warning');
+    return;
+  }
+
+  try {
+    showToast('Pilih printer thermal USB Anda di dialog pop-up...');
+    const device = await navigator.usb.requestDevice({ filters: [] });
+    await device.open();
+    if (device.configuration === null) {
+      await device.selectConfiguration(1);
+    }
+
+    let ifaceNum = 0;
+    let epOut = 1;
+    if (device.configuration && device.configuration.interfaces) {
+      for (const iface of device.configuration.interfaces) {
+        for (const alt of iface.alternates) {
+          for (const ep of alt.endpoints) {
+            if (ep.direction === 'out') {
+              ifaceNum = iface.interfaceNumber;
+              epOut = ep.endpointNumber;
+              break;
+            }
+          }
+          if (epOut !== 1) break;
+        }
+        if (epOut !== 1) break;
+      }
+    }
+
+    try {
+      await device.claimInterface(ifaceNum);
+    } catch (claimErr) {
+      console.warn('Claim interface note:', claimErr);
+    }
+
+    window.activeUsbDevice = device;
+    window.activeUsbInterfaceNumber = ifaceNum;
+    window.activeUsbEndpointOut = epOut;
+
+    updatePrinterButtonUI();
+    showToast(`✅ Berhasil terhubung via WebUSB: ${device.productName || 'Printer USB'}`);
+    if ($id('modal-overlay')?.classList.contains('active')) {
+      showThermalPrinterModal();
+    }
+  } catch (err) {
+    console.warn('WebUSB error:', err);
+    if (err.name !== 'NotFoundError') {
+      showToast('Gagal konek USB: ' + (err.message || 'Driver USB sedang dipakai sistem'), 'error');
+    }
+  }
+}
+
+async function sendRawESCPOSViaUSB(commandsUint8Array) {
+  if (!window.activeUsbDevice) return false;
+  while (isUsbWriting) {
+    await new Promise(r => setTimeout(r, 40));
+  }
+  isUsbWriting = true;
+  try {
+    const ep = window.activeUsbEndpointOut || 1;
+    await window.activeUsbDevice.transferOut(ep, commandsUint8Array);
+    return true;
+  } catch (err) {
+    console.warn('USB write error:', err);
+    return false;
+  } finally {
+    isUsbWriting = false;
+  }
+}
+
+// ===== 📶 DIRECT WEB BLUETOOTH ENGINE (BLE GATT) =====
+async function handleConnectBluetooth() {
+  if (window.activeBluetoothChar) {
+    try {
+      if (window.activeBluetoothDevice?.gatt?.connected) {
+        window.activeBluetoothDevice.gatt.disconnect();
+      }
+    } catch (e) {}
+    window.activeBluetoothChar = null;
+    window.activeBluetoothDevice = null;
+    updatePrinterButtonUI();
+    showToast('Koneksi Bluetooth diputuskan.');
+    if ($id('modal-overlay')?.classList.contains('active')) {
+      showThermalPrinterModal();
+    }
+    return;
+  }
+
+  if (!navigator.bluetooth) {
+    showToast('Web Bluetooth API didukung di Google Chrome Android / Laptop dengan Bluetooth aktif.', 'warning');
+    return;
+  }
+
+  try {
+    showToast('Mencari printer Bluetooth thermal...');
+    const device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: [
+        '000018f0-0000-1000-8000-00805f9b34fb',
+        'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
+        0xFFE0,
+        '0000ffe0-0000-1000-8000-00805f9b34fb',
+        '49535343-fe7d-4ae5-8fa9-9fafd205e455'
+      ]
+    });
+
+    const server = await device.gatt.connect();
+    const services = await server.getPrimaryServices();
+    let writeChar = null;
+
+    for (const service of services) {
+      try {
+        const chars = await service.getCharacteristics();
+        for (const c of chars) {
+          if (c.properties.write || c.properties.writeWithoutResponse) {
+            writeChar = c;
+            break;
+          }
+        }
+      } catch (e) {}
+      if (writeChar) break;
+    }
+
+    if (!writeChar) {
+      throw new Error('Tidak ditemukan karakteristik write pada perangkat Bluetooth ini.');
+    }
+
+    window.activeBluetoothDevice = device;
+    window.activeBluetoothChar = writeChar;
+    updatePrinterButtonUI();
+    showToast(`✅ Berhasil terhubung ke: ${device.name || 'Printer Bluetooth'}`);
+    if ($id('modal-overlay')?.classList.contains('active')) {
+      showThermalPrinterModal();
+    }
+  } catch (err) {
+    console.warn('Bluetooth connect error:', err);
+    if (err.name !== 'NotFoundError') {
+      showToast('Gagal menghubungkan Bluetooth: ' + (err.message || 'Coba gunakan Serial Port'), 'error');
+    }
+  }
+}
+
+async function sendRawESCPOSViaBluetooth(commandsUint8Array) {
+  if (!window.activeBluetoothChar) return false;
+  while (isBluetoothWriting) {
+    await new Promise(r => setTimeout(r, 40));
+  }
+  isBluetoothWriting = true;
+  try {
+    const CHUNK_SIZE = 100;
+    for (let i = 0; i < commandsUint8Array.length; i += CHUNK_SIZE) {
+      const chunk = commandsUint8Array.slice(i, i + CHUNK_SIZE);
+      if (window.activeBluetoothChar.properties.writeWithoutResponse) {
+        await window.activeBluetoothChar.writeValueWithoutResponse(chunk);
+      } else {
+        await window.activeBluetoothChar.writeValue(chunk);
+      }
+      await new Promise(r => setTimeout(r, 25));
+    }
+    return true;
+  } catch (err) {
+    console.warn('Bluetooth write error:', err);
+    return false;
+  } finally {
+    isBluetoothWriting = false;
+  }
+}
+
+// ===== 🖨️ MASTER DIRECT ESC/POS DISPATCHER =====
+async function printESCPOSDirect(vouchers, settings) {
+  const hasSerial = !!(window.activeSerialPort && window.activeSerialPort.writable);
+  const hasUsb = !!window.activeUsbDevice;
+  const hasBt = !!window.activeBluetoothChar;
+
+  if (!hasSerial && !hasUsb && !hasBt) {
+    return false; // Tidak ada printer hardware direct yang terhubung
+  }
+
+  showToast(`⚡ Mengirim ${vouchers.length} voucher langsung ke printer thermal...`, 'info');
+
+  for (let i = 0; i < vouchers.length; i++) {
+    const v = vouchers[i];
+    const rawBytes = generateESCPOSVoucher(v, i + 1, settings);
+    let success = false;
+
+    if (hasSerial) {
+      success = await sendRawESCPOSViaSerial(rawBytes);
+    } else if (hasUsb) {
+      success = await sendRawESCPOSViaUSB(rawBytes);
+    } else if (hasBt) {
+      success = await sendRawESCPOSViaBluetooth(rawBytes);
+    }
+
+    if (!success) {
+      showToast(`Gagal mengirim data voucher #${i + 1} ke hardware printer.`, 'error');
+      return false;
+    }
+
+    if (vouchers.length > 1) {
+      await new Promise(r => setTimeout(r, 180));
+    }
+  }
+
+  showToast(`✅ Berhasil cetak ${vouchers.length} voucher langsung ke printer thermal!`, 'success');
+  return true;
+}
+
+// ===== 🖨️ ESC/POS BYTE GENERATOR (58mm / 80mm) =====
 function generateESCPOSVoucher(v, num, settings) {
   const encoder = new TextEncoder();
   const ESC = 0x1B;
@@ -2018,7 +2174,7 @@ function generateESCPOSVoucher(v, num, settings) {
   bytes.push(...encoder.encode('================================\n'));
   bytes.push(...encoder.encode('KODE VOUCHER / PASSWORD:\n'));
   bytes.push(...boldOn, ...doubleSizeOn);
-  bytes.push(...encoder.encode(v.code + '\n'));
+  bytes.push(...encoder.encode((v.code || '').trim() + '\n'));
   bytes.push(...normalSize, ...boldOff);
   bytes.push(...encoder.encode('================================\n'));
 
@@ -2031,44 +2187,116 @@ function generateESCPOSVoucher(v, num, settings) {
     bytes.push(...alignCenter, ...encoder.encode(settings.loginHint + '\n'));
   }
   bytes.push(...encoder.encode('--------------------------------\n'));
-  bytes.push(...alignCenter, ...encoder.encode('Terima Kasih • Selamat Berinternet\n\n\n'));
+  bytes.push(...alignCenter, ...encoder.encode('Terima Kasih • Selamat Berinternet\n\n\n\n'));
   bytes.push(...cutPaper);
 
   return new Uint8Array(bytes);
 }
 
-// ===== DIRECT WEB BLUETOOTH PRINTING (ESC/POS) =====
-async function handleConnectBluetooth() {
-  if (!requirePro('Koneksi Printer Bluetooth POS')) return;
+// ===== 🧪 TEST PRINT (HARDWARE DIRECT OR CONTINUOUS ROLL POPOUT) =====
+async function testPrintThermal(widthMm = 58) {
+  const actualMm = parseInt(widthMm, 10) || 58;
+  const layoutVal = `thermal-${actualMm}`;
+  const testVoucher = {
+    code: 'RJ-TEST99',
+    paket: 'Paket 1 Hari',
+    harga: '5000',
+    periode: '24 Jam',
+    speed: '10 Mbps',
+    quota: 'Unlimited',
+    printed: false,
+    selected: false
+  };
 
-  if (!navigator.bluetooth) {
-    showToast('Web Bluetooth API hanya didukung di Google Chrome Android / Laptop dengan Bluetooth aktif.', 'warning');
+  const printedDirect = await printESCPOSDirect([testVoucher], state.settings);
+  if (printedDirect) {
     return;
   }
 
-  try {
-    showToast('Mencari printer Bluetooth thermal...');
-    const device = await navigator.bluetooth.requestDevice({
-      acceptAllDevices: true,
-      optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', 0xFFE0]
-    });
+  // Fallback ke browser roll popout jika belum terhubung via Serial/USB/BT
+  triggerBrowserTestPrint(testVoucher, layoutVal, actualMm);
+}
 
-    state.bluetoothDevice = device;
-    const btn = $id('btn-thermal-printer-setup');
-    if (btn) {
-      btn.textContent = `📶 ${device.name || 'Printer POS'}`;
-      btn.classList.add('btn-primary');
+function triggerBrowserTestPrint(testVoucher, layoutVal, widthMm) {
+  const actualMm = parseInt(widthMm, 10) || 58;
+  const receiptHtml = buildThermalReceiptHTML(testVoucher, 1, state.settings, actualMm);
+  printThermalPopout(receiptHtml, actualMm);
+}
+
+// ===== 🧾 BROWSER CONTINUOUS ROLL POPOUT (NO A4 FORCING) =====
+function printThermalPopout(receiptHtml, widthMm = 58) {
+  const actualMm = parseInt(widthMm, 10) || 58;
+  const win = window.open('', '_blank', `width=${actualMm * 4},height=600,top=100,left=100`);
+  if (!win) {
+    // If popup blocked, fallback to in-page print area
+    const printArea = $id('print-area');
+    if (printArea) {
+      printArea.innerHTML = `<div class="print-page layout-thermal-${actualMm}">${receiptHtml}</div>`;
+      preparePrintStyles(`thermal-${actualMm}`);
+      window.print();
     }
-    showToast(`Berhasil terhubung ke: ${device.name || 'Printer Bluetooth'}`);
-    if ($id('modal-overlay')?.classList.contains('active')) {
-      showThermalPrinterModal();
-    }
-  } catch (err) {
-    console.warn('Bluetooth connect error:', err);
-    if (err.name !== 'NotFoundError') {
-      showToast('Gagal menghubungkan printer Bluetooth.', 'error');
-    }
+    return;
   }
+
+  win.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Struk Voucher ${actualMm}mm</title>
+      <meta charset="utf-8">
+      <style>
+        @page {
+          size: ${actualMm}mm auto !important;
+          margin: 0mm !important;
+        }
+        @media print {
+          html, body {
+            width: ${actualMm}mm !important;
+            max-width: ${actualMm}mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .thermal-receipt-box {
+            width: 100% !important;
+            max-width: ${actualMm}mm !important;
+            margin: 0 auto !important;
+            padding: 2mm 1mm !important;
+            border: none !important;
+            box-shadow: none !important;
+            page-break-after: always;
+            break-after: page;
+          }
+        }
+        body {
+          font-family: monospace, 'Courier New', Courier, sans-serif;
+          margin: 0;
+          padding: 2mm;
+          background: #ffffff;
+          color: #000000;
+          width: ${actualMm}mm;
+          box-sizing: border-box;
+        }
+      </style>
+    </head>
+    <body>
+      ${receiptHtml}
+      <script>
+        window.onload = function() {
+          setTimeout(function() {
+            window.focus();
+            window.print();
+            setTimeout(function() { window.close(); }, 1000);
+          }, 200);
+        };
+      </script>
+    </body>
+    </html>
+  `);
+  win.document.close();
+  showToast(`🖨️ Membuka struk thermal roll ${actualMm}mm...`);
 }
 
 // ===== BACKGROUND CARD IMAGE =====
@@ -2606,7 +2834,7 @@ function renderPackageBillingAnalytics() {
   }).join('');
 }
 
-function quickPrintPackage(pkgName, qty = 1) {
+async function quickPrintPackage(pkgName, qty = 1) {
   // Hanya ambil voucher yang benar-benar bebas (belum dicetak, belum dibeli agen, belum ada penjual)
   const matches = state.vouchers.filter(v => !v.printed && !v.resellerId && !v.soldBy && (v.paket || 'Reguler') === pkgName);
   if (matches.length === 0) {
@@ -2638,37 +2866,15 @@ function quickPrintPackage(pkgName, qty = 1) {
   checkStockAlerts();
   triggerBackgroundAutoSync();
 
-  // 1. Direct Serial (CP-58B)
-  if (window.activeSerialPort) {
-    toPrint.forEach((v, idx) => {
-      const rawBytes = generateESCPOSVoucher(v, idx + 1, state.settings);
-      sendRawESCPOSViaSerial(rawBytes);
-    });
-    renderQuickPOSGrid();
-    renderTable();
-    renderPreview();
-    showToast(`⚡ Berhasil cetak 1 voucher ${pkgName} via CP-58B Serial!`);
-    return;
+  // 1. Coba cetak langsung ke printer hardware (Serial CX58D / WebUSB / Bluetooth)
+  const printedDirect = await printESCPOSDirect(toPrint, state.settings);
+  if (!printedDirect) {
+    // 2. Fallback ke Jendela Cetak Roll Thermal (100% True 58mm/80mm Roll, bukan A4)
+    const is80 = layoutVal === 'thermal-80';
+    const widthMm = is80 ? 80 : 58;
+    const receiptHtml = toPrint.map((v, idx) => buildThermalReceiptHTML(v, idx + 1, state.settings, widthMm)).join('');
+    printThermalPopout(receiptHtml, widthMm);
   }
-
-  // 2. Direct USB
-  if (window.activeUsbDevice) {
-    toPrint.forEach((v, idx) => {
-      const rawBytes = generateESCPOSVoucher(v, idx + 1, state.settings);
-      sendRawESCPOSViaUSB(rawBytes);
-    });
-    renderQuickPOSGrid();
-    renderTable();
-    renderPreview();
-    showToast(`⚡ Berhasil cetak 1 voucher ${pkgName} via Direct USB!`);
-    return;
-  }
-
-  // 3. Fallback to Browser Thermal Popout Window (100% True 58mm/80mm, No A4)
-  const is80 = layoutVal === 'thermal-80';
-  const widthMm = is80 ? 80 : 58;
-  const receiptHtml = toPrint.map((v, idx) => buildThermalReceiptHTML(v, idx + 1, state.settings, widthMm)).join('');
-  printThermalPopout(receiptHtml, widthMm);
 
   renderQuickPOSGrid();
   renderTable();
@@ -2695,6 +2901,29 @@ function renderResellerFilterSelect() {
   select.innerHTML = options;
 }
 
+// ===== 🏆 AGENT TIERS & LEVEL MANAGEMENT =====
+const AGENT_TIERS = [
+  { id: 'bronze', name: '🥉 Level 1 (Bronze)', discount: 5, badge: '🥉 Bronze', color: '#b45309', bg: '#fef3c7' },
+  { id: 'silver', name: '🥈 Level 2 (Silver)', discount: 10, badge: '🥈 Silver', color: '#475569', bg: '#f1f5f9' },
+  { id: 'gold', name: '🥇 Level 3 (Gold)', discount: 15, badge: '🥇 Gold', color: '#a16207', bg: '#fef9c3' },
+  { id: 'platinum', name: '💎 Level 4 (Platinum)', discount: 20, badge: '💎 Platinum', color: '#0e7490', bg: '#cffafe' },
+  { id: 'custom', name: '⚙️ Level Khusus / Custom', discount: null, badge: '⭐ Khusus', color: '#7c3aed', bg: '#f3e8ff' }
+];
+
+function getAgentTier(reseller) {
+  if (!reseller) return AGENT_TIERS[1];
+  if (reseller.level) {
+    const found = AGENT_TIERS.find(t => t.id === reseller.level);
+    if (found) return found;
+  }
+  const disc = typeof reseller.discountPercent === 'number' ? reseller.discountPercent : 10;
+  if (disc <= 5) return AGENT_TIERS[0];
+  if (disc <= 10) return AGENT_TIERS[1];
+  if (disc <= 15) return AGENT_TIERS[2];
+  if (disc <= 20) return AGENT_TIERS[3];
+  return AGENT_TIERS[4];
+}
+
 function showResellerModal() {
   if (!requirePro('Manajemen Mitra & Agen Hotspot')) return;
 
@@ -2703,6 +2932,7 @@ function showResellerModal() {
     if (typeof r.balance !== 'number') r.balance = 50000;
     if (!r.pin) r.pin = '1234';
     if (typeof r.discountPercent !== 'number') r.discountPercent = 10;
+    if (!r.level) r.level = getAgentTier(r).id;
     if (!Array.isArray(r.transactions)) r.transactions = [];
     resellerStats[r.id] = { reseller: r, totalVouchers: 0, printedVouchers: 0, unprintedVouchers: 0, totalOmset: 0 };
   });
@@ -2720,16 +2950,22 @@ function showResellerModal() {
 
   const cardsHtml = state.resellers.map(r => {
     const s = resellerStats[r.id] || { totalVouchers: 0, printedVouchers: 0, unprintedVouchers: 0, totalOmset: 0 };
+    const tier = getAgentTier(r);
     return `
       <div class="reseller-card" id="reseller-card-${r.id}" style="border: 1.5px solid var(--border); border-radius: 12px; padding: 1rem; margin-bottom: 0.85rem; background: var(--surface);">
-        <div class="reseller-card-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;">
+        <div class="reseller-card-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;flex-wrap:wrap;gap:0.4rem;">
           <div class="reseller-name" style="font-size:1.05rem;font-weight:900;color:var(--text);">🤝 ${esc(r.name)}</div>
-          <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.75rem;font-weight:800;border:1px solid #86efac;padding:0.2rem 0.55rem;border-radius:20px;">
-            💳 Saldo: Rp ${formatNumber(r.balance || 0)}
-          </span>
+          <div style="display:flex;gap:0.35rem;align-items:center;flex-wrap:wrap;">
+            <span class="badge" style="background:${tier.bg};color:${tier.color};font-size:0.75rem;font-weight:850;border:1px solid ${tier.color};padding:0.2rem 0.6rem;border-radius:20px;">
+              ${tier.badge} • Diskon ${r.discountPercent || 10}%
+            </span>
+            <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.75rem;font-weight:850;border:1px solid #86efac;padding:0.2rem 0.6rem;border-radius:20px;">
+              💳 Saldo: Rp ${formatNumber(r.balance || 0)}
+            </span>
+          </div>
         </div>
         <div class="reseller-meta" style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:0.6rem;line-height:1.45;">
-          <div>📞 <strong>${esc(r.phone || '-')}</strong> • 📍 ${esc(r.address || '-')} • 🔑 PIN: <code>${esc(r.pin || '1234')}</code> (Diskon Agen: <strong>${r.discountPercent || 10}%</strong>)</div>
+          <div>📞 <strong>${esc(r.phone || '-')}</strong> • 📍 ${esc(r.address || '-')} • 🔑 PIN: <code>${esc(r.pin || '1234')}</code> • Kategori: <strong style="color:${tier.color};">${tier.name}</strong></div>
           ${r.note ? `<div style="font-style:italic;color:var(--text-muted);margin-top:2px;">📝 ${esc(r.note)}</div>` : ''}
         </div>
         <div class="reseller-stat-row" style="display:flex;gap:0.8rem;background:var(--surface-alt);padding:0.5rem 0.75rem;border-radius:8px;font-size:0.76rem;margin-bottom:0.75rem;flex-wrap:wrap;">
@@ -2963,13 +3199,23 @@ function showAddResellerForm() {
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label for="m-res-discount">Diskon / Komisi Agen (%)</label>
-            <input type="number" id="m-res-discount" class="form-input" value="10" min="0" max="100">
+            <label for="m-res-level" style="font-weight:750;">Level / Kategori Agen *</label>
+            <select id="m-res-level" class="form-input" style="font-weight:750;">
+              <option value="bronze">🥉 Level 1 (Bronze) — Diskon 5%</option>
+              <option value="silver" selected>🥈 Level 2 (Silver) — Diskon 10% (Reguler)</option>
+              <option value="gold">🥇 Level 3 (Gold) — Diskon 15% (Prioritas/Super)</option>
+              <option value="platinum">💎 Level 4 (Platinum) — Diskon 20% (Distributor)</option>
+              <option value="custom">⚙️ Level Khusus / Custom Persen</option>
+            </select>
           </div>
           <div class="form-group">
-            <label for="m-res-note">Catatan Tambahan</label>
-            <input type="text" id="m-res-note" class="form-input" placeholder="Contoh: Setoran mingguan">
+            <label for="m-res-discount" style="font-weight:750;">Diskon / Komisi Agen (%)</label>
+            <input type="number" id="m-res-discount" class="form-input" value="10" min="0" max="100" style="font-weight:900;">
           </div>
+        </div>
+        <div class="form-group">
+          <label for="m-res-note">Catatan Tambahan</label>
+          <input type="text" id="m-res-note" class="form-input" placeholder="Contoh: Setoran mingguan / Target 100 voucher">
         </div>
       </div>
     </div>
@@ -2981,6 +3227,14 @@ function showAddResellerForm() {
 
   openModal(html);
 
+  on('m-res-level', 'change', (e) => {
+    const tier = AGENT_TIERS.find(t => t.id === e.target.value);
+    const discInput = $id('m-res-discount');
+    if (tier && typeof tier.discount === 'number' && discInput) {
+      discInput.value = tier.discount;
+    }
+  });
+
   on('btn-save-reseller', () => {
     const name = ($id('m-res-name')?.value || '').trim();
     if (!name) {
@@ -2991,6 +3245,7 @@ function showAddResellerForm() {
 
     const initBalance = parseFloat($id('m-res-balance')?.value || '50000') || 0;
     const pin = ($id('m-res-pin')?.value || '1234').trim();
+    const levelVal = $id('m-res-level')?.value || 'silver';
     const discountPercent = parseFloat($id('m-res-discount')?.value || '10') || 10;
 
     const newRes = {
@@ -3000,6 +3255,7 @@ function showAddResellerForm() {
       address: ($id('m-res-address')?.value || '').trim(),
       balance: initBalance,
       pin: pin,
+      level: levelVal,
       discountPercent: discountPercent,
       note: ($id('m-res-note')?.value || '').trim(),
       transactions: initBalance > 0 ? [{
@@ -3012,7 +3268,7 @@ function showAddResellerForm() {
     };
 
     state.resellers.push(newRes);
-    logActivity('RESELLER_ADD', `Menambah agen baru: ${name} (Saldo: Rp ${formatNumber(initBalance)}, PIN: ${pin})`);
+    logActivity('RESELLER_ADD', `Menambah agen baru: ${name} (Level: ${levelVal}, Diskon: ${discountPercent}%, Saldo: Rp ${formatNumber(initBalance)})`);
     saveState();
     renderResellerFilterSelect();
     showToast(`Agen "${name}" berhasil ditambahkan!`);
@@ -3023,6 +3279,8 @@ function showAddResellerForm() {
 function showEditResellerForm(resellerId) {
   const reseller = state.resellers.find(r => r.id === resellerId);
   if (!reseller) return;
+
+  const currentTier = getAgentTier(reseller);
 
   const html = `
     <div class="modal-header">
@@ -3047,17 +3305,29 @@ function showEditResellerForm(resellerId) {
         </div>
         <div class="form-row">
           <div class="form-group">
+            <label for="m-edit-res-level" style="font-weight:750;">Level / Kategori Agen *</label>
+            <select id="m-edit-res-level" class="form-input" style="font-weight:750;">
+              <option value="bronze" ${currentTier.id === 'bronze' ? 'selected' : ''}>🥉 Level 1 (Bronze) — Diskon 5%</option>
+              <option value="silver" ${currentTier.id === 'silver' ? 'selected' : ''}>🥈 Level 2 (Silver) — Diskon 10% (Reguler)</option>
+              <option value="gold" ${currentTier.id === 'gold' ? 'selected' : ''}>🥇 Level 3 (Gold) — Diskon 15% (Prioritas/Super)</option>
+              <option value="platinum" ${currentTier.id === 'platinum' ? 'selected' : ''}>💎 Level 4 (Platinum) — Diskon 20% (Distributor)</option>
+              <option value="custom" ${currentTier.id === 'custom' ? 'selected' : ''}>⚙️ Level Khusus / Custom Persen</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="m-edit-res-discount" style="font-weight:750;">Diskon / Komisi Agen (%)</label>
+            <input type="number" id="m-edit-res-discount" class="form-input" value="${reseller.discountPercent || 10}" min="0" max="100" style="font-weight:900;">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
             <label for="m-edit-res-pin">PIN Keamanan Agen (4-6 Digit)</label>
             <input type="text" id="m-edit-res-pin" class="form-input" value="${esc(reseller.pin || '1234')}" maxlength="6">
           </div>
           <div class="form-group">
-            <label for="m-edit-res-discount">Diskon / Komisi Agen (%)</label>
-            <input type="number" id="m-edit-res-discount" class="form-input" value="${reseller.discountPercent || 10}" min="0" max="100">
+            <label for="m-edit-res-note">Catatan Tambahan</label>
+            <input type="text" id="m-edit-res-note" class="form-input" value="${esc(reseller.note || '')}" placeholder="Contoh: Target omset bulanan">
           </div>
-        </div>
-        <div class="form-group">
-          <label for="m-edit-res-note">Catatan Tambahan</label>
-          <input type="text" id="m-edit-res-note" class="form-input" value="${esc(reseller.note || '')}" placeholder="Contoh: Fee agen Rp 500/voucher">
         </div>
       </div>
     </div>
@@ -3069,6 +3339,14 @@ function showEditResellerForm(resellerId) {
 
   openModal(html);
 
+  on('m-edit-res-level', 'change', (e) => {
+    const tier = AGENT_TIERS.find(t => t.id === e.target.value);
+    const discInput = $id('m-edit-res-discount');
+    if (tier && typeof tier.discount === 'number' && discInput) {
+      discInput.value = tier.discount;
+    }
+  });
+
   on('btn-update-reseller', () => {
     const updatedName = ($id('m-edit-res-name')?.value || '').trim();
     if (!updatedName) {
@@ -3077,11 +3355,15 @@ function showEditResellerForm(resellerId) {
       return;
     }
 
+    const updatedLevel = $id('m-edit-res-level')?.value || 'silver';
+    const updatedDiscount = parseFloat($id('m-edit-res-discount')?.value || '10') || 10;
+
     reseller.name = updatedName;
     reseller.phone = ($id('m-edit-res-phone')?.value || '').trim();
     reseller.address = ($id('m-edit-res-address')?.value || '').trim();
     reseller.pin = ($id('m-edit-res-pin')?.value || '1234').trim();
-    reseller.discountPercent = parseFloat($id('m-edit-res-discount')?.value || '10') || 10;
+    reseller.level = updatedLevel;
+    reseller.discountPercent = updatedDiscount;
     reseller.note = ($id('m-edit-res-note')?.value || '').trim();
 
     // Synchronize resellerName on all assigned vouchers
@@ -5860,7 +6142,7 @@ function showPrintBatchModal() {
   }
 }
 
-function executeBatchPrint(pages, perPage) {
+async function executeBatchPrint(pages, perPage) {
   const layoutVal = state.settings.layout || '25';
   const neededCount = pages * perPage;
   
@@ -5878,9 +6160,6 @@ function executeBatchPrint(pages, perPage) {
   }
 
   closeModal();
-
-  // Bangun area print hanya untuk voucher terpilih tersebut
-  buildPrintArea(toPrint, layoutVal);
 
   const cashierName = state.currentUser?.name || state.currentUser?.username || 'Admin POS';
   const nowIso = new Date().toISOString();
@@ -5900,6 +6179,29 @@ function executeBatchPrint(pages, perPage) {
   saveState();
   checkStockAlerts();
   triggerBackgroundAutoSync();
+
+  // Jika format kertas adalah thermal roll (58mm atau 80mm):
+  if (layoutVal.startsWith('thermal')) {
+    const is80 = layoutVal === 'thermal-80';
+    const widthMm = is80 ? 80 : 58;
+    const printedDirect = await printESCPOSDirect(toPrint, state.settings);
+    if (printedDirect) {
+      renderQuickPOSGrid();
+      renderTable();
+      renderPreview();
+      return;
+    }
+    // Fallback ke browser roll popout jika direct hardware belum terhubung
+    const receiptHtml = toPrint.map((v, idx) => buildThermalReceiptHTML(v, idx + 1, state.settings, widthMm)).join('');
+    printThermalPopout(receiptHtml, widthMm);
+    renderQuickPOSGrid();
+    renderTable();
+    renderPreview();
+    return;
+  }
+
+  // Format Standar Kertas A4 (25/hal, 40/hal, dsb)
+  buildPrintArea(toPrint, layoutVal);
 
   setTimeout(() => {
     window.print();
