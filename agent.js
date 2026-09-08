@@ -483,96 +483,139 @@ function executePurchase() {
 
 // Receipt Modal & Actions
 function showReceiptModal(v, pkgName, price, periode, speed, quota) {
-  const activePreset = (appState.presets && appState.presets.find(p => p.id === appState.activePresetId)) || null;
-  const storeName = (activePreset && activePreset.name) || appState.settings.storeName || 'WIFI HOTSPOT';
+  const agentStoreName = (currentAgent && (currentAgent.storeName || currentAgent.name)) || 'VOUCHER HOTSPOT';
   const ssid = appState.settings.ssid || 'WiFi-Hotspot';
 
-  $id('rcpt-store-name').textContent = storeName;
+  $id('rcpt-store-name').textContent = agentStoreName;
   $id('rcpt-ssid').textContent = ssid;
   $id('rcpt-pkg-name').textContent = pkgName;
-  $id('rcpt-pkg-price').textContent = `Rp ${formatNumber(price)} • ${periode}`;
+  $id('rcpt-pkg-price').textContent = `Rp ${formatNumber(price)}`;
   $id('rcpt-voucher-code').textContent = v.code;
-  $id('rcpt-periode').textContent = periode;
-  $id('rcpt-speed').textContent = speed;
-  $id('rcpt-quota').textContent = quota;
-  $id('rcpt-agent-name').textContent = currentAgent.name;
+  $id('rcpt-periode').textContent = periode || '24 Jam';
+  $id('rcpt-speed').textContent = speed || 'Up to 10 Mbps';
 
   openSheet('modal-receipt');
 }
 
-// Thermal Popout Print from Agent Portal
+// Thermal Popout Print from Agent Portal (Matches Kasir Template & Agent Store Name)
 function printAgentThermalReceipt() {
   if (lastPurchasedVouchers.length === 0) return;
 
-  const v = lastPurchasedVouchers[0];
-  const activePreset = (appState.presets && appState.presets.find(p => p.id === appState.activePresetId)) || null;
-  const storeName = (activePreset && activePreset.name) || appState.settings.storeName || 'WIFI HOTSPOT';
+  const agentStoreName = (currentAgent && (currentAgent.storeName || currentAgent.name)) || 'VOUCHER HOTSPOT';
   const ssid = appState.settings.ssid || 'WiFi-Hotspot';
+  const loginHint = appState.settings.loginHint || 'Hubungkan ke WiFi lalu masukkan kode voucher di atas.';
 
-  const html = `
+  const vouchersHtml = lastPurchasedVouchers.map((v, idx) => {
+    const snFormatted = String(idx + 1).padStart(3, '0');
+    return `
+      <div class="thermal-receipt-box" style="font-family:monospace,'Courier New',Courier,sans-serif;color:#000;background:#ffffff;text-align:center;width:54mm;margin:0 auto 3mm;padding:2.5mm 1.5mm;line-height:1.25;box-sizing:border-box;page-break-after:always;break-after:page;">
+        <!-- Store / Agent Name Header -->
+        <div style="font-weight:900;font-size:11pt;text-transform:uppercase;letter-spacing:0.02em;margin-bottom:1px;color:#000;">
+          ${esc(agentStoreName)}
+        </div>
+        <div style="font-size:8.5pt;color:#000;margin-bottom:2px;">
+          📶 SSID: <strong>${esc(ssid)}</strong>
+        </div>
+        
+        <div style="border-top:1.5px dashed #000;margin:3px 0;"></div>
+        
+        <!-- Package Name -->
+        <div style="font-size:9.5pt;font-weight:800;color:#000;margin:2px 0;">
+          #${snFormatted} • ${esc(v.paket || 'VOUCHER')}
+        </div>
+
+        <!-- Prominent Bold Price Display -->
+        <div style="font-size:13pt;font-weight:900;color:#000;letter-spacing:0.02em;margin:2px 0 3px;">
+          Rp ${formatNumber(v.harga || 0)}
+        </div>
+        
+        <!-- Big, High-Contrast Voucher Code Box -->
+        <div style="border:2px dashed #000;border-radius:6px;padding:3.5mm 1.5mm;margin:2.5mm 0;background:#fff;">
+          <div style="font-size:7.5pt;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:2px;color:#000;">
+            KODE VOUCHER / PASSWORD
+          </div>
+          <div style="font-size:16pt;font-weight:900;letter-spacing:0.12em;font-family:'JetBrains Mono',monospace,'Courier New';color:#000;line-height:1.2;">
+            ${esc(v.code)}
+          </div>
+        </div>
+        
+        <!-- Meta Details (Masa Aktif & Kecepatan - Kuota Asli Tidak Perlu) -->
+        <div style="font-size:8.5pt;text-align:left;margin:2px 0;color:#000;line-height:1.45;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:1px;">
+            <span>⏱️ Masa Aktif:</span>
+            <strong>${esc(v.periode || '24 Jam')}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:1px;">
+            <span>⚡ Kecepatan:</span>
+            <strong>${esc(v.speed || 'Up to 10 Mbps')}</strong>
+          </div>
+        </div>
+        
+        <!-- Login Hint / Footer -->
+        <div style="border-top:1px dashed #000;margin:3px 0 2px;"></div>
+        <div style="font-size:7.5pt;color:#000;line-height:1.25;">
+          ${esc(loginHint)}
+        </div>
+        
+        <div style="border-top:1.5px dashed #000;margin:3px 0 2px;"></div>
+        <div style="font-size:7.5pt;color:#000;font-weight:700;">
+          Terima Kasih • Selamat Berinternet
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const win = window.open('', '_blank', 'width=380,height=600,top=100,left=100');
+  if (!win) {
+    window.print();
+    return;
+  }
+
+  win.document.write(`
     <!DOCTYPE html>
     <html>
     <head>
-      <title>Struk Voucher ${esc(v.code)}</title>
+      <title>Struk Voucher 58mm</title>
       <meta charset="utf-8">
       <style>
-        @page { size: 58mm auto !important; margin: 0mm !important; }
+        @page {
+          size: 58mm auto !important;
+          margin: 0mm !important;
+        }
         @media print {
           html, body {
             width: 58mm !important;
             max-width: 58mm !important;
             margin: 0 !important;
             padding: 0 !important;
+            background: #ffffff !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .thermal-receipt-box {
+            width: 100% !important;
+            max-width: 58mm !important;
+            margin: 0 auto !important;
+            padding: 2mm 1mm !important;
+            border: none !important;
+            box-shadow: none !important;
+            page-break-after: always;
+            break-after: page;
           }
         }
         body {
           font-family: monospace, 'Courier New', Courier, sans-serif;
           margin: 0;
           padding: 2mm;
+          background: #ffffff;
+          color: #000000;
           width: 58mm;
-          color: #000;
-          background: #fff;
-          text-align: center;
           box-sizing: border-box;
         }
-        .store { font-size: 14px; font-weight: 900; }
-        .ssid { font-size: 10px; margin-bottom: 4px; }
-        .line { border-top: 1.5px dashed #000; margin: 4px 0; }
-        .pkg { font-size: 12px; font-weight: bold; margin-bottom: 2px; }
-        .price { font-size: 16px; font-weight: 900; letter-spacing: 0.5px; margin-bottom: 4px; }
-        .code-box {
-          border: 2px dashed #000;
-          border-radius: 6px;
-          padding: 6px 4px;
-          margin: 6px 0;
-        }
-        .code-label { font-size: 9px; font-weight: bold; letter-spacing: 1px; margin-bottom: 3px; }
-        .code {
-          font-size: 21px;
-          font-weight: 900;
-          letter-spacing: 3px;
-          font-family: monospace, 'Courier New', Courier;
-        }
-        .meta { font-size: 9.5px; text-align: left; line-height: 1.45; }
       </style>
     </head>
     <body>
-      <div class="store">${esc(storeName)}</div>
-      <div class="ssid">SSID: ${esc(ssid)}</div>
-      <div class="line"></div>
-      <div class="pkg">${esc(v.paket || 'Voucher Hotspot')}</div>
-      <div class="price">Rp ${formatNumber(v.harga)}</div>
-      <div class="code-box">
-        <div class="code-label">KODE VOUCHER / PASSWORD</div>
-        <div class="code">${esc(v.code)}</div>
-      </div>
-      <div class="meta">
-        <div>⏳ Masa Aktif : <strong>${esc(v.periode || '24 Jam')}</strong></div>
-        <div>🚀 Kecepatan  : <strong>${esc(v.speed || '10 Mbps')}</strong></div>
-        <div>🏪 Mitra Agen : <strong>${esc(currentAgent.name)}</strong></div>
-      </div>
-      <div class="line"></div>
-      <div style="font-size:8.5px;">Hubungkan ke WiFi lalu masukkan kode voucher di atas. Terima kasih!</div>
+      ${vouchersHtml}
       <script>
         window.onload = function() {
           setTimeout(function() {
@@ -584,16 +627,9 @@ function printAgentThermalReceipt() {
       </script>
     </body>
     </html>
-  `;
-
-  const win = window.open('', '_blank', 'width=380,height=600');
-  if (win) {
-    win.document.write(html);
-    win.document.close();
-    showToast('🖨️ Membuka jendela cetak struk thermal 58mm...');
-  } else {
-    window.print();
-  }
+  `);
+  win.document.close();
+  showToast('🖨️ Membuka struk thermal roll 58mm...');
 }
 
 // Share via WhatsApp
@@ -601,18 +637,17 @@ function shareVoucherWhatsApp() {
   if (lastPurchasedVouchers.length === 0) return;
 
   const v = lastPurchasedVouchers[0];
-  const activePreset = (appState.presets && appState.presets.find(p => p.id === appState.activePresetId)) || null;
-  const storeName = (activePreset && activePreset.name) || appState.settings.storeName || 'WIFI HOTSPOT';
+  const agentStoreName = (currentAgent && (currentAgent.storeName || currentAgent.name)) || 'VOUCHER HOTSPOT';
   const ssid = appState.settings.ssid || 'WiFi-Hotspot';
 
-  const text = `*STUK VOUCHER WIFI HOTSPOT* 📶\n` +
-    `🏪 *${storeName}*\n` +
+  const text = `*STRUK VOUCHER WIFI HOTSPOT* 📶\n` +
+    `🏪 *${agentStoreName}*\n` +
     `📡 SSID WiFi: *${ssid}*\n` +
     `--------------------------------\n` +
     `📦 Paket: *${v.paket || 'Reguler'}*\n` +
     `💰 Harga: *Rp ${formatNumber(v.harga)}*\n` +
-    `⏳ Masa Aktif: *${v.periode || 'Aktif'}*\n` +
-    `🚀 Kecepatan: *${v.speed || 'High Speed'}*\n` +
+    `⏳ Masa Aktif: *${v.periode || '24 Jam'}*\n` +
+    `🚀 Kecepatan: *${v.speed || 'Up to 10 Mbps'}*\n` +
     `--------------------------------\n` +
     `🔑 *KODE VOUCHER:* \n` +
     `👉 \`${v.code}\` 👈\n` +

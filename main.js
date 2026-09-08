@@ -2142,7 +2142,7 @@ async function printESCPOSDirect(vouchers, settings) {
 }
 
 // ===== 🖨️ ESC/POS BYTE GENERATOR (58mm / 80mm) =====
-function generateESCPOSVoucher(v, num, settings) {
+function generateESCPOSVoucher(v, num, settings, customStoreName = null) {
   const encoder = new TextEncoder();
   const ESC = 0x1B;
   const GS = 0x1D;
@@ -2157,7 +2157,20 @@ function generateESCPOSVoucher(v, num, settings) {
   const normalSize = [GS, 0x21, 0x00];
   const cutPaper = [GS, 0x56, 0x41, 0x03];
 
-  const storeName = (state.presets.find(p => p.id === state.activePresetId) || DEFAULT_PRESET).name || 'WIFI HOTSPOT';
+  let storeName = customStoreName;
+  if (!storeName) {
+    if (v.resellerName) {
+      storeName = v.resellerName;
+    } else if (v.resellerId) {
+      const r = (state.resellers || []).find(res => res.id === v.resellerId);
+      storeName = r ? r.name : null;
+    }
+  }
+  if (!storeName) {
+    const activePreset = (state.presets && state.presets.find(p => p.id === state.activePresetId)) || DEFAULT_PRESET;
+    storeName = settings.storeName || activePreset.name || 'WIFI HOTSPOT';
+  }
+
   const ssid = settings.ssid || 'Hotspot';
   const sn = String(num).padStart(3, '0');
 
@@ -2181,14 +2194,13 @@ function generateESCPOSVoucher(v, num, settings) {
 
   bytes.push(...alignLeft);
   bytes.push(...encoder.encode(`Masa Aktif : ${v.periode || '-'}\n`));
-  if (settings.showSpeed && v.speed) bytes.push(...encoder.encode(`Kecepatan  : ${v.speed}\n`));
-  if (settings.showQuota && v.quota) bytes.push(...encoder.encode(`Kuota      : ${v.quota}\n`));
-  if (settings.showHint && settings.loginHint) {
-    bytes.push(...encoder.encode('--------------------------------\n'));
-    bytes.push(...alignCenter, ...encoder.encode(settings.loginHint + '\n'));
-  }
+  bytes.push(...encoder.encode(`Kecepatan  : ${v.speed || '-'}\n`));
+  // Note: Kuota sengaja tidak ditampilkan sesuai permintaan user
   bytes.push(...encoder.encode('--------------------------------\n'));
-  bytes.push(...alignCenter, ...encoder.encode('Terima Kasih • Selamat Berinternet\n\n\n\n'));
+  bytes.push(...alignCenter);
+  const hint = settings.loginHint || 'Hubungkan ke WiFi lalu masukkan kode voucher.';
+  bytes.push(...encoder.encode(hint + '\n'));
+  bytes.push(...encoder.encode('Terima Kasih • Selamat Berinternet\n\n\n\n'));
   bytes.push(...cutPaper);
 
   return new Uint8Array(bytes);
@@ -5867,17 +5879,31 @@ function buildCardHTML(v, num, settings, isPreview) {
 }
 
 // ===== 🧾 THERMAL RECEIPT BUILDER (AUTHENTIC POS FORMAT) =====
-function buildThermalReceiptHTML(v, num, settings, widthMm = 58) {
+function buildThermalReceiptHTML(v, num, settings, widthMm = 58, customStoreName = null) {
   const snFormatted = String(num).padStart(3, '0');
   const ssidText = settings.ssid || 'WIFI HOTSPOT';
-  const activePreset = state.presets.find(p => p.id === state.activePresetId) || DEFAULT_PRESET;
-  const storeName = activePreset.name || 'WIFI HOTSPOT';
   const is80 = widthMm >= 80;
+
+  let storeName = customStoreName;
+  if (!storeName) {
+    if (v.resellerName) {
+      storeName = v.resellerName;
+    } else if (v.resellerId) {
+      const r = (state.resellers || []).find(res => res.id === v.resellerId);
+      storeName = r ? r.name : null;
+    }
+  }
+  if (!storeName) {
+    const activePreset = (state.presets && state.presets.find(p => p.id === state.activePresetId)) || DEFAULT_PRESET;
+    storeName = settings.storeName || activePreset.name || 'WIFI HOTSPOT';
+  }
+
+  const loginHint = settings.loginHint || 'Hubungkan ke WiFi lalu masukkan kode voucher di atas.';
 
   return `
     <div class="thermal-receipt-box" style="font-family:monospace,'Courier New',Courier,sans-serif;color:#000;background:#ffffff;text-align:center;width:${is80 ? '76mm' : '54mm'};margin:0 auto 3mm;padding:2.5mm 1.5mm;line-height:1.25;box-sizing:border-box;">
-      <!-- Store & SSID Header -->
-      <div style="font-weight:900;font-size:${is80 ? '13pt' : '10.5pt'};text-transform:uppercase;letter-spacing:0.02em;margin-bottom:1px;color:#000;">
+      <!-- Store / Agent Name Header -->
+      <div style="font-weight:900;font-size:${is80 ? '13pt' : '11pt'};text-transform:uppercase;letter-spacing:0.02em;margin-bottom:1px;color:#000;">
         ${esc(storeName)}
       </div>
       <div style="font-size:${is80 ? '10pt' : '8.5pt'};color:#000;margin-bottom:2px;">
@@ -5887,13 +5913,13 @@ function buildThermalReceiptHTML(v, num, settings, widthMm = 58) {
       <div style="border-top:1.5px dashed #000;margin:3px 0;"></div>
       
       <!-- Package Name -->
-      <div style="font-size:${is80 ? '10.5pt' : '9pt'};font-weight:800;color:#000;margin:2px 0;">
+      <div style="font-size:${is80 ? '11pt' : '9.5pt'};font-weight:800;color:#000;margin:2px 0;">
         #${snFormatted} • ${esc(v.paket || 'VOUCHER')}
       </div>
 
       <!-- Prominent Bold Price Display -->
-      <div style="font-size:${is80 ? '14pt' : '12pt'};font-weight:900;color:#000;letter-spacing:0.02em;margin:2px 0 3px;">
-        ${settings.pricePrefix || 'Rp '}${formatNumber(v.harga || 0)}
+      <div style="font-size:${is80 ? '15pt' : '13pt'};font-weight:900;color:#000;letter-spacing:0.02em;margin:2px 0 3px;">
+        Rp ${formatNumber(v.harga || 0)}
       </div>
       
       <!-- Big, High-Contrast Coupon Code Box -->
@@ -5901,41 +5927,31 @@ function buildThermalReceiptHTML(v, num, settings, widthMm = 58) {
         <div style="font-size:${is80 ? '8.5pt' : '7.5pt'};font-weight:800;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:2px;color:#000;">
           KODE VOUCHER / PASSWORD
         </div>
-        <div style="font-size:${is80 ? '18pt' : '15pt'};font-weight:900;letter-spacing:0.12em;font-family:'JetBrains Mono',monospace,'Courier New';color:#000;line-height:1.2;">
+        <div style="font-size:${is80 ? '19pt' : '16pt'};font-weight:900;letter-spacing:0.12em;font-family:'JetBrains Mono',monospace,'Courier New';color:#000;line-height:1.2;">
           ${esc(v.code)}
         </div>
       </div>
       
-      <!-- Meta Details (Durasi, Kecepatan, Kuota) -->
-      <div style="font-size:${is80 ? '9pt' : '8pt'};text-align:left;margin:2px 0;color:#000;line-height:1.4;">
+      <!-- Meta Details (Masa Aktif & Kecepatan - Kuota Asli Tidak Perlu) -->
+      <div style="font-size:${is80 ? '9.5pt' : '8.5pt'};text-align:left;margin:2px 0;color:#000;line-height:1.45;">
         <div style="display:flex;justify-content:space-between;margin-bottom:1px;">
           <span>⏱️ Masa Aktif:</span>
-          <strong>${esc(v.periode || '-')}</strong>
+          <strong>${esc(v.periode || '24 Jam')}</strong>
         </div>
-        ${settings.showSpeed && v.speed ? `
-          <div style="display:flex;justify-content:space-between;margin-bottom:1px;">
-            <span>⚡ Kecepatan:</span>
-            <strong>${esc(v.speed)}</strong>
-          </div>
-        ` : ''}
-        ${settings.showQuota && v.quota ? `
-          <div style="display:flex;justify-content:space-between;margin-bottom:1px;">
-            <span>📦 Kuota:</span>
-            <strong>${esc(v.quota)}</strong>
-          </div>
-        ` : ''}
+        <div style="display:flex;justify-content:space-between;margin-bottom:1px;">
+          <span>⚡ Kecepatan:</span>
+          <strong>${esc(v.speed || 'Up to 10 Mbps')}</strong>
+        </div>
       </div>
       
       <!-- Login Hint / Footer -->
-      ${settings.showHint && settings.loginHint ? `
-        <div style="border-top:1px dashed #000;margin:3px 0 2px;"></div>
-        <div style="font-size:${is80 ? '8.5pt' : '7.2pt'};color:#000;line-height:1.25;font-style:italic;">
-          ${esc(settings.loginHint)}
-        </div>
-      ` : ''}
+      <div style="border-top:1px dashed #000;margin:3px 0 2px;"></div>
+      <div style="font-size:${is80 ? '8.5pt' : '7.5pt'};color:#000;line-height:1.25;">
+        ${esc(loginHint)}
+      </div>
       
       <div style="border-top:1.5px dashed #000;margin:3px 0 2px;"></div>
-      <div style="font-size:${is80 ? '8pt' : '7pt'};color:#000;font-weight:700;">
+      <div style="font-size:${is80 ? '8.5pt' : '7.5pt'};color:#000;font-weight:700;">
         Terima Kasih • Selamat Berinternet
       </div>
     </div>

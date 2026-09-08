@@ -805,24 +805,24 @@
       </div>
 
       <div class="receipt-container" id="receipt-printable-area">
-        <div class="receipt-store-title" id="rcpt-store-name">WIFI HOTSPOT</div>
-        <div style="font-size:0.75rem;color:#64748b;margin-bottom:0.4rem;">SSID: <strong id="rcpt-ssid">-</strong></div>
+        <div class="receipt-store-title" id="rcpt-store-name">NAMA TOKO / AGEN</div>
+        <div style="font-size:0.75rem;color:#64748b;margin-bottom:0.4rem;">📶 SSID: <strong id="rcpt-ssid">-</strong></div>
         <div style="border-top:1px dashed #cbd5e1;margin:0.4rem 0;"></div>
 
         <div style="font-size:0.95rem;font-weight:800;color:#0f172a;" id="rcpt-pkg-name">Paket 1 Hari</div>
-        <div style="font-size:1.15rem;font-weight:900;color:#1d4ed8;margin:2px 0;" id="rcpt-pkg-price">Rp 5.000 • 24 Jam</div>
+        <div style="font-size:1.25rem;font-weight:900;color:#1d4ed8;margin:3px 0 6px;" id="rcpt-pkg-price">Rp 5.000</div>
 
         <div class="receipt-voucher-code" id="rcpt-voucher-code">RJ-000000</div>
 
-        <div class="receipt-meta-grid">
-          <div>⏳ Masa Aktif: <strong id="rcpt-periode">24 Jam</strong></div>
-          <div>🚀 Kecepatan: <strong id="rcpt-speed">10 Mbps</strong></div>
-          <div>📦 Kuota: <strong id="rcpt-quota">Unlimited</strong></div>
-          <div>🏪 Mitra Agen: <strong id="rcpt-agent-name">-</strong></div>
+        <div class="receipt-meta-grid" style="grid-template-columns: 1fr; gap: 4px; text-align: left; margin: 8px 0; font-size: 0.82rem;">
+          <div style="display:flex;justify-content:space-between;"><span>⏱️ Masa Aktif:</span> <strong id="rcpt-periode">24 Jam</strong></div>
+          <div style="display:flex;justify-content:space-between;"><span>⚡ Kecepatan:</span> <strong id="rcpt-speed">10 Mbps</strong></div>
         </div>
 
-        <div style="font-size:0.72rem;color:#64748b;line-height:1.3;">
-          Hubungkan ke WiFi ➔ Masukkan kode voucher di atas pada halaman login browser.
+        <div style="border-top:1px dashed #cbd5e1;margin:0.4rem 0;"></div>
+        <div style="font-size:0.74rem;color:#64748b;line-height:1.35;">
+          Hubungkan ke WiFi lalu masukkan kode voucher di atas.<br>
+          <strong style="color:#0f172a;">Terima Kasih • Selamat Berinternet</strong>
         </div>
       </div>
 
@@ -909,6 +909,6 @@
   <!-- Toast Notification Area -->
   <div id="toast-container"></div>
 
-  <script src="agent.js?v=2.9"></script>
+  <script src="agent.js?v=3.0"></script>
 </body>
 </html>
