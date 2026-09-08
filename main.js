@@ -556,6 +556,7 @@ function bindEvents() {
   on('btn-assign-reseller', 'click', showAssignResellerModal);
   on('btn-route-audit', 'click', showRouteAuditModal);
   on('btn-rekap', 'click', showRekapModal);
+  on('btn-rekap-quick-open', 'click', showRekapModal);
   on('btn-export-pdf', 'click', exportPDF);
   on('btn-export-png', 'click', exportPreviewAsPNG);
 
@@ -2549,6 +2550,185 @@ function exportPreviewAsPNG() {
   };
 }
 
+// ===== ⚡ LIVE ACTIVITY FEED & MONITORING HELPER =====
+function formatRelativeTime(dateInput) {
+  if (!dateInput) return '-';
+  const d = dateInput instanceof Date ? dateInput : parseVoucherDate(dateInput) || new Date(dateInput);
+  if (!d || isNaN(d.getTime())) return '-';
+
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHour = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHour / 24);
+
+  if (diffSec < 45) return 'Baru saja';
+  if (diffMin < 60) return `${diffMin} menit yang lalu`;
+  if (diffHour < 24) return `${diffHour} jam yang lalu`;
+  if (diffDay === 1) return `Kemarin ${d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
+  if (diffDay < 7) return `${diffDay} hari yang lalu`;
+  return `${d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} ${d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+function getUnifiedActivityFeed(limit = 15) {
+  const feed = [];
+
+  // 1. Ambil transaksi dari data mitra agen (TOPUP & BUY)
+  if (Array.isArray(state.resellers)) {
+    state.resellers.forEach(r => {
+      if (Array.isArray(r.transactions)) {
+        r.transactions.forEach(t => {
+          const tDate = parseVoucherDate(t.timestamp) || new Date(t.timestamp);
+          if (t.type === 'TOPUP') {
+            feed.push({
+              id: t.id || `topup_${r.id}_${t.timestamp}`,
+              timestamp: tDate,
+              type: 'TOPUP',
+              title: `Agen ${r.name} top-up Rp ${formatNumber(t.amount || 0)}`,
+              subtitle: `Saldo deposit: Rp ${formatNumber(r.balance || 0)} • Ditambahkan oleh ${t.desc || 'Admin'}`,
+              badgeText: `+Rp ${formatNumber(t.amount || 0)}`,
+              badgeClass: 'feed-badge-topup',
+              icon: '💰',
+              iconBg: '#dcfce7',
+              iconColor: '#166534'
+            });
+          } else if (t.type === 'BUY') {
+            feed.push({
+              id: t.id || `buy_${r.id}_${t.timestamp}`,
+              timestamp: tDate,
+              type: 'BUY',
+              title: `${r.name} membeli ${t.qty || 1}x ${t.pkgName || 'Voucher'} (Rp ${formatNumber(t.totalAmount || 0)})`,
+              subtitle: `Laba Mitra: Rp ${formatNumber(t.profit || 0)} • Kode: ${(t.codes || []).slice(0, 3).join(', ')}${(t.codes || []).length > 3 ? '...' : ''}`,
+              badgeText: `Laba: Rp ${formatNumber(t.profit || 0)}`,
+              badgeClass: 'feed-badge-buy',
+              icon: '🤝',
+              iconBg: '#ede9fe',
+              iconColor: '#6d28d9'
+            });
+          }
+        });
+      }
+    });
+  }
+
+  // 2. Ambil dari auditLogs (PRINT_POS, SHIFT, RESELLER_ADD)
+  if (Array.isArray(state.auditLogs)) {
+    state.auditLogs.forEach(log => {
+      const lDate = parseVoucherDate(log.timestamp) || new Date(log.timestamp);
+      if (log.action === 'BUY_AGENT') return; // Dihindari duplikasi dengan r.transactions
+      if (log.type === 'PRINT_POS') {
+        feed.push({
+          id: log.id || `pos_${log.timestamp}`,
+          timestamp: lDate,
+          type: 'POS',
+          title: `Penjualan Kasir POS`,
+          subtitle: `${log.detail || 'Cetak 1 voucher kasir'} (Petugas: ${log.cashier || 'Kasir'})`,
+          badgeText: `Kasir POS`,
+          badgeClass: 'feed-badge-pos',
+          icon: '🖨️',
+          iconBg: '#e0f2fe',
+          iconColor: '#0369a1'
+        });
+      } else if (log.type === 'SHIFT') {
+        feed.push({
+          id: log.id || `shift_${log.timestamp}`,
+          timestamp: lDate,
+          type: 'SHIFT',
+          title: `Shift Kasir Diperbarui`,
+          subtitle: `${log.detail || 'Pergantian shift kasir'}`,
+          badgeText: `Shift`,
+          badgeClass: 'feed-badge-shift',
+          icon: '🚪',
+          iconBg: '#fef3c7',
+          iconColor: '#92400e'
+        });
+      } else if (log.type === 'RESELLER_ADD') {
+        feed.push({
+          id: log.id || `res_${log.timestamp}`,
+          timestamp: lDate,
+          type: 'AGENT',
+          title: `Mitra Agen Baru Terdaftar`,
+          subtitle: `${log.detail || 'Pendaftaran mitra agen'}`,
+          badgeText: `Mitra Baru`,
+          badgeClass: 'feed-badge-buy',
+          icon: '✨',
+          iconBg: '#fce7f3',
+          iconColor: '#9d174d'
+        });
+      }
+    });
+  }
+
+  // 3. Fallback jika auditLog/transaksi kosong tapi ada voucher dicetak
+  if (feed.length === 0 && Array.isArray(state.vouchers)) {
+    const sold = state.vouchers.filter(v => v.printed && (v.printedAt || v.soldAt)).slice(0, 10);
+    sold.forEach((v, idx) => {
+      const vDate = parseVoucherDate(v.printedAt || v.soldAt) || new Date();
+      const isAgent = !!v.resellerId || !!v.soldByAgent;
+      feed.push({
+        id: `v_${v.id || idx}`,
+        timestamp: vDate,
+        type: isAgent ? 'BUY' : 'POS',
+        title: isAgent ? `Penjualan Agen: ${v.resellerName || 'Mitra'}` : `Penjualan Kasir POS`,
+        subtitle: `1x Paket ${v.paket || 'Reguler'} [${v.code}] (Rp ${formatNumber(v.harga || 0)})`,
+        badgeText: isAgent ? `Mitra Agen` : `Kasir POS`,
+        badgeClass: isAgent ? 'feed-badge-buy' : 'feed-badge-pos',
+        icon: isAgent ? '🤝' : '🖨️',
+        iconBg: isAgent ? '#ede9fe' : '#e0f2fe',
+        iconColor: isAgent ? '#6d28d9' : '#0369a1'
+      });
+    });
+  }
+
+  // Urutkan kronologis terbaru di atas
+  feed.sort((a, b) => {
+    const timeA = a.timestamp instanceof Date && !isNaN(a.timestamp.getTime()) ? a.timestamp.getTime() : 0;
+    const timeB = b.timestamp instanceof Date && !isNaN(b.timestamp.getTime()) ? b.timestamp.getTime() : 0;
+    return timeB - timeA;
+  });
+
+  return feed.slice(0, limit);
+}
+
+function renderLiveActivityFeed() {
+  const container = $id('activity-feed-grid');
+  if (!container) return;
+
+  const feedItems = getUnifiedActivityFeed(12);
+
+  if (feedItems.length === 0) {
+    container.innerHTML = `
+      <div class="activity-feed-empty">
+        <div style="font-size:1.8rem;margin-bottom:0.35rem;">⚡</div>
+        <div>Belum ada aktivitas transaksi terbaru.</div>
+        <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">
+          Setiap top-up deposit agen, pembelian voucher e-wallet mitra, dan cetak kasir akan tampil secara live di sini.
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = feedItems.map(item => `
+    <div class="activity-feed-item">
+      <div class="activity-feed-left">
+        <div class="activity-feed-icon" style="background:${item.iconBg};color:${item.iconColor};">
+          ${item.icon}
+        </div>
+        <div class="activity-feed-text">
+          <div class="activity-feed-title">${esc(item.title)}</div>
+          <div class="activity-feed-sub">${esc(item.subtitle)}</div>
+        </div>
+      </div>
+      <div class="activity-feed-right">
+        <span class="activity-feed-badge ${item.badgeClass}">${esc(item.badgeText)}</span>
+        <span class="activity-feed-time">${formatRelativeTime(item.timestamp)}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
 // ===== ⚡ QUICK POS CASHIER PRINT ENGINE =====
 function renderQuickPOSGrid() {
   const container = $id('quick-pos-grid');
@@ -2745,6 +2925,7 @@ function updateBillingKPICards() {
   setText('kpi-agent-sub', `${agentCount} mitra agen aktif`);
 
   setText('tab-db-counter', total);
+  renderLiveActivityFeed();
 }
 
 // ===== 📈 PACKAGE BILLING ANALYTICS WIDGET =====
@@ -4209,6 +4390,8 @@ let rekapFilter = {
   period: 'all',
   package: 'all',
   status: 'all',
+  channel: 'all', // 'all' | 'pos' | 'agent'
+  agentId: 'all', // 'all' | specific resellerId
   startDate: '',
   endDate: ''
 };
@@ -4253,12 +4436,26 @@ function getRekapFilteredData() {
   }
 
   return state.vouchers.filter(v => {
+    // 1. Filter Status
     if (rekapFilter.status === 'printed' && !v.printed) return false;
     if (rekapFilter.status === 'unprinted' && v.printed) return false;
+
+    // 2. Filter Paket
     if (rekapFilter.package !== 'all' && (v.paket || 'Reguler') !== rekapFilter.package) return false;
 
+    // 3. Filter Saluran (Kasir POS vs Mitra Agen)
+    const isAgent = !!v.resellerId || !!v.soldByAgent || (v.soldBy && v.soldBy.startsWith('Mitra Agen'));
+    if (rekapFilter.channel === 'pos' && isAgent) return false;
+    if (rekapFilter.channel === 'agent' && !isAgent) return false;
+
+    // 4. Filter Mitra Agen Spesifik
+    if (rekapFilter.agentId && rekapFilter.agentId !== 'all') {
+      if (v.resellerId !== rekapFilter.agentId) return false;
+    }
+
+    // 5. Filter Periode Waktu
     if (rekapFilter.period === 'all') return true;
-    const vDate = parseVoucherDate(v.printedAt || v.createdAt) || now;
+    const vDate = parseVoucherDate(v.printedAt || v.soldAt || v.createdAt) || now;
 
     if (rekapFilter.period === 'today') return vDate >= startOfToday;
     if (rekapFilter.period === '7days') return vDate >= startOf7Days;
@@ -4280,35 +4477,124 @@ function showRekapModal() {
 function renderRekapModalContent() {
   const filtered = getRekapFilteredData();
   const allPackages = Array.from(new Set(state.vouchers.map(v => v.paket || 'Reguler'))).filter(Boolean);
+  const activeResellers = Array.isArray(state.resellers) ? state.resellers : [];
 
   const printedList = filtered.filter(v => v.printed);
   const unprintedList = filtered.filter(v => !v.printed);
 
-  let totalOmsetPrinted = 0;
-  printedList.forEach(v => {
-    totalOmsetPrinted += parseFloat(String(v.harga).replace(/[^\d.]/g, '')) || 0;
-  });
+  // Metrik Keuangan & Bagi Hasil
+  let totalGrossRetail = 0;       // Total omset retail kotor (harga ke konsumen)
+  let posGrossRetail = 0;         // Penjualan kasir POS langsung (100% net ke owner)
+  let agentGrossRetail = 0;       // Penjualan via mitra agen (harga retail)
+  let totalAgentProfit = 0;       // Bagi hasil / laba diskon yang dinikmati agen
+  let totalOwnerNet = 0;          // Uang riil bersih yang diterima owner
+  let totalStockValue = 0;        // Nilai persediaan voucher siap cetak
 
-  let totalOmsetUnprinted = 0;
   unprintedList.forEach(v => {
-    totalOmsetUnprinted += parseFloat(String(v.harga).replace(/[^\d.]/g, '')) || 0;
+    let p = parseFloat(v.retailPrice) || parseFloat(String(v.harga).replace(/[^\d.]/g, '')) || 0;
+    if (p > 0 && p < 500) p *= 1000;
+    totalStockValue += p;
   });
 
-  const totalOmsetAll = totalOmsetPrinted + totalOmsetUnprinted;
+  // Siapkan map statistik mitra agen
+  const agentStatsMap = {};
+  activeResellers.forEach(r => {
+    const tier = (r.tier || 'BRONZE').toUpperCase();
+    const disc = r.discountPercent != null ? parseFloat(r.discountPercent) : (tier === 'PLATINUM' ? 25 : tier === 'GOLD' ? 20 : tier === 'SILVER' ? 15 : 10);
+    agentStatsMap[r.id] = {
+      id: r.id,
+      name: r.name,
+      phone: r.phone || '-',
+      storeName: r.storeName || '',
+      tier: tier,
+      discountPercent: disc,
+      balance: parseFloat(r.balance) || 0,
+      vouchersSold: 0,
+      grossRetail: 0,
+      agentProfit: 0,
+      ownerNet: 0
+    };
+  });
 
+  const posSoldList = [];
+  const agentSoldList = [];
+
+  printedList.forEach(v => {
+    let retail = parseFloat(v.retailPrice) || parseFloat(String(v.harga).replace(/[^\d.]/g, '')) || 0;
+    if (retail > 0 && retail < 500) retail *= 1000;
+    totalGrossRetail += retail;
+
+    const isAgent = !!v.resellerId || !!v.soldByAgent || (v.soldBy && v.soldBy.startsWith('Mitra Agen'));
+
+    if (isAgent) {
+      agentSoldList.push(v);
+      agentGrossRetail += retail;
+      const rId = v.resellerId;
+      const rObj = activeResellers.find(r => r.id === rId);
+      const disc = (rObj && rObj.discountPercent != null) ? parseFloat(rObj.discountPercent) : 
+        (rObj?.tier === 'PLATINUM' ? 25 : rObj?.tier === 'GOLD' ? 20 : rObj?.tier === 'SILVER' ? 15 : 10);
+
+      let ownerShare = 0;
+      if (v.soldPrice != null && v.soldPrice !== '') {
+        ownerShare = parseFloat(v.soldPrice) || 0;
+        if (ownerShare > 0 && ownerShare < 500) ownerShare *= 1000;
+      } else {
+        ownerShare = Math.round(retail * (1 - (disc / 100)));
+      }
+      const profit = Math.max(0, retail - ownerShare);
+
+      totalAgentProfit += profit;
+      totalOwnerNet += ownerShare;
+
+      if (rId && agentStatsMap[rId]) {
+        agentStatsMap[rId].vouchersSold++;
+        agentStatsMap[rId].grossRetail += retail;
+        agentStatsMap[rId].agentProfit += profit;
+        agentStatsMap[rId].ownerNet += ownerShare;
+      }
+    } else {
+      // Kasir POS langsung
+      posSoldList.push(v);
+      posGrossRetail += retail;
+      totalOwnerNet += retail;
+    }
+  });
+
+  // Total deposit mengendap di dompet agen saat ini
+  let totalDepositHeld = 0;
+  activeResellers.forEach(r => {
+    totalDepositHeld += parseFloat(r.balance) || 0;
+  });
+
+  // Statistik Paket
   const packageStats = {};
   filtered.forEach(v => {
     const pkg = v.paket || 'Reguler';
+    let p = parseFloat(v.retailPrice) || parseFloat(String(v.harga).replace(/[^\d.]/g, '')) || 0;
+    if (p > 0 && p < 500) p *= 1000;
+
     if (!packageStats[pkg]) {
-      packageStats[pkg] = { count: 0, printed: 0, unprinted: 0, harga: v.harga || '0', omsetPrinted: 0, omsetTotal: 0 };
+      packageStats[pkg] = {
+        count: 0,
+        printed: 0,
+        unprinted: 0,
+        posPrinted: 0,
+        agentPrinted: 0,
+        harga: p,
+        omsetGross: 0,
+        ownerNet: 0
+      };
     }
     packageStats[pkg].count++;
-    const p = parseFloat(String(v.harga).replace(/[^\d.]/g, '')) || 0;
-    packageStats[pkg].omsetTotal += p;
-
     if (v.printed) {
       packageStats[pkg].printed++;
-      packageStats[pkg].omsetPrinted += p;
+      packageStats[pkg].omsetGross += p;
+      const isAgent = !!v.resellerId || !!v.soldByAgent || (v.soldBy && v.soldBy.startsWith('Mitra Agen'));
+      if (isAgent) {
+        packageStats[pkg].agentPrinted++;
+      } else {
+        packageStats[pkg].posPrinted++;
+      }
     } else {
       packageStats[pkg].unprinted++;
     }
@@ -4322,7 +4608,7 @@ function renderRekapModalContent() {
     const s = packageStats[pkg];
     const heightPercent = Math.max(8, Math.round((s.printed / maxPrintedCount) * 100));
     return `
-      <div class="chart-bar-col" title="${esc(pkg)}: ${s.printed} pcs terjual (Rp ${formatNumber(s.omsetPrinted)})">
+      <div class="chart-bar-col" title="${esc(pkg)}: ${s.printed} pcs terjual (Rp ${formatNumber(s.omsetGross)})">
         <div class="chart-bar-value">${s.printed}</div>
         <div class="chart-bar-fill" style="height: ${heightPercent}%;"></div>
         <div class="chart-bar-label">${esc(pkg.substring(0, 8))}</div>
@@ -4342,12 +4628,14 @@ function renderRekapModalContent() {
   }
 
   printedList.forEach(v => {
-    const d = parseVoucherDate(v.printedAt || v.createdAt);
+    const d = parseVoucherDate(v.printedAt || v.soldAt || v.createdAt);
     if (d) {
       const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
       if (daysTrendMap[key]) {
+        let p = parseFloat(v.retailPrice) || parseFloat(String(v.harga).replace(/[^\d.]/g, '')) || 0;
+        if (p > 0 && p < 500) p *= 1000;
         daysTrendMap[key].count++;
-        daysTrendMap[key].omset += parseFloat(String(v.harga).replace(/[^\d.]/g, '')) || 0;
+        daysTrendMap[key].omset += p;
       }
     }
   });
@@ -4366,48 +4654,140 @@ function renderRekapModalContent() {
     `;
   }).join('');
 
-  const packageRows = chartPkgs.map(pkg => {
-    const s = packageStats[pkg];
-    const contrib = totalOmsetPrinted > 0 ? ((s.omsetPrinted / totalOmsetPrinted) * 100).toFixed(1) : '0';
+  // Render Rows Tabel Rincian Mitra Agen & Bagi Hasil
+  const agentRows = Object.values(agentStatsMap).map((ag, idx) => {
+    const statusBadge = ag.balance <= 0
+      ? `<span class="badge-status" style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;">❌ Habis</span>`
+      : ag.balance < 20000
+      ? `<span class="badge-status" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;">⚠️ Menipis</span>`
+      : `<span class="badge-status" style="background:#dcfce7;color:#166534;border:1px solid #bbf7d0;">🟢 Aman</span>`;
+
     return `
       <tr>
-        <td style="font-weight:750;">${esc(pkg)}</td>
-        <td>Rp ${formatNumber(s.harga)}</td>
-        <td style="color:var(--success);font-weight:750;">${s.printed} pcs</td>
-        <td style="color:var(--text-muted);">${s.unprinted} pcs</td>
-        <td style="font-weight:850;color:var(--primary);">Rp ${formatNumber(s.omsetPrinted)}</td>
-        <td style="font-size:0.76rem;font-weight:650;color:var(--text-muted);">${contrib}%</td>
+        <td style="font-size:0.75rem;color:var(--text-muted);text-align:center;">${idx + 1}</td>
+        <td>
+          <div style="font-weight:800;color:var(--text);">${esc(ag.name)}</div>
+          <div style="font-size:0.72rem;color:var(--text-muted);">${esc(ag.storeName ? ag.storeName + ' • ' : '')}${esc(ag.phone)}</div>
+        </td>
+        <td>
+          <span class="badge-status badge-tier-${ag.tier.toLowerCase()}">${ag.tier}</span>
+          <span style="font-size:0.75rem;font-weight:750;margin-left:3px;">${ag.discountPercent}%</span>
+        </td>
+        <td style="text-align:center;font-weight:800;color:${ag.vouchersSold > 0 ? 'var(--primary)' : 'var(--text-muted)'};">${ag.vouchersSold} pcs</td>
+        <td style="text-align:right;font-weight:750;">Rp ${formatNumber(ag.grossRetail)}</td>
+        <td style="text-align:right;font-weight:800;color:#7c3aed;">Rp ${formatNumber(ag.agentProfit)}</td>
+        <td style="text-align:right;font-weight:850;color:var(--success);">Rp ${formatNumber(ag.ownerNet)}</td>
+        <td style="text-align:right;font-weight:800;">Rp ${formatNumber(ag.balance)}</td>
+        <td style="text-align:center;">${statusBadge}</td>
       </tr>
     `;
   }).join('');
 
-  const maxList = 40;
+  const totalAgSold = Object.values(agentStatsMap).reduce((acc, a) => acc + a.vouchersSold, 0);
+  const totalAgGross = Object.values(agentStatsMap).reduce((acc, a) => acc + a.grossRetail, 0);
+  const totalAgProfit = Object.values(agentStatsMap).reduce((acc, a) => acc + a.agentProfit, 0);
+  const totalAgNet = Object.values(agentStatsMap).reduce((acc, a) => acc + a.ownerNet, 0);
+  const totalAgBal = Object.values(agentStatsMap).reduce((acc, a) => acc + a.balance, 0);
+
+  // Render Rows Tabel Rincian Paket
+  const packageRows = chartPkgs.map(pkg => {
+    const s = packageStats[pkg];
+    const contrib = totalGrossRetail > 0 ? ((s.omsetGross / totalGrossRetail) * 100).toFixed(1) : '0';
+    return `
+      <tr>
+        <td style="font-weight:750;">${esc(pkg)}</td>
+        <td style="font-weight:700;">Rp ${formatNumber(s.harga)}</td>
+        <td style="text-align:center;color:var(--primary);font-weight:750;">${s.posPrinted} pcs</td>
+        <td style="text-align:center;color:#7c3aed;font-weight:750;">${s.agentPrinted} pcs</td>
+        <td style="text-align:center;font-weight:850;color:var(--success);">${s.printed} pcs</td>
+        <td style="text-align:center;color:var(--text-muted);">${s.unprinted} pcs</td>
+        <td style="font-weight:850;color:var(--text);text-align:right;">Rp ${formatNumber(s.omsetGross)}</td>
+        <td style="font-size:0.76rem;font-weight:700;color:var(--text-muted);text-align:center;">${contrib}%</td>
+      </tr>
+    `;
+  }).join('');
+
+  // Render Rows Log Voucher Terakhir
+  const maxList = 50;
   const listSlice = filtered.slice(0, maxList);
   const detailRows = listSlice.map((v, idx) => {
-    const rawDate = v.printedAt || v.createdAt;
+    const rawDate = v.printedAt || v.soldAt || v.createdAt;
     const d = parseVoucherDate(rawDate);
     const dateFormatted = d ? `${d.toLocaleDateString('id-ID')} ${d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}` : '-';
+    let retail = parseFloat(v.retailPrice) || parseFloat(String(v.harga).replace(/[^\d.]/g, '')) || 0;
+    if (retail > 0 && retail < 500) retail *= 1000;
+
+    const isAgent = !!v.resellerId || !!v.soldByAgent || (v.soldBy && v.soldBy.startsWith('Mitra Agen'));
+    let channelBadge = '';
+    let agentProfitVal = 0;
+    let ownerNetVal = retail;
+
+    if (isAgent) {
+      const rName = v.resellerName || (activeResellers.find(r => r.id === v.resellerId)?.name) || 'Mitra Agen';
+      channelBadge = `<span class="badge-channel-agent">🤝 ${esc(rName)}</span>`;
+      if (v.soldPrice != null && v.soldPrice !== '') {
+        ownerNetVal = parseFloat(v.soldPrice) || 0;
+        if (ownerNetVal > 0 && ownerNetVal < 500) ownerNetVal *= 1000;
+      } else {
+        const rObj = activeResellers.find(r => r.id === v.resellerId);
+        const disc = rObj?.discountPercent || 10;
+        ownerNetVal = Math.round(retail * (1 - disc / 100));
+      }
+      agentProfitVal = Math.max(0, retail - ownerNetVal);
+    } else {
+      channelBadge = `<span class="badge-channel-pos">🛒 Kasir POS</span>`;
+    }
+
     const statusBadge = v.printed
-      ? `<span class="badge-status badge-status-printed">⚪ Dicetak</span>`
-      : `<span class="badge-status badge-status-unprinted">🟢 Belum</span>`;
+      ? `<span class="badge-status badge-status-printed">⚪ Terjual</span>`
+      : `<span class="badge-status badge-status-unprinted">🟢 Stok</span>`;
 
     return `
       <tr>
-        <td style="font-size:0.75rem;color:var(--text-muted);">${idx + 1}</td>
+        <td style="font-size:0.75rem;color:var(--text-muted);text-align:center;">${idx + 1}</td>
         <td style="font-family:var(--font-mono);font-weight:750;color:var(--primary);">${esc(v.code)}</td>
-        <td>${esc(v.paket)}</td>
-        <td style="font-weight:750;">${v.harga ? 'Rp ' + formatNumber(v.harga) : '-'}</td>
-        <td>${statusBadge}</td>
-        <td style="font-size:0.74rem;color:var(--text-muted);">${dateFormatted}</td>
+        <td>${esc(v.paket || 'Reguler')}</td>
+        <td style="font-weight:750;">Rp ${formatNumber(retail)}</td>
+        <td>${channelBadge}</td>
+        <td style="font-weight:750;color:#7c3aed;">${agentProfitVal > 0 ? 'Rp ' + formatNumber(agentProfitVal) : '-'}</td>
+        <td style="font-weight:800;color:var(--success);">${v.printed ? 'Rp ' + formatNumber(ownerNetVal) : '-'}</td>
+        <td>${statusBadge} <span style="font-size:0.72rem;color:var(--text-muted);margin-left:4px;">${dateFormatted}</span></td>
       </tr>
     `;
   }).join('');
 
   const moreDetailCount = filtered.length - maxList;
 
+  // Mini-Feed di dalam Modal
+  const modalFeedItems = getUnifiedActivityFeed(8);
+  const modalFeedHtml = modalFeedItems.length > 0
+    ? modalFeedItems.map(item => `
+        <div class="activity-feed-item" style="padding:0.45rem 0.75rem;">
+          <div class="activity-feed-left">
+            <div class="activity-feed-icon" style="width:28px;height:28px;font-size:0.9rem;background:${item.iconBg};color:${item.iconColor};">
+              ${item.icon}
+            </div>
+            <div class="activity-feed-text">
+              <div class="activity-feed-title" style="font-size:0.78rem;">${esc(item.title)}</div>
+              <div class="activity-feed-sub" style="font-size:0.7rem;">${esc(item.subtitle)}</div>
+            </div>
+          </div>
+          <div class="activity-feed-right">
+            <span class="activity-feed-badge ${item.badgeClass}">${esc(item.badgeText)}</span>
+            <span class="activity-feed-time">${formatRelativeTime(item.timestamp)}</span>
+          </div>
+        </div>
+      `).join('')
+    : `<div style="text-align:center;color:var(--text-muted);font-size:0.78rem;padding:0.6rem;">Belum ada log aktivitas</div>`;
+
   const html = `
     <div class="modal-header">
-      <h3>📊 Laporan Penjualan & Dashboard Omset</h3>
+      <div>
+        <h3 style="margin:0;">📊 Dashboard Rekapitulasi Omset & Bagi Hasil Mitra</h3>
+        <p style="margin:2px 0 0;font-size:0.75rem;color:var(--text-muted);">
+          Transparansi pendapatan kasir POS, penjualan mitra agen, pembagian profit, dan sisa saldo deposit
+        </p>
+      </div>
       <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
     </div>
     <div class="modal-body">
@@ -4421,7 +4801,26 @@ function renderRekapModalContent() {
       </div>
 
       <!-- Filter Controls Row -->
-      <div class="rekap-filter-row">
+      <div class="rekap-filter-row" style="margin-bottom:1.15rem;">
+        <div class="form-group">
+          <label for="rekap-channel-select">Saluran Penjualan</label>
+          <select id="rekap-channel-select" class="form-input form-input-sm">
+            <option value="all" ${rekapFilter.channel === 'all' ? 'selected' : ''}>Semua Saluran (Kasir & Mitra)</option>
+            <option value="pos" ${rekapFilter.channel === 'pos' ? 'selected' : ''}>🛒 Kasir POS Langsung</option>
+            <option value="agent" ${rekapFilter.channel === 'agent' ? 'selected' : ''}>🤝 Mitra Agen (Bagi Hasil)</option>
+          </select>
+        </div>
+
+        ${activeResellers.length > 0 ? `
+        <div class="form-group">
+          <label for="rekap-agent-select">Filter Mitra Agen</label>
+          <select id="rekap-agent-select" class="form-input form-input-sm">
+            <option value="all" ${rekapFilter.agentId === 'all' ? 'selected' : ''}>Semua Mitra Agen (${activeResellers.length})</option>
+            ${activeResellers.map(r => `<option value="${r.id}" ${rekapFilter.agentId === r.id ? 'selected' : ''}>${esc(r.name)} (${esc(r.tier || 'BRONZE')})</option>`).join('')}
+          </select>
+        </div>
+        ` : ''}
+
         <div class="form-group">
           <label for="rekap-pkg-select">Filter Paket</label>
           <select id="rekap-pkg-select" class="form-input form-input-sm">
@@ -4429,6 +4828,7 @@ function renderRekapModalContent() {
             ${allPackages.map(p => `<option value="${esc(p)}" ${rekapFilter.package === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}
           </select>
         </div>
+
         <div class="form-group">
           <label for="rekap-status-select">Status Voucher</label>
           <select id="rekap-status-select" class="form-input form-input-sm">
@@ -4437,6 +4837,7 @@ function renderRekapModalContent() {
             <option value="unprinted" ${rekapFilter.status === 'unprinted' ? 'selected' : ''}>🟢 Belum Dicetak (Stok)</option>
           </select>
         </div>
+
         ${rekapFilter.period === 'custom' ? `
           <div style="display:flex;gap:0.4rem;align-items:flex-end;">
             <div class="form-group">
@@ -4451,26 +4852,103 @@ function renderRekapModalContent() {
         ` : ''}
       </div>
 
-      <!-- 3 Metrics KPI Cards -->
-      <div class="rekap-card-grid-3">
+      <!-- 6 Metrics Executive KPI Cards -->
+      <div class="rekap-card-grid-6">
+        <!-- 1. Omset Retail Kotor -->
+        <div class="rekap-card rekap-card-accent-indigo">
+          <div class="rekap-label">Total Omset Kotor</div>
+          <div class="rekap-val" style="color:#4338ca;">Rp ${formatNumber(totalGrossRetail)}</div>
+          <div style="font-size:0.72rem;color:var(--text-secondary);margin-top:3px;">
+            🛍️ <strong>${printedList.length}</strong> voucher terjual
+          </div>
+        </div>
+
+        <!-- 2. Kasir POS -->
+        <div class="rekap-card rekap-card-accent-sky">
+          <div class="rekap-label">Penjualan Kasir POS</div>
+          <div class="rekap-val" style="color:#0284c7;">Rp ${formatNumber(posGrossRetail)}</div>
+          <div style="font-size:0.72rem;color:var(--text-secondary);margin-top:3px;">
+            🛒 <strong>${posSoldList.length}</strong> pcs (100% Owner)
+          </div>
+        </div>
+
+        <!-- 3. Penjualan Mitra Agen -->
+        <div class="rekap-card rekap-card-accent-violet">
+          <div class="rekap-label">Penjualan Mitra (Retail)</div>
+          <div class="rekap-val" style="color:#7c3aed;">Rp ${formatNumber(agentGrossRetail)}</div>
+          <div style="font-size:0.72rem;color:var(--text-secondary);margin-top:3px;">
+            🤝 <strong>${agentSoldList.length}</strong> pcs lewat agen
+          </div>
+        </div>
+
+        <!-- 4. Bagi Hasil Agen -->
+        <div class="rekap-card rekap-card-accent-amber">
+          <div class="rekap-label">Bagi Hasil / Laba Mitra</div>
+          <div class="rekap-val" style="color:#d97706;">Rp ${formatNumber(totalAgentProfit)}</div>
+          <div style="font-size:0.72rem;color:var(--text-secondary);margin-top:3px;">
+            🎁 Total diskon/komisi agen
+          </div>
+        </div>
+
+        <!-- 5. Pendapatan Bersih Owner (HIGHLIGHTED) -->
+        <div class="rekap-card rekap-card-highlight rekap-card-accent-emerald">
+          <div class="rekap-label" style="color:#065f46;font-weight:850;">⭐ Pendapatan Bersih Owner</div>
+          <div class="rekap-val" style="color:#047857;font-size:1.45rem;">Rp ${formatNumber(totalOwnerNet)}</div>
+          <div style="font-size:0.72rem;color:#065f46;margin-top:3px;font-weight:700;">
+            💵 Kasir + Setoran Agen (Net)
+          </div>
+        </div>
+
+        <!-- 6. Total Saldo Deposit Mengendap -->
         <div class="rekap-card rekap-card-accent-green">
-          <div class="rekap-label">Omset Voucher Terjual</div>
-          <div class="rekap-val" style="color:var(--success);">Rp ${formatNumber(totalOmsetPrinted)}</div>
-          <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:3px;">✨ <strong>${printedList.length}</strong> voucher terjual</div>
-        </div>
-        <div class="rekap-card rekap-card-accent-blue">
-          <div class="rekap-label">Sisa Nilai Stok</div>
-          <div class="rekap-val" style="color:var(--primary);">Rp ${formatNumber(totalOmsetUnprinted)}</div>
-          <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:3px;">📦 <strong>${unprintedList.length}</strong> voucher siap cetak</div>
-        </div>
-        <div class="rekap-card rekap-card-accent-purple">
-          <div class="rekap-label">Total Potensi Nilai</div>
-          <div class="rekap-val" style="color:#7c3aed;">Rp ${formatNumber(totalOmsetAll)}</div>
-          <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:3px;">📋 <strong>${filtered.length}</strong> voucher terdata</div>
+          <div class="rekap-label">Saldo Agen Mengendap</div>
+          <div class="rekap-val" style="color:#15803d;">Rp ${formatNumber(totalDepositHeld)}</div>
+          <div style="font-size:0.72rem;color:var(--text-secondary);margin-top:3px;">
+            💳 E-wallet ${activeResellers.length} mitra aktif
+          </div>
         </div>
       </div>
 
-      <!-- Section: Dual Visual Analytics Charts -->
+      <!-- SECTION 1: TABEL RINCIAN BAGI HASIL PER MITRA AGEN -->
+      <div class="rekap-section-title" style="display:flex;justify-content:space-between;align-items:center;margin-top:0.5rem;">
+        <span>🤝 Rincian Transaksi & Bagi Hasil Mitra Agen</span>
+        <span style="font-size:0.74rem;color:var(--text-muted);">${activeResellers.length} Mitra Terdaftar</span>
+      </div>
+      <div class="rekap-table-wrapper" style="max-height:260px;margin-bottom:1.25rem;">
+        <table class="data-table" style="background:var(--surface);">
+          <thead>
+            <tr>
+              <th style="width:40px;text-align:center;">No</th>
+              <th>Mitra Agen</th>
+              <th>Level & Diskon</th>
+              <th style="text-align:center;">Terjual</th>
+              <th style="text-align:right;">Omset Retail</th>
+              <th style="text-align:right;">Bagi Hasil Agen</th>
+              <th style="text-align:right;">Setoran Net Owner</th>
+              <th style="text-align:right;">Sisa Deposit</th>
+              <th style="text-align:center;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${agentRows || '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:1rem;">Belum ada data mitra agen terdaftar. Tambahkan agen pada menu "🤝 Mitra Agen".</td></tr>'}
+          </tbody>
+          ${activeResellers.length > 0 ? `
+          <tfoot style="background:var(--surface-alt);font-weight:850;border-top:2px solid var(--border);">
+            <tr>
+              <td colspan="3" style="text-align:right;">TOTAL KESELURUHAN MITRA:</td>
+              <td style="text-align:center;color:var(--primary);">${totalAgSold} pcs</td>
+              <td style="text-align:right;">Rp ${formatNumber(totalAgGross)}</td>
+              <td style="text-align:right;color:#7c3aed;">Rp ${formatNumber(totalAgProfit)}</td>
+              <td style="text-align:right;color:var(--success);">Rp ${formatNumber(totalAgNet)}</td>
+              <td style="text-align:right;">Rp ${formatNumber(totalAgBal)}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+          ` : ''}
+        </table>
+      </div>
+
+      <!-- SECTION 2: DUAL VISUAL CHARTS -->
       <div class="rekap-charts-grid">
         <div class="rekap-chart-box">
           <div class="rekap-chart-title">
@@ -4487,60 +4965,81 @@ function renderRekapModalContent() {
             <span style="font-size:0.7rem;color:var(--text-muted);">Volume</span>
           </div>
           <div class="rekap-bars-grid">
-            ${pkgBarsHtml || '<div style="color:var(--text-muted);font-size:0.75rem;margin:auto;">Belum ada data</div>'}
+            ${pkgBarsHtml || '<div style="color:var(--text-muted);font-size:0.75rem;margin:auto;">Belum ada data penjualan</div>'}
           </div>
         </div>
       </div>
 
-      <!-- Section: Rincian Paket -->
+      <!-- SECTION 3: RINCIAN PAKET HOTSPOT -->
       <div class="rekap-section-title">
         <span>📦 Rincian Omset per Paket Hotspot</span>
-        <span style="font-size:0.74rem;color:var(--text-muted);">${chartPkgs.length} Paket</span>
+        <span style="font-size:0.74rem;color:var(--text-muted);">${chartPkgs.length} Varian Paket</span>
       </div>
-      <table class="data-table" style="margin-bottom:1rem;background:var(--surface);">
-        <thead>
-          <tr>
-            <th>Paket</th>
-            <th>Harga Satuan</th>
-            <th>Terjual</th>
-            <th>Sisa Stok</th>
-            <th>Subtotal Omset</th>
-            <th>Kontribusi</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${packageRows || '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Tidak ada data pada filter ini</td></tr>'}
-        </tbody>
-      </table>
-
-      <!-- Section: Rincian Voucher -->
-      <div class="rekap-section-title">
-        <span>📋 Log & Riwayat Transaksi Voucher (${filtered.length} voucher)</span>
-        <span style="font-size:0.74rem;color:var(--text-muted);">Menampilkan ${listSlice.length} baris</span>
-      </div>
-      <div class="rekap-table-wrapper">
+      <div class="rekap-table-wrapper" style="max-height:240px;margin-bottom:1.25rem;">
         <table class="data-table" style="background:var(--surface);">
           <thead>
             <tr>
-              <th>No</th>
-              <th>Kode Voucher</th>
               <th>Paket</th>
-              <th>Harga</th>
-              <th>Status</th>
-              <th>Waktu Terakhir</th>
+              <th>Harga Satuan</th>
+              <th style="text-align:center;">Terjual POS</th>
+              <th style="text-align:center;">Terjual Agen</th>
+              <th style="text-align:center;">Total Terjual</th>
+              <th style="text-align:center;">Sisa Stok</th>
+              <th style="text-align:right;">Subtotal Omset</th>
+              <th style="text-align:center;">Kontribusi</th>
             </tr>
           </thead>
           <tbody>
-            ${detailRows || '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Tidak ada voucher</td></tr>'}
-            ${moreDetailCount > 0 ? `<tr><td colspan="6" style="text-align:center;font-size:0.75rem;color:var(--text-muted);font-style:italic;">...dan ${moreDetailCount} voucher lainnya (Export CSV untuk melihat lengkap)</td></tr>` : ''}
+            ${packageRows || '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);">Tidak ada paket pada filter ini</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- SECTION 4: MINI-FEED AKTIVITAS TERKINI (MODAL) -->
+      <div class="rekap-section-title">
+        <span>⚡ Log Transaksi & Notifikasi Terkini</span>
+        <span style="font-size:0.74rem;color:var(--text-muted);">Top Up Saldo & Pembelian</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:0.45rem;max-height:170px;overflow-y:auto;margin-bottom:1.25rem;border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.5rem;background:var(--surface-alt);">
+        ${modalFeedHtml}
+      </div>
+
+      <!-- SECTION 5: RINCIAN VOUCHER -->
+      <div class="rekap-section-title">
+        <span>📋 Log Riwayat Voucher (${filtered.length} terdata)</span>
+        <span style="font-size:0.74rem;color:var(--text-muted);">Menampilkan ${listSlice.length} baris terbaru</span>
+      </div>
+      <div class="rekap-table-wrapper" style="max-height:260px;">
+        <table class="data-table" style="background:var(--surface);">
+          <thead>
+            <tr>
+              <th style="width:40px;text-align:center;">No</th>
+              <th>Kode Voucher</th>
+              <th>Paket</th>
+              <th>Harga Retail</th>
+              <th>Saluran Penjual</th>
+              <th>Bagi Hasil Agen</th>
+              <th>Net Owner</th>
+              <th>Status & Waktu</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${detailRows || '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);">Tidak ada voucher pada filter ini</td></tr>'}
+            ${moreDetailCount > 0 ? `<tr><td colspan="8" style="text-align:center;font-size:0.75rem;color:var(--text-muted);font-style:italic;padding:0.65rem;">...dan ${moreDetailCount} voucher lainnya (Download CSV untuk audit lengkap)</td></tr>` : ''}
           </tbody>
         </table>
       </div>
     </div>
-    <div class="modal-footer" style="justify-content:space-between;flex-wrap:wrap;">
-      <div style="display:flex;gap:0.45rem;">
-        <button class="btn btn-secondary btn-sm" id="btn-export-rekap-csv" title="Download data laporan ke Excel/CSV">📥 Export CSV</button>
-        <button class="btn btn-secondary btn-sm" id="btn-print-rekap-receipt" title="Cetak struk rekap penjualan">🖨️ Cetak Struk Rekap</button>
+
+    <!-- MODAL FOOTER -->
+    <div class="modal-footer" style="justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
+      <div style="display:flex;gap:0.45rem;flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" id="btn-export-rekap-csv" title="Download rekap omset dan rincian bagi hasil ke Excel/CSV">
+          📥 Export CSV (Bagi Hasil)
+        </button>
+        <button class="btn btn-secondary btn-sm" id="btn-print-rekap-receipt" title="Cetak struk rekap thermal 58mm/80mm">
+          🖨️ Cetak Struk Rekap
+        </button>
       </div>
       <button class="btn btn-primary btn-sm" onclick="closeModal()">Tutup</button>
     </div>
@@ -4549,11 +5048,23 @@ function renderRekapModalContent() {
   const modalContent = $id('modal-content');
   if (modalContent) modalContent.innerHTML = html;
 
+  // Periode Tab listeners
   $$('.rekap-period-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       rekapFilter.period = tab.dataset.p;
       renderRekapModalContent();
     });
+  });
+
+  // Filter Listeners
+  on('rekap-channel-select', 'change', (e) => {
+    rekapFilter.channel = e.target.value;
+    renderRekapModalContent();
+  });
+
+  on('rekap-agent-select', 'change', (e) => {
+    rekapFilter.agentId = e.target.value;
+    renderRekapModalContent();
   });
 
   on('rekap-pkg-select', 'change', (e) => {
@@ -4588,62 +5099,181 @@ function exportRekapCSV() {
   }
 
   const activePreset = state.presets.find(p => p.id === state.activePresetId) || DEFAULT_PRESET;
-  let csv = `LAPORAN PENJUALAN VOUCHER RUIJIE\n`;
+  const activeResellers = Array.isArray(state.resellers) ? state.resellers : [];
+
+  let totalGrossRetail = 0;
+  let totalPosGross = 0;
+  let totalAgentGross = 0;
+  let totalAgentProfit = 0;
+  let totalOwnerNet = 0;
+
+  filtered.forEach(v => {
+    if (v.printed) {
+      let retail = parseFloat(v.retailPrice) || parseFloat(String(v.harga).replace(/[^\d.]/g, '')) || 0;
+      if (retail > 0 && retail < 500) retail *= 1000;
+      totalGrossRetail += retail;
+
+      const isAgent = !!v.resellerId || !!v.soldByAgent || (v.soldBy && v.soldBy.startsWith('Mitra Agen'));
+      if (isAgent) {
+        totalAgentGross += retail;
+        let ownerShare = 0;
+        if (v.soldPrice != null && v.soldPrice !== '') {
+          ownerShare = parseFloat(v.soldPrice) || 0;
+          if (ownerShare > 0 && ownerShare < 500) ownerShare *= 1000;
+        } else {
+          const rObj = activeResellers.find(r => r.id === v.resellerId);
+          const disc = rObj?.discountPercent || 10;
+          ownerShare = Math.round(retail * (1 - disc / 100));
+        }
+        const profit = Math.max(0, retail - ownerShare);
+        totalAgentProfit += profit;
+        totalOwnerNet += ownerShare;
+      } else {
+        totalPosGross += retail;
+        totalOwnerNet += retail;
+      }
+    }
+  });
+
+  let csv = `LAPORAN REKAPITULASI OMSET & BAGI HASIL MITRA AGEN\n`;
   csv += `Toko / Profil:,"${activePreset.name}"\n`;
   csv += `SSID WiFi:,"${state.settings.ssid || '-'}"\n`;
   csv += `Periode:,"${rekapFilter.period.toUpperCase()}"\n`;
+  csv += `Filter Saluran:,"${rekapFilter.channel.toUpperCase()}"\n`;
   csv += `Tanggal Export:,"${new Date().toLocaleString('id-ID')}"\n\n`;
 
-  csv += `No,Kode Voucher,Paket,Harga,Status,Waktu\n`;
+  csv += `RINGKASAN EKSEKUTIF KEUANGAN\n`;
+  csv += `Total Omset Retail (Kotor),Rp ${formatNumber(totalGrossRetail)}\n`;
+  csv += `Penjualan Kasir POS Langsung,Rp ${formatNumber(totalPosGross)}\n`;
+  csv += `Penjualan Mitra Agen (Retail),Rp ${formatNumber(totalAgentGross)}\n`;
+  csv += `Bagi Hasil / Laba Mitra Agen,Rp ${formatNumber(totalAgentProfit)}\n`;
+  csv += `PENDAPATAN BERSIH OWNER,Rp ${formatNumber(totalOwnerNet)}\n\n`;
+
+  csv += `RINCIAN TRANSAKSI VOUCHER\n`;
+  csv += `No,Kode Voucher,Paket,Harga Retail,Saluran,Nama Petugas / Agen,Laba Bagi Hasil Agen,Setoran Bersih Owner,Status,Waktu\n`;
+
   filtered.forEach((v, idx) => {
-    const rawDate = v.printedAt || v.createdAt;
+    const rawDate = v.printedAt || v.soldAt || v.createdAt;
     const d = parseVoucherDate(rawDate);
     const dateFormatted = d ? `${d.toLocaleDateString('id-ID')} ${d.toLocaleTimeString('id-ID')}` : '-';
-    csv += `${idx + 1},"${v.code}","${v.paket || 'Reguler'}",${v.harga || 0},"${v.printed ? 'Sudah Dicetak' : 'Belum Dicetak'}","${dateFormatted}"\n`;
+    let retail = parseFloat(v.retailPrice) || parseFloat(String(v.harga).replace(/[^\d.]/g, '')) || 0;
+    if (retail > 0 && retail < 500) retail *= 1000;
+
+    const isAgent = !!v.resellerId || !!v.soldByAgent || (v.soldBy && v.soldBy.startsWith('Mitra Agen'));
+    let channelName = isAgent ? 'Mitra Agen' : 'Kasir POS';
+    let sellerName = isAgent ? (v.resellerName || (activeResellers.find(r => r.id === v.resellerId)?.name) || 'Agen') : (v.soldBy || 'Kasir');
+    let agentProfitVal = 0;
+    let ownerNetVal = retail;
+
+    if (isAgent) {
+      if (v.soldPrice != null && v.soldPrice !== '') {
+        ownerNetVal = parseFloat(v.soldPrice) || 0;
+        if (ownerNetVal > 0 && ownerNetVal < 500) ownerNetVal *= 1000;
+      } else {
+        const rObj = activeResellers.find(r => r.id === v.resellerId);
+        const disc = rObj?.discountPercent || 10;
+        ownerNetVal = Math.round(retail * (1 - disc / 100));
+      }
+      agentProfitVal = Math.max(0, retail - ownerNetVal);
+    }
+
+    csv += `${idx + 1},"${v.code}","${v.paket || 'Reguler'}",${retail},"${channelName}","${sellerName}",${v.printed ? agentProfitVal : 0},${v.printed ? ownerNetVal : 0},"${v.printed ? 'Terjual' : 'Belum Terjual'}","${dateFormatted}"\n`;
   });
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);
-  link.setAttribute('download', `rekap_voucher_${rekapFilter.period}_${Date.now()}.csv`);
+  link.setAttribute('download', `rekap_omset_bagihasil_${rekapFilter.period}_${Date.now()}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
-  showToast('Laporan CSV berhasil didownload!');
+  showToast('Laporan CSV (Rekap & Bagi Hasil) berhasil didownload!');
 }
 
 function printRekapReceipt() {
   const filtered = getRekapFilteredData();
   const activePreset = state.presets.find(p => p.id === state.activePresetId) || DEFAULT_PRESET;
+  const activeResellers = Array.isArray(state.resellers) ? state.resellers : [];
   const printedList = filtered.filter(v => v.printed);
 
-  let totalOmsetPrinted = 0;
-  printedList.forEach(v => {
-    totalOmsetPrinted += parseFloat(String(v.harga).replace(/[^\d.]/g, '')) || 0;
-  });
+  let totalGrossRetail = 0;
+  let posGross = 0;
+  let agentGross = 0;
+  let totalAgentProfit = 0;
+  let totalOwnerNet = 0;
 
   const packageStats = {};
-  filtered.forEach(v => {
+  const agentStats = {};
+
+  printedList.forEach(v => {
+    let retail = parseFloat(v.retailPrice) || parseFloat(String(v.harga).replace(/[^\d.]/g, '')) || 0;
+    if (retail > 0 && retail < 500) retail *= 1000;
+    totalGrossRetail += retail;
+
     const pkg = v.paket || 'Reguler';
-    if (!packageStats[pkg]) {
-      packageStats[pkg] = { count: 0, printed: 0, harga: v.harga || '0', omsetPrinted: 0 };
-    }
+    if (!packageStats[pkg]) packageStats[pkg] = { count: 0, omset: 0 };
     packageStats[pkg].count++;
-    if (v.printed) {
-      packageStats[pkg].printed++;
-      const p = parseFloat(String(v.harga).replace(/[^\d.]/g, '')) || 0;
-      packageStats[pkg].omsetPrinted += p;
+    packageStats[pkg].omset += retail;
+
+    const isAgent = !!v.resellerId || !!v.soldByAgent || (v.soldBy && v.soldBy.startsWith('Mitra Agen'));
+    if (isAgent) {
+      agentGross += retail;
+      const rId = v.resellerId;
+      const rObj = activeResellers.find(r => r.id === rId);
+      const rName = v.resellerName || rObj?.name || 'Mitra Agen';
+      const disc = rObj?.discountPercent || 10;
+
+      let ownerShare = 0;
+      if (v.soldPrice != null && v.soldPrice !== '') {
+        ownerShare = parseFloat(v.soldPrice) || 0;
+        if (ownerShare > 0 && ownerShare < 500) ownerShare *= 1000;
+      } else {
+        ownerShare = Math.round(retail * (1 - disc / 100));
+      }
+      const profit = Math.max(0, retail - ownerShare);
+      totalAgentProfit += profit;
+      totalOwnerNet += ownerShare;
+
+      if (!agentStats[rName]) agentStats[rName] = { count: 0, gross: 0, profit: 0, net: 0 };
+      agentStats[rName].count++;
+      agentStats[rName].gross += retail;
+      agentStats[rName].profit += profit;
+      agentStats[rName].net += ownerShare;
+    } else {
+      posGross += retail;
+      totalOwnerNet += retail;
     }
   });
 
-  const rows = Object.keys(packageStats).map(pkg => {
+  let totalDepositHeld = 0;
+  activeResellers.forEach(r => {
+    totalDepositHeld += parseFloat(r.balance) || 0;
+  });
+
+  const pkgRows = Object.keys(packageStats).map(pkg => {
     const s = packageStats[pkg];
     return `
       <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
-        <span>${esc(pkg)} (${s.printed}x)</span>
-        <strong>Rp ${formatNumber(s.omsetPrinted)}</strong>
+        <span>${esc(pkg)} (${s.count}x)</span>
+        <strong>Rp ${formatNumber(s.omset)}</strong>
+      </div>
+    `;
+  }).join('');
+
+  const agentRows = Object.keys(agentStats).map(name => {
+    const a = agentStats[name];
+    return `
+      <div style="margin-bottom:4px;padding-bottom:3px;border-bottom:1px dotted #ccc;">
+        <div style="display:flex;justify-content:space-between;font-weight:bold;">
+          <span>${esc(name)} (${a.count}x)</span>
+          <span>Rp ${formatNumber(a.gross)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#444;">
+          <span>Bagi Hasil: Rp ${formatNumber(a.profit)}</span>
+          <span>Setor Net: Rp ${formatNumber(a.net)}</span>
+        </div>
       </div>
     `;
   }).join('');
@@ -4653,26 +5283,59 @@ function printRekapReceipt() {
       <div style="text-align:center;border-bottom:1px dashed #000;padding-bottom:8px;margin-bottom:8px;">
         <div style="font-size:15px;font-weight:bold;">${esc(activePreset.name)}</div>
         <div>WiFi: ${esc(state.settings.ssid || 'Hotspot')}</div>
-        <div style="font-size:10px;margin-top:4px;">*** STRUK REKAP PENJUALAN ***</div>
+        <div style="font-size:11px;font-weight:bold;margin-top:4px;">*** LAPORAN OMSET & BAGI HASIL ***</div>
         <div style="font-size:10px;">Periode: ${rekapFilter.period.toUpperCase()}</div>
         <div style="font-size:10px;">Waktu: ${new Date().toLocaleString('id-ID')}</div>
       </div>
 
       <div style="border-bottom:1px dashed #000;padding-bottom:8px;margin-bottom:8px;">
-        <div style="font-weight:bold;margin-bottom:4px;">RINCIAN PAKET TERJUAL:</div>
-        ${rows || '<div>Tidak ada transaksi tercetak</div>'}
+        <div style="font-weight:bold;margin-bottom:4px;">RINGKASAN KEUANGAN:</div>
+        <div style="display:flex;justify-content:space-between;">
+          <span>Penjualan Kasir POS:</span>
+          <strong>Rp ${formatNumber(posGross)}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span>Penjualan Mitra Agen:</span>
+          <strong>Rp ${formatNumber(agentGross)}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;border-top:1px dotted #888;margin-top:3px;padding-top:2px;">
+          <span>TOTAL OMSET RETAIL:</span>
+          <strong>Rp ${formatNumber(totalGrossRetail)}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;color:#555;">
+          <span>(-) Bagi Hasil Agen:</span>
+          <span>Rp ${formatNumber(totalAgentProfit)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:bold;margin-top:4px;padding-top:3px;border-top:1px solid #000;">
+          <span>BERSIH OWNER:</span>
+          <span>Rp ${formatNumber(totalOwnerNet)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#555;margin-top:4px;">
+          <span>Saldo Agen Mengendap:</span>
+          <span>Rp ${formatNumber(totalDepositHeld)}</span>
+        </div>
       </div>
 
+      ${pkgRows ? `
       <div style="border-bottom:1px dashed #000;padding-bottom:8px;margin-bottom:8px;">
-        <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:bold;">
-          <span>TOTAL OMSET:</span>
-          <span>Rp ${formatNumber(totalOmsetPrinted)}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:#333;margin-top:2px;">
+        <div style="font-weight:bold;margin-bottom:4px;">RINCIAN PAKET TERJUAL:</div>
+        ${pkgRows}
+      </div>
+      ` : ''}
+
+      ${agentRows ? `
+      <div style="border-bottom:1px dashed #000;padding-bottom:8px;margin-bottom:8px;">
+        <div style="font-weight:bold;margin-bottom:4px;">RINCIAN MITRA AGEN:</div>
+        ${agentRows}
+      </div>
+      ` : ''}
+
+      <div style="border-bottom:1px dashed #000;padding-bottom:8px;margin-bottom:8px;font-size:10px;color:#333;">
+        <div style="display:flex;justify-content:space-between;">
           <span>Total Voucher Terjual:</span>
           <span>${printedList.length} pcs</span>
         </div>
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:#333;">
+        <div style="display:flex;justify-content:space-between;">
           <span>Sisa Stok Belum Cetak:</span>
           <span>${filtered.length - printedList.length} pcs</span>
         </div>
@@ -4680,7 +5343,7 @@ function printRekapReceipt() {
 
       <div style="text-align:center;font-size:10px;margin-top:6px;">
         <div>Terima Kasih</div>
-        <div>Sistem Cetak Voucher Ruijie</div>
+        <div>VoucherHub Pro Billing System</div>
       </div>
     </div>
   `;

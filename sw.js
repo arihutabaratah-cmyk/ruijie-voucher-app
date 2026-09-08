@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ruijie-voucher-pwa-v10';
+const CACHE_NAME = 'ruijie-voucher-pwa-v11';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

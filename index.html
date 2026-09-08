@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Aplikasi Cetak Voucher WiFi Ruijie — Database Google Spreadsheet, Theme Store, Audit Trail Kasir, Stock Alert, A4 Hemat, Thermal POS, Stiker Label Tom & Jerry">
   <title>VoucherHub Pro — Enterprise Hotspot Billing Dashboard & Studio Ruijie</title>
-  <link rel="stylesheet" href="index.css?v=3.0">
+  <link rel="stylesheet" href="index.css?v=3.1">
   <link rel="stylesheet" href="print.css?v=2.7">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#2563eb">
@@ -189,6 +189,31 @@
 
     <!-- ===== TAB PANE 1: OVERVIEW & POS KASIR ===== -->
     <div class="dash-tab-pane active" id="pane-dash-overview">
+      <!-- ⚡ LIVE ACTIVITY FEED & NOTIFIKASI MITRA WIDGET -->
+      <section class="panel live-activity-panel" id="live-activity-panel">
+        <div class="live-activity-header">
+          <div class="live-activity-title-group">
+            <span class="live-pulse-dot"></span>
+            <div>
+              <h3 class="live-activity-title">Aktivitas & Log Transaksi Terkini</h3>
+              <p class="live-activity-subtitle">Monitoring real-time top-up saldo agen, pembelian voucher mitra, dan penjualan kasir</p>
+            </div>
+          </div>
+          <div class="live-activity-actions">
+            <span class="live-status-pill">
+              <span class="live-status-ping"></span>
+              Live Feed
+            </span>
+            <button class="btn btn-secondary btn-sm" id="btn-rekap-quick-open" title="Buka Laporan Rekap Lengkap & Bagi Hasil">📊 Rekap & Bagi Hasil</button>
+          </div>
+        </div>
+        <div class="activity-feed-wrapper">
+          <div class="activity-feed-grid" id="activity-feed-grid">
+            <div class="activity-feed-empty">Memuat log aktivitas terbaru...</div>
+          </div>
+        </div>
+      </section>
+
       <!-- ⚡ QUICK POS CASHIER PANEL (1-CLICK PRINT & SHIFT) -->
       <section class="panel quick-pos-panel" id="quick-pos-panel">
         <div class="quick-pos-header">
@@ -709,6 +734,6 @@
 
   <script src="xlsx.mini.min.js"></script>
   <script src="qrcode.min.js"></script>
-  <script src="main.js?v=3.0"></script>
+  <script src="main.js?v=3.1"></script>
 </body>
 </html>
