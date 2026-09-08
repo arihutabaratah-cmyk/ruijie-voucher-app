@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Aplikasi Cetak Voucher WiFi Ruijie — Database Google Spreadsheet, Theme Store, Audit Trail Kasir, Stock Alert, A4 Hemat, Thermal POS, Stiker Label Tom & Jerry">
-  <title>Cetak Voucher Ruijie Cloud — POS & Print Studio Pro</title>
-  <link rel="stylesheet" href="index.css?v=2.6">
-  <link rel="stylesheet" href="print.css?v=2.6">
+  <title>VoucherHub Pro — Enterprise Hotspot Billing Dashboard & Studio Ruijie</title>
+  <link rel="stylesheet" href="index.css?v=2.7">
+  <link rel="stylesheet" href="print.css?v=2.7">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#2563eb">
   <meta name="mobile-web-app-capable" content="yes">
@@ -103,321 +103,478 @@
       </div>
     </div>
 
-    <!-- ⚡ QUICK POS CASHIER PANEL (1-CLICK PRINT & SHIFT) -->
-    <section class="panel quick-pos-panel" id="quick-pos-panel">
-      <div class="quick-pos-header">
-        <div class="quick-pos-title">
-          <div class="pos-pulse-dot"></div>
+    <!-- 📊 EXECUTIVE BILLING & ISP HOTSPOT KPI CARDS -->
+    <section class="billing-kpi-grid" id="billing-kpi-grid" aria-label="Executive Billing Metrics">
+      <!-- Card 1: Total Omset Penjualan -->
+      <div class="kpi-card kpi-omset">
+        <div class="kpi-icon-wrap kpi-icon-emerald">
+          <span class="kpi-icon">💰</span>
+        </div>
+        <div class="kpi-body">
+          <div class="kpi-header-row">
+            <span class="kpi-label">TOTAL OMSET PENJUALAN</span>
+            <span class="kpi-badge kpi-badge-emerald">Realtime</span>
+          </div>
+          <div class="kpi-value" id="kpi-total-omset">Rp 0</div>
+          <div class="kpi-subtext" id="kpi-omset-sub">Dari 0 voucher terjual</div>
+        </div>
+      </div>
+
+      <!-- Card 2: Voucher Terjual -->
+      <div class="kpi-card kpi-sold">
+        <div class="kpi-icon-wrap kpi-icon-blue">
+          <span class="kpi-icon">🎫</span>
+        </div>
+        <div class="kpi-body">
+          <div class="kpi-header-row">
+            <span class="kpi-label">VOUCHER TERJUAL / CETAK</span>
+            <span class="kpi-badge kpi-badge-blue">Tercetak</span>
+          </div>
+          <div class="kpi-value" id="kpi-printed-count">0 pcs</div>
+          <div class="kpi-subtext" id="kpi-printed-sub">Sukses terdistribusi</div>
+        </div>
+      </div>
+
+      <!-- Card 3: Stok Siap Jual -->
+      <div class="kpi-card kpi-stock">
+        <div class="kpi-icon-wrap kpi-icon-amber">
+          <span class="kpi-icon">📦</span>
+        </div>
+        <div class="kpi-body">
+          <div class="kpi-header-row">
+            <span class="kpi-label">STOK VOUCHER AKTIF</span>
+            <span class="kpi-badge kpi-badge-amber" id="kpi-stock-badge">Siap Jual</span>
+          </div>
+          <div class="kpi-value" id="kpi-stock-count">0 pcs</div>
+          <div class="kpi-subtext" id="kpi-stock-sub">Nilai stok: Rp 0</div>
+        </div>
+      </div>
+
+      <!-- Card 4: Total Deposit Agen -->
+      <div class="kpi-card kpi-agent admin-only">
+        <div class="kpi-icon-wrap kpi-icon-purple">
+          <span class="kpi-icon">🤝</span>
+        </div>
+        <div class="kpi-body">
+          <div class="kpi-header-row">
+            <span class="kpi-label">TOTAL DEPOSIT MITRA</span>
+            <span class="kpi-badge kpi-badge-purple">E-Wallet</span>
+          </div>
+          <div class="kpi-value" id="kpi-agent-balance">Rp 0</div>
+          <div class="kpi-subtext" id="kpi-agent-sub">0 mitra agen aktif</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 🧭 DASHBOARD NAVIGATION TABS -->
+    <nav class="dashboard-tab-bar" id="dashboard-tab-bar" aria-label="Navigasi Menu Utama">
+      <button class="btn-dash-tab active" data-dash-tab="overview">
+        <span class="dash-tab-icon">📊</span>
+        <span class="dash-tab-label">Overview & POS Kasir</span>
+      </button>
+      <button class="btn-dash-tab" data-dash-tab="studio">
+        <span class="dash-tab-icon">🖨️</span>
+        <span class="dash-tab-label">Studio Cetak Voucher</span>
+      </button>
+      <button class="btn-dash-tab" data-dash-tab="database">
+        <span class="dash-tab-icon">📋</span>
+        <span class="dash-tab-label">Database & Tabel Voucher</span>
+        <span class="tab-pill-counter" id="tab-db-counter">0</span>
+      </button>
+      <button class="btn-dash-tab admin-only" data-dash-tab="config">
+        <span class="dash-tab-icon">⚙️</span>
+        <span class="dash-tab-label">Konfigurasi & Cloud Sync</span>
+      </button>
+    </nav>
+
+    <!-- ===== TAB PANE 1: OVERVIEW & POS KASIR ===== -->
+    <div class="dash-tab-pane active" id="pane-dash-overview">
+      <!-- ⚡ QUICK POS CASHIER PANEL (1-CLICK PRINT & SHIFT) -->
+      <section class="panel quick-pos-panel" id="quick-pos-panel">
+        <div class="quick-pos-header">
+          <div class="quick-pos-title">
+            <div class="pos-pulse-dot"></div>
+            <div>
+              <h3>Cetak Cepat Kasir (1-Click POS Print)</h3>
+              <p class="quick-pos-subtitle">Klik kartu paket untuk langsung mencetak 1 voucher ke printer kasir</p>
+            </div>
+          </div>
+          <div class="quick-pos-stats">
+            <button class="btn btn-secondary btn-sm" id="btn-thermal-printer-setup" title="Pengaturan & Panduan Printer Thermal (USB PC / Bluetooth)">🖨️ Printer Thermal</button>
+            <span class="pos-stat-pill">Kasir: <strong id="pos-cashier-name">Umum</strong></span>
+            <span class="pos-stat-pill pos-stat-omset">Shift: <strong id="pos-today-count">0</strong> pcs (<strong id="pos-today-omset">Rp 0</strong>)</span>
+            <button class="btn btn-secondary btn-sm" id="btn-toggle-shift" title="Kelola Buka / Tutup Shift Kasir">🚪 Shift Kasir</button>
+          </div>
+        </div>
+        <div class="quick-pos-grid" id="quick-pos-grid">
+          <div class="loading-state">Memuat daftar paket voucher...</div>
+        </div>
+      </section>
+
+      <!-- 📈 PACKAGE BILLING ANALYTICS WIDGET -->
+      <section class="panel package-billing-analytics" id="package-billing-analytics">
+        <div class="panel-header">
           <div>
-            <h3>Cetak Cepat Kasir (1-Click POS Print)</h3>
-            <p class="quick-pos-subtitle">Klik kartu paket untuk langsung mencetak 1 voucher ke printer kasir</p>
+            <h2>📈 Analisis Pendapatan per Paket Hotspot</h2>
+            <p class="section-subtitle">Volume penjualan, performa omset, dan kontribusi pendapatan tiap varian voucher</p>
+          </div>
+          <div class="pkg-analytics-summary" id="pkg-analytics-summary">
+            <span>Memuat analitik...</span>
           </div>
         </div>
-        <div class="quick-pos-stats">
-          <button class="btn btn-secondary btn-sm" id="btn-thermal-printer-setup" title="Pengaturan & Panduan Printer Thermal (USB PC / Bluetooth)">🖨️ Printer Thermal</button>
-          <span class="pos-stat-pill">Kasir: <strong id="pos-cashier-name">Umum</strong></span>
-          <span class="pos-stat-pill pos-stat-omset">Shift: <strong id="pos-today-count">0</strong> pcs (<strong id="pos-today-omset">Rp 0</strong>)</span>
-          <button class="btn btn-secondary btn-sm" id="btn-toggle-shift" title="Kelola Buka / Tutup Shift Kasir">🚪 Shift Kasir</button>
-        </div>
-      </div>
-      <div class="quick-pos-grid" id="quick-pos-grid">
-        <div class="loading-state">Memuat daftar paket voucher...</div>
-      </div>
-    </section>
-
-    <!-- ⚙️ SETTINGS PANEL DENGAN SISTEM TABULASI (ADMIN ONLY) -->
-    <section class="panel admin-only" id="settings-panel">
-      <div class="panel-header">
-        <!-- Settings Tab Navigation -->
-        <div class="setting-tab-nav">
-          <button class="btn-setting-tab active" data-tab="tab-info">📶 1. Informasi WiFi</button>
-          <button class="btn-setting-tab" data-tab="tab-sheets">📊 2. Database Spreadsheet <span class="badge-tab-pro">PRO</span></button>
-          <button class="btn-setting-tab" data-tab="tab-design">🎨 3. Desain & Branding</button>
-          <button class="btn-setting-tab" data-tab="tab-paper">📄 4. Kertas & Layout</button>
-        </div>
-        <button class="btn btn-secondary btn-sm" id="btn-change-pin" title="Ubah PIN Keamanan Mode Admin">🔒 Ganti PIN Admin</button>
-      </div>
-
-      <div class="panel-body">
-        <!-- TAB 1: INFORMASI WIFI -->
-        <div class="setting-tab-pane active" id="pane-tab-info">
-          <div class="form-row-2">
-            <div class="form-group">
-              <label for="ssid-name">Nama WiFi (SSID Hotspot)</label>
-              <input type="text" id="ssid-name" class="form-input" placeholder="Contoh: Hotspot_Ruijie">
-            </div>
-            <div class="form-group">
-              <label for="start-number">Nomor Urut Awal (#)</label>
-              <input type="number" id="start-number" class="form-input" value="1" min="1" placeholder="1">
-            </div>
-          </div>
-          <div class="form-group" style="margin-top:0.75rem;">
-            <label for="login-hint">Petunjuk Login di Kartu Voucher</label>
-            <input type="text" id="login-hint" class="form-input" placeholder="Contoh: Buka browser utk login">
-          </div>
-          <div class="toggle-group" style="margin-top:0.85rem;border-top:1px dashed var(--border);padding-top:0.65rem;">
-            <label class="toggle-label">
-              <input type="checkbox" id="show-speed" checked>
-              ⚡ Kecepatan (Speed)
-            </label>
-            <label class="toggle-label">
-              <input type="checkbox" id="show-quota" checked>
-              📦 Kuota Data
-            </label>
-            <label class="toggle-label">
-              <input type="checkbox" id="show-hint" checked>
-              💬 Petunjuk Login
-            </label>
+        <div class="panel-body">
+          <div class="pkg-analytics-grid" id="pkg-analytics-grid">
+            <!-- Rendered by JS -->
           </div>
         </div>
+      </section>
 
-        <!-- TAB 2: GOOGLE SPREADSHEET DATABASE -->
-        <div class="setting-tab-pane" id="pane-tab-sheets" style="display:none;">
-          <div class="sheets-config-box">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.65rem;flex-wrap:wrap;gap:0.5rem;">
-              <div>
-                <strong style="font-size:0.92rem;color:var(--text);">📊 Database Cloud Google Spreadsheet <span class="badge-tab-pro">PRO</span></strong>
-                <p style="font-size:0.75rem;color:var(--text-secondary);">1 Database Cloud terpusat untuk semua HP & Laptop Anda. Otomatis tersinkronisasi saat kasir menjual voucher.</p>
-              </div>
-              <button class="btn btn-secondary btn-sm" id="btn-open-sheets-guide-tab">📖 Panduan Setup 2 Menit</button>
-            </div>
-
-            <div id="sheets-account-badge" style="background:var(--primary-light);border:1px solid var(--primary-border);padding:0.55rem 0.85rem;border-radius:var(--radius-xs);margin-bottom:0.85rem;font-size:0.78rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.4rem;">
-              <div>🔒 Terikat ke Akun: <strong id="sheets-bound-email">Belum Login PRO</strong></div>
-              <div style="color:var(--success);font-weight:750;">🟢 Cloud Auto-Sync Aktif</div>
-            </div>
-
-            <div class="form-group">
-              <label for="sheets-url-input">Link Google Spreadsheet / Web App URL</label>
-              <input type="url" id="sheets-url-input" class="form-input" placeholder="https://script.google.com/macros/s/.../exec ATAU https://docs.google.com/spreadsheets/d/...">
-            </div>
-
-            <div style="margin:0.65rem 0 0.85rem;">
-              <label class="toggle-label" style="font-size:0.8rem;font-weight:750;">
-                <input type="checkbox" id="auto-sync-sheets-toggle" checked>
-                ⚡ Auto-Sync Realtime Otomatis Setiap Transaksi Kasir / Cetak
-              </label>
-            </div>
-
-            <div class="sheets-actions-row" style="display:flex;gap:0.55rem;flex-wrap:wrap;">
-              <button class="btn btn-primary btn-sm" id="btn-sync-from-sheets">📥 Tarik Data Sekarang</button>
-              <button class="btn btn-secondary btn-sm" id="btn-save-to-sheets">📤 Backup / Simpan ke Spreadsheet</button>
-              <button class="btn btn-secondary btn-sm" id="btn-save-sheets-config">💾 Simpan Link</button>
-            </div>
+      <!-- 🚀 QUICK ACTION SHORTCUTS -->
+      <div class="quick-action-shortcuts">
+        <div class="shortcut-card" onclick="$id('csv-file').click()" title="Import file CSV atau Excel Ruijie Cloud">
+          <span class="sc-icon">📁</span>
+          <div class="sc-text">
+            <strong>Import Ruijie Cloud</strong>
+            <span>Upload file .csv / .xlsx</span>
           </div>
         </div>
-
-        <!-- TAB 3: TAMPILAN, LOGO & THEME STORE -->
-        <div class="setting-tab-pane" id="pane-tab-design" style="display:none;">
-          
-          <!-- 🎨 1-Click Theme Store / Galeri Template -->
-          <div class="theme-store-section">
-            <div class="theme-store-title">
-              <span>🎨 Galeri Template Desain Voucher (1-Click Theme Store)</span>
-              <span style="font-size:0.72rem;color:var(--text-muted);">Pilih template siap pakai</span>
-            </div>
-            <div class="theme-preset-grid">
-              <div class="theme-preset-card active" data-theme-preset="theme-blue" data-font="font-inter" data-border="border-dashed">
-                <div class="preset-color-bar theme-blue-bar"></div>
-                <div class="preset-name">💎 Cyber Blue</div>
-                <div class="preset-desc">Modern SaaS, Dashed Border</div>
-              </div>
-              <div class="theme-preset-card" data-theme-preset="theme-purple" data-font="font-mono" data-border="border-solid">
-                <div class="preset-color-bar theme-gaming-bar"></div>
-                <div class="preset-name"><span>🎮 Gaming</span><span class="badge-tab-pro">PRO</span></div>
-                <div class="preset-desc">Cyberpunk Tech, Solid Neon</div>
-              </div>
-              <div class="theme-preset-card" data-theme-preset="theme-gold" data-font="font-poppins" data-border="border-dashed">
-                <div class="preset-color-bar theme-cafe-bar"></div>
-                <div class="preset-name"><span>☕ Warkop</span><span class="badge-tab-pro">PRO</span></div>
-                <div class="preset-desc">Warm Amber, Rounded Font</div>
-              </div>
-              <div class="theme-preset-card" data-theme-preset="theme-mono" data-font="font-inter" data-border="border-solid">
-                <div class="preset-color-bar theme-mono-bar"></div>
-                <div class="preset-name">📄 Minimalis</div>
-                <div class="preset-desc">Hitam Putih, 0% Boros Tinta</div>
-              </div>
-              <div class="theme-preset-card" data-theme-preset="theme-emerald" data-font="font-roboto" data-border="border-dashed">
-                <div class="preset-color-bar theme-festive-bar"></div>
-                <div class="preset-name"><span>🌙 Festive</span><span class="badge-tab-pro">PRO</span></div>
-                <div class="preset-desc">Emerald Green Royal Gold</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="settings-grid-tab" style="margin-top:1.15rem;">
-            <!-- Media Upload (Logo & Background) -->
-            <div class="media-upload-column">
-              <div class="logo-upload-area" id="logo-area" title="Klik untuk upload logo toko (PNG/JPG)">
-                <img id="logo-preview" alt="Logo">
-                <div id="logo-placeholder" class="placeholder">
-                  <span class="icon">📷</span>
-                  <span>Upload<br>Logo</span>
-                </div>
-                <input type="file" id="logo-upload" accept="image/*" hidden>
-              </div>
-              <div class="bg-upload-btn-wrap">
-                <button class="btn btn-secondary btn-sm" id="btn-upload-bg" style="width:100%;font-size:0.72rem;">🖼️ Background</button>
-                <input type="file" id="bg-upload" accept="image/*" hidden>
-                <div class="bg-opacity-control" id="bg-opacity-wrap" style="display:none;margin-top:5px;">
-                  <label for="bg-opacity-slider" style="font-size:0.68rem;color:var(--text-secondary);">Opacity: <span id="bg-opacity-val">20%</span></label>
-                  <input type="range" id="bg-opacity-slider" min="5" max="100" value="20" style="width:100%;">
-                  <button class="btn-link-danger" id="btn-remove-bg" style="font-size:0.68rem;border:none;background:none;color:var(--danger);cursor:pointer;">Hapus BG</button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Controls (Theme, Font, Logo Pos, Watermark) -->
-            <div class="setting-column">
-              <div class="form-row-3">
-                <div class="form-group">
-                  <label for="theme-select">Warna Tema Kartu</label>
-                  <select id="theme-select" class="form-input">
-                    <option value="theme-blue" selected>Modern Blue</option>
-                    <option value="theme-mono">Hitam Putih (Hemat Tinta)</option>
-                    <option value="theme-emerald">Emerald Green</option>
-                    <option value="theme-purple">Purple Royal / Gaming</option>
-                    <option value="theme-gold">Golden Cafe / Warkop</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="font-select">Jenis Font</label>
-                  <select id="font-select" class="form-input">
-                    <option value="font-inter" selected>Inter (Modern)</option>
-                    <option value="font-poppins">Poppins (Rounded)</option>
-                    <option value="font-mono">JetBrains Mono (Tech)</option>
-                    <option value="font-roboto">Roboto (Clean)</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="logo-pos-select">Posisi Logo Header</label>
-                  <select id="logo-pos-select" class="form-input">
-                    <option value="center" selected>Logo Tengah (Banner)</option>
-                    <option value="left">Logo Samping Kiri (Klasik)</option>
-                  </select>
-                </div>
-              </div>
-
-              <!-- Watermark / Stempel Kustom -->
-              <div class="form-row-2" style="margin-top:0.6rem;background:var(--surface-alt);padding:0.65rem;border-radius:var(--radius-xs);border:1px solid var(--border);">
-                <div class="form-group">
-                  <label for="watermark-text">🏷️ Teks Watermark / Stempel Agen (Opsional)</label>
-                  <input type="text" id="watermark-text" class="form-input" placeholder="Contoh: WARUNG BU ANI / ASLI">
-                </div>
-                <div class="form-group" style="justify-content:center;">
-                  <label class="toggle-label" style="margin-top:1.2rem;">
-                    <input type="checkbox" id="show-watermark">
-                    Tampilkan Stempel Miring
-                  </label>
-                </div>
-              </div>
-            </div>
+        <div class="shortcut-card" onclick="showRekapModal()" title="Buka grafik penjualan dan laporan omset">
+          <span class="sc-icon">📊</span>
+          <div class="sc-text">
+            <strong>Rekap Omset & Laporan</strong>
+            <span>Grafik penjualan harian & shift</span>
           </div>
         </div>
-
-        <!-- TAB 4: KERTAS & LAYOUT -->
-        <div class="setting-tab-pane" id="pane-tab-paper" style="display:none;">
-          <div class="form-row-2">
-            <div class="form-group">
-              <label for="layout-select">Pilihan Jenis Kertas & Ukuran</label>
-              <select id="layout-select" class="form-input">
-                <optgroup label="⚡ Kertas A4 — RT/RW Net & Voucher Hemat">
-                  <option value="80">🔥 80 / Lembar (8×10 • Ultra Hemat Kupon Receh)</option>
-                  <option value="60">⚡ 60 / Lembar (6×10 • Super Hemat RT/RW Net)</option>
-                  <option value="50">⚡ 50 / Lembar (5×10 • Hemat Kertas & Tinta)</option>
-                  <option value="40">⚡ 40 / Lembar (4×10 • RT/RW Net Tulisan Besar)</option>
-                </optgroup>
-                <optgroup label="☕ Kertas A4 — Warkop, Kafe & Hotspot (Branding Logo)">
-                  <option value="30">30 / Lembar (5×6 • Kompak)</option>
-                  <option value="25" selected>25 / Lembar (5×5 • Standar Warkop & Kafe)</option>
-                  <option value="20">20 / Lembar (4×5 • Logo Samping / Landscape)</option>
-                </optgroup>
-                <optgroup label="👑 Kertas A4 — Premium & VIP (Kartu Nama)">
-                  <option value="16">16 / Lembar (4×4 • Kartu Sedang)</option>
-                  <option value="10">👑 10 / Lembar (2×5 • Ukuran Kartu Nama / VIP Member)</option>
-                </optgroup>
-                <optgroup label="🧾 Printer Thermal Kasir (POS Roll)">
-                  <option value="thermal-58">Printer Thermal 58mm (Struk Mini)</option>
-                  <option value="thermal-80">Printer Thermal 80mm (Struk Standar)</option>
-                </optgroup>
-                <optgroup label="🏷️ Kertas Stiker Label (Tom & Jerry / Fox)">
-                  <option value="label-108">Label TJ 108 (40 / lembar • 18×38mm Hemat)</option>
-                  <option value="label-103">Label TJ 103 (12 / lembar • 32×64mm Cup)</option>
-                  <option value="label-121">Label TJ 121 (10 / lembar • 38×75mm)</option>
-                </optgroup>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="border-select">Gaya Border / Garis Potong</label>
-              <select id="border-select" class="form-input">
-                <option value="border-dashed" selected>Garis Putus Gunting (Dashed)</option>
-                <option value="border-solid">Garis Solid Tipis</option>
-                <option value="border-none">Tanpa Garis / Polos</option>
-              </select>
-            </div>
+        <div class="shortcut-card" onclick="window.open('agent.html', '_blank')" title="Buka portal e-wallet agen untuk beli voucher mandiri">
+          <span class="sc-icon">📱</span>
+          <div class="sc-text">
+            <strong>Portal E-Wallet Agen</strong>
+            <span>Beli voucher mandiri mitra</span>
           </div>
         </div>
-      </div>
-    </section>
-
-    <!-- Toolbar: Search, Filters & Action Controls -->
-    <div class="toolbar-panel">
-      <div class="toolbar-search-row">
-        <!-- Live Search Box with Keyboard Hint -->
-        <div class="search-box-wrapper">
-          <span class="search-icon">🔍</span>
-          <input type="text" id="search-input" class="search-input" placeholder="Cari Kode Voucher, Paket, Reseller... (Tekan '/' untuk cari)" autocomplete="off">
-          <button class="search-clear-btn" id="search-clear-btn" title="Hapus pencarian" style="display:none;">✕</button>
+        <div class="shortcut-card admin-only" onclick="showDatabaseBackupModal()" title="Backup atau restore database dalam 1 file JSON">
+          <span class="sc-icon">💾</span>
+          <div class="sc-text">
+            <strong>Backup & Restore DB</strong>
+            <span>Simpan / Pulihkan data JSON</span>
+          </div>
         </div>
-
-        <!-- Filter Reseller Dropdown -->
-        <div class="filter-group admin-only">
-          <select id="filter-reseller-select" class="form-input form-input-sm" title="Filter Voucher berdasarkan Mitra / Agen Hotspot">
-            <option value="all">Semua Agen / Mitra</option>
-          </select>
-        </div>
-
-        <!-- Auto Archive Toggle (>24 jam) -->
-        <label class="auto-archive-label" title="Sembunyikan voucher yang sudah dicetak lebih dari 24 jam agar aplikasi tetap super kencang">
-          <input type="checkbox" id="auto-archive-toggle" checked>
-          <span>🧹 Sembunyikan > 24 Jam</span>
-        </label>
-      </div>
-
-      <!-- Action Bar Bottom Row -->
-      <div class="action-bar">
-        <div class="action-bar-left">
-          <h2>
-            📋 Daftar Voucher
-            <span class="badge" id="voucher-count">0</span>
-          </h2>
-          <span class="badge-selected" id="selected-info">0 dipilih</span>
-        </div>
-
-        <!-- Filter Tabs: Semua / Belum Dicetak / Sudah Dicetak -->
-        <div class="filter-tabs">
-          <button class="filter-tab active" data-filter="all" id="tab-all">Semua (<span id="count-all">0</span>)</button>
-          <button class="filter-tab" data-filter="unprinted" id="tab-unprinted">🟢 Belum Dicetak (<span id="count-unprinted">0</span>)</button>
-          <button class="filter-tab" data-filter="printed" id="tab-printed">⚪ Sudah Dicetak (<span id="count-printed">0</span>)</button>
-        </div>
-
-        <div class="actions">
-          <!-- Primary Actions: Import Ruijie & Add -->
-          <button class="btn btn-primary admin-only" id="btn-import" title="Import file CSV / Excel langsung dari Ruijie Cloud">📁 Import File Ruijie</button>
-          <button class="btn btn-secondary admin-only" id="btn-add">＋ Tambah</button>
-          <button class="btn btn-secondary admin-only" id="btn-assign-reseller" title="Kelola dan Alokasikan voucher ke Mitra / Agen Hotspot">🤝 Menu Agen</button>
-          <button class="btn btn-secondary" id="btn-toggle-printed" title="Ubah status voucher terpilih (Belum / Sudah Dicetak)">🏷️ Ubah Status</button>
-          <button class="btn btn-secondary" id="btn-export-pdf" title="Export Lembar Cetak sebagai Dokumen PDF Presisi Ukuran">📄 Export PDF</button>
-          <button class="btn btn-secondary" id="btn-export-png" title="Download Lembar Cetak sebagai Gambar PNG">🖼️ Export PNG</button>
-          <button class="btn btn-danger admin-only" id="btn-delete-selected" title="Hapus voucher yang dicentang">🗑 Hapus</button>
-          <button class="btn btn-print" id="btn-print">🖨️ Cetak Lembaran (Pilih Batch)</button>
-        </div>
-        <input type="file" id="csv-file" accept=".csv,.txt,.xlsx,.xls" hidden>
       </div>
     </div>
 
-    <!-- 2-Column Responsive Workspace: Table + Live Preview -->
-    <div class="app-content">
+    <!-- ===== TAB PANE 2: STUDIO CETAK VOUCHER ===== -->
+    <div class="dash-tab-pane" id="pane-dash-studio" style="display:none;">
+      <div class="studio-workspace">
+
+        <!-- ⚙️ SETTINGS PANEL DENGAN SISTEM TABULASI (ADMIN ONLY) -->
+        <section class="panel admin-only" id="settings-panel">
+          <div class="panel-header">
+            <!-- Settings Tab Navigation -->
+            <div class="setting-tab-nav">
+              <button class="btn-setting-tab active" data-tab="tab-info">📶 1. Informasi WiFi</button>
+              <button class="btn-setting-tab" data-tab="tab-sheets">📊 2. Database Spreadsheet <span class="badge-tab-pro">PRO</span></button>
+              <button class="btn-setting-tab" data-tab="tab-design">🎨 3. Desain & Branding</button>
+              <button class="btn-setting-tab" data-tab="tab-paper">📄 4. Kertas & Layout</button>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="btn-change-pin" title="Ubah PIN Keamanan Mode Admin">🔒 Ganti PIN Admin</button>
+          </div>
+
+          <div class="panel-body">
+            <!-- TAB 1: INFORMASI WIFI -->
+            <div class="setting-tab-pane active" id="pane-tab-info">
+              <div class="form-row-2">
+                <div class="form-group">
+                  <label for="ssid-name">Nama WiFi (SSID Hotspot)</label>
+                  <input type="text" id="ssid-name" class="form-input" placeholder="Contoh: Hotspot_Ruijie">
+                </div>
+                <div class="form-group">
+                  <label for="start-number">Nomor Urut Awal (#)</label>
+                  <input type="number" id="start-number" class="form-input" value="1" min="1" placeholder="1">
+                </div>
+              </div>
+              <div class="form-group" style="margin-top:0.75rem;">
+                <label for="login-hint">Petunjuk Login di Kartu Voucher</label>
+                <input type="text" id="login-hint" class="form-input" placeholder="Contoh: Buka browser utk login">
+              </div>
+              <div class="toggle-group" style="margin-top:0.85rem;border-top:1px dashed var(--border);padding-top:0.65rem;">
+                <label class="toggle-label">
+                  <input type="checkbox" id="show-speed" checked>
+                  ⚡ Kecepatan (Speed)
+                </label>
+                <label class="toggle-label">
+                  <input type="checkbox" id="show-quota" checked>
+                  📦 Kuota Data
+                </label>
+                <label class="toggle-label">
+                  <input type="checkbox" id="show-hint" checked>
+                  💬 Petunjuk Login
+                </label>
+              </div>
+            </div>
+
+            <!-- TAB 2: GOOGLE SPREADSHEET DATABASE -->
+            <div class="setting-tab-pane" id="pane-tab-sheets" style="display:none;">
+              <div class="sheets-config-box">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.65rem;flex-wrap:wrap;gap:0.5rem;">
+                  <div>
+                    <strong style="font-size:0.92rem;color:var(--text);">📊 Database Cloud Google Spreadsheet <span class="badge-tab-pro">PRO</span></strong>
+                    <p style="font-size:0.75rem;color:var(--text-secondary);">1 Database Cloud terpusat untuk semua HP & Laptop Anda. Otomatis tersinkronisasi saat kasir menjual voucher.</p>
+                  </div>
+                  <button class="btn btn-secondary btn-sm" id="btn-open-sheets-guide-tab">📖 Panduan Setup 2 Menit</button>
+                </div>
+
+                <div id="sheets-account-badge" style="background:var(--primary-light);border:1px solid var(--primary-border);padding:0.55rem 0.85rem;border-radius:var(--radius-xs);margin-bottom:0.85rem;font-size:0.78rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.4rem;">
+                  <div>🔒 Terikat ke Akun: <strong id="sheets-bound-email">Belum Login PRO</strong></div>
+                  <div style="color:var(--success);font-weight:750;">🟢 Cloud Auto-Sync Aktif</div>
+                </div>
+
+                <div class="form-group">
+                  <label for="sheets-url-input">Link Google Spreadsheet / Web App URL</label>
+                  <input type="url" id="sheets-url-input" class="form-input" placeholder="https://script.google.com/macros/s/.../exec ATAU https://docs.google.com/spreadsheets/d/...">
+                </div>
+
+                <div style="margin:0.65rem 0 0.85rem;">
+                  <label class="toggle-label" style="font-size:0.8rem;font-weight:750;">
+                    <input type="checkbox" id="auto-sync-sheets-toggle" checked>
+                    ⚡ Auto-Sync Realtime Otomatis Setiap Transaksi Kasir / Cetak
+                  </label>
+                </div>
+
+                <div class="sheets-actions-row" style="display:flex;gap:0.55rem;flex-wrap:wrap;">
+                  <button class="btn btn-primary btn-sm" id="btn-sync-from-sheets">📥 Tarik Data Sekarang</button>
+                  <button class="btn btn-secondary btn-sm" id="btn-save-to-sheets">📤 Backup / Simpan ke Spreadsheet</button>
+                  <button class="btn btn-secondary btn-sm" id="btn-save-sheets-config">💾 Simpan Link</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 3: TAMPILAN, LOGO & THEME STORE -->
+            <div class="setting-tab-pane" id="pane-tab-design" style="display:none;">
+              <!-- 🎨 1-Click Theme Store / Galeri Template -->
+              <div class="theme-store-section">
+                <div class="theme-store-title">
+                  <span>🎨 Galeri Template Desain Voucher (1-Click Theme Store)</span>
+                  <span style="font-size:0.72rem;color:var(--text-muted);">Pilih template siap pakai</span>
+                </div>
+                <div class="theme-preset-grid">
+                  <div class="theme-preset-card active" data-theme-preset="theme-blue" data-font="font-inter" data-border="border-dashed">
+                    <div class="preset-color-bar theme-blue-bar"></div>
+                    <div class="preset-name">💎 Cyber Blue</div>
+                    <div class="preset-desc">Modern SaaS, Dashed Border</div>
+                  </div>
+                  <div class="theme-preset-card" data-theme-preset="theme-purple" data-font="font-mono" data-border="border-solid">
+                    <div class="preset-color-bar theme-gaming-bar"></div>
+                    <div class="preset-name"><span>🎮 Gaming</span><span class="badge-tab-pro">PRO</span></div>
+                    <div class="preset-desc">Cyberpunk Tech, Solid Neon</div>
+                  </div>
+                  <div class="theme-preset-card" data-theme-preset="theme-gold" data-font="font-poppins" data-border="border-dashed">
+                    <div class="preset-color-bar theme-cafe-bar"></div>
+                    <div class="preset-name"><span>☕ Warkop</span><span class="badge-tab-pro">PRO</span></div>
+                    <div class="preset-desc">Warm Amber, Rounded Font</div>
+                  </div>
+                  <div class="theme-preset-card" data-theme-preset="theme-mono" data-font="font-inter" data-border="border-solid">
+                    <div class="preset-color-bar theme-mono-bar"></div>
+                    <div class="preset-name">📄 Minimalis</div>
+                    <div class="preset-desc">Hitam Putih, 0% Boros Tinta</div>
+                  </div>
+                  <div class="theme-preset-card" data-theme-preset="theme-emerald" data-font="font-roboto" data-border="border-dashed">
+                    <div class="preset-color-bar theme-festive-bar"></div>
+                    <div class="preset-name"><span>🌙 Festive</span><span class="badge-tab-pro">PRO</span></div>
+                    <div class="preset-desc">Emerald Green Royal Gold</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-grid-tab" style="margin-top:1.15rem;">
+                <!-- Media Upload (Logo & Background) -->
+                <div class="media-upload-column">
+                  <div class="logo-upload-area" id="logo-area" title="Klik untuk upload logo toko (PNG/JPG)">
+                    <img id="logo-preview" alt="Logo">
+                    <div id="logo-placeholder" class="placeholder">
+                      <span class="icon">📷</span>
+                      <span>Upload<br>Logo</span>
+                    </div>
+                    <input type="file" id="logo-upload" accept="image/*" hidden>
+                  </div>
+                  <div class="bg-upload-btn-wrap">
+                    <button class="btn btn-secondary btn-sm" id="btn-upload-bg" style="width:100%;font-size:0.72rem;">🖼️ Background</button>
+                    <input type="file" id="bg-upload" accept="image/*" hidden>
+                    <div class="bg-opacity-control" id="bg-opacity-wrap" style="display:none;margin-top:5px;">
+                      <label for="bg-opacity-slider" style="font-size:0.68rem;color:var(--text-secondary);">Opacity: <span id="bg-opacity-val">20%</span></label>
+                      <input type="range" id="bg-opacity-slider" min="5" max="100" value="20" style="width:100%;">
+                      <button class="btn-link-danger" id="btn-remove-bg" style="font-size:0.68rem;border:none;background:none;color:var(--danger);cursor:pointer;">Hapus BG</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Controls (Theme, Font, Logo Pos, Watermark) -->
+                <div class="setting-column">
+                  <div class="form-row-3">
+                    <div class="form-group">
+                      <label for="theme-select">Warna Tema Kartu</label>
+                      <select id="theme-select" class="form-input">
+                        <option value="theme-blue" selected>Modern Blue</option>
+                        <option value="theme-mono">Hitam Putih (Hemat Tinta)</option>
+                        <option value="theme-emerald">Emerald Green</option>
+                        <option value="theme-purple">Purple Royal / Gaming</option>
+                        <option value="theme-gold">Golden Cafe / Warkop</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="font-select">Jenis Font</label>
+                      <select id="font-select" class="form-input">
+                        <option value="font-inter" selected>Inter (Modern)</option>
+                        <option value="font-poppins">Poppins (Rounded)</option>
+                        <option value="font-mono">JetBrains Mono (Tech)</option>
+                        <option value="font-roboto">Roboto (Clean)</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="logo-pos-select">Posisi Logo Header</label>
+                      <select id="logo-pos-select" class="form-input">
+                        <option value="center" selected>Logo Tengah (Banner)</option>
+                        <option value="left">Logo Samping Kiri (Klasik)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <!-- Watermark / Stempel Kustom -->
+                  <div class="form-row-2" style="margin-top:0.6rem;background:var(--surface-alt);padding:0.65rem;border-radius:var(--radius-xs);border:1px solid var(--border);">
+                    <div class="form-group">
+                      <label for="watermark-text">🏷️ Teks Watermark / Stempel Agen (Opsional)</label>
+                      <input type="text" id="watermark-text" class="form-input" placeholder="Contoh: WARUNG BU ANI / ASLI">
+                    </div>
+                    <div class="form-group" style="justify-content:center;">
+                      <label class="toggle-label" style="margin-top:1.2rem;">
+                        <input type="checkbox" id="show-watermark">
+                        Tampilkan Stempel Miring
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 4: KERTAS & LAYOUT -->
+            <div class="setting-tab-pane" id="pane-tab-paper" style="display:none;">
+              <div class="form-row-2">
+                <div class="form-group">
+                  <label for="layout-select">Pilihan Jenis Kertas & Ukuran</label>
+                  <select id="layout-select" class="form-input">
+                    <optgroup label="⚡ Kertas A4 — RT/RW Net & Voucher Hemat">
+                      <option value="80">🔥 80 / Lembar (8×10 • Ultra Hemat Kupon Receh)</option>
+                      <option value="60">⚡ 60 / Lembar (6×10 • Super Hemat RT/RW Net)</option>
+                      <option value="50">⚡ 50 / Lembar (5×10 • Hemat Kertas & Tinta)</option>
+                      <option value="40">⚡ 40 / Lembar (4×10 • RT/RW Net Tulisan Besar)</option>
+                    </optgroup>
+                    <optgroup label="☕ Kertas A4 — Warkop, Kafe & Hotspot (Branding Logo)">
+                      <option value="30">30 / Lembar (5×6 • Kompak)</option>
+                      <option value="25" selected>25 / Lembar (5×5 • Standar Warkop & Kafe)</option>
+                      <option value="20">20 / Lembar (4×5 • Logo Samping / Landscape)</option>
+                    </optgroup>
+                    <optgroup label="👑 Kertas A4 — Premium & VIP (Kartu Nama)">
+                      <option value="16">16 / Lembar (4×4 • Kartu Sedang)</option>
+                      <option value="10">👑 10 / Lembar (2×5 • Ukuran Kartu Nama / VIP Member)</option>
+                    </optgroup>
+                    <optgroup label="🧾 Printer Thermal Kasir (POS Roll)">
+                      <option value="thermal-58">Printer Thermal 58mm (Struk Mini)</option>
+                      <option value="thermal-80">Printer Thermal 80mm (Struk Standar)</option>
+                    </optgroup>
+                    <optgroup label="🏷️ Kertas Stiker Label (Tom & Jerry / Fox)">
+                      <option value="label-108">Label TJ 108 (40 / lembar • 18×38mm Hemat)</option>
+                      <option value="label-103">Label TJ 103 (12 / lembar • 32×64mm Cup)</option>
+                      <option value="label-121">Label TJ 121 (10 / lembar • 38×75mm)</option>
+                    </optgroup>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="border-select">Gaya Border / Garis Potong</label>
+                  <select id="border-select" class="form-input">
+                    <option value="border-dashed" selected>Garis Putus Gunting (Dashed)</option>
+                    <option value="border-solid">Garis Solid Tipis</option>
+                    <option value="border-none">Tanpa Garis / Polos</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Live Sheet Preview -->
+        <section class="panel" id="preview-panel">
+          <div class="panel-header">
+            <h2>👁 Preview Lembar Cetak (<span id="preview-layout-badge">A4 5×5</span>)</h2>
+            <div class="preview-header-actions" style="display:flex;gap:0.45rem;align-items:center;">
+              <button class="btn btn-secondary btn-sm" id="btn-studio-pdf" title="Export Lembar Cetak sebagai Dokumen PDF Presisi Ukuran">📄 PDF</button>
+              <button class="btn btn-secondary btn-sm" id="btn-studio-png" title="Download Lembar Cetak sebagai Gambar PNG">🖼️ PNG</button>
+              <button class="btn btn-print btn-sm" id="btn-studio-print" title="Cetak Lembaran Langsung">🖨️ Cetak</button>
+            </div>
+          </div>
+          <div class="preview-container" id="preview-grid">
+            <!-- Will be rendered dynamically with Dummy / Sample cards if vouchers are empty -->
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+    <!-- ===== TAB PANE 3: DATABASE & TABEL VOUCHER ===== -->
+    <div class="dash-tab-pane" id="pane-dash-database" style="display:none;">
+      <!-- Toolbar: Search, Filters & Action Controls -->
+      <div class="toolbar-panel">
+        <div class="toolbar-search-row">
+          <!-- Live Search Box with Keyboard Hint -->
+          <div class="search-box-wrapper">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="search-input" class="search-input" placeholder="Cari Kode Voucher, Paket, Reseller... (Tekan '/' untuk cari)" autocomplete="off">
+            <button class="search-clear-btn" id="search-clear-btn" title="Hapus pencarian" style="display:none;">✕</button>
+          </div>
+
+          <!-- Filter Reseller Dropdown -->
+          <div class="filter-group admin-only">
+            <select id="filter-reseller-select" class="form-input form-input-sm" title="Filter Voucher berdasarkan Mitra / Agen Hotspot">
+              <option value="all">Semua Agen / Mitra</option>
+            </select>
+          </div>
+
+          <!-- Auto Archive Toggle (>24 jam) -->
+          <label class="auto-archive-label" title="Sembunyikan voucher yang sudah dicetak lebih dari 24 jam agar aplikasi tetap super kencang">
+            <input type="checkbox" id="auto-archive-toggle" checked>
+            <span>🧹 Sembunyikan > 24 Jam</span>
+          </label>
+        </div>
+
+        <!-- Action Bar Bottom Row -->
+        <div class="action-bar">
+          <div class="action-bar-left">
+            <h2>
+              📋 Daftar Voucher
+              <span class="badge" id="voucher-count">0</span>
+            </h2>
+            <span class="badge-selected" id="selected-info">0 dipilih</span>
+          </div>
+
+          <!-- Filter Tabs: Semua / Belum Dicetak / Sudah Dicetak -->
+          <div class="filter-tabs">
+            <button class="filter-tab active" data-filter="all" id="tab-all">Semua (<span id="count-all">0</span>)</button>
+            <button class="filter-tab" data-filter="unprinted" id="tab-unprinted">🟢 Belum Dicetak (<span id="count-unprinted">0</span>)</button>
+            <button class="filter-tab" data-filter="printed" id="tab-printed">⚪ Sudah Dicetak (<span id="count-printed">0</span>)</button>
+          </div>
+
+          <div class="actions">
+            <!-- Primary Actions: Import Ruijie & Add -->
+            <button class="btn btn-primary admin-only" id="btn-import" title="Import file CSV / Excel langsung dari Ruijie Cloud">📁 Import File Ruijie</button>
+            <button class="btn btn-secondary admin-only" id="btn-add">＋ Tambah</button>
+            <button class="btn btn-secondary admin-only" id="btn-assign-reseller" title="Kelola dan Alokasikan voucher ke Mitra / Agen Hotspot">🤝 Menu Agen</button>
+            <button class="btn btn-secondary" id="btn-toggle-printed" title="Ubah status voucher terpilih (Belum / Sudah Dicetak)">🏷️ Ubah Status</button>
+            <button class="btn btn-secondary" id="btn-export-pdf" title="Export Lembar Cetak sebagai Dokumen PDF Presisi Ukuran">📄 Export PDF</button>
+            <button class="btn btn-secondary" id="btn-export-png" title="Download Lembar Cetak sebagai Gambar PNG">🖼️ Export PNG</button>
+            <button class="btn btn-danger admin-only" id="btn-delete-selected" title="Hapus voucher yang dicentang">🗑 Hapus</button>
+            <button class="btn btn-print" id="btn-print">🖨️ Cetak Lembaran (Pilih Batch)</button>
+          </div>
+          <input type="file" id="csv-file" accept=".csv,.txt,.xlsx,.xls" hidden>
+        </div>
+      </div>
 
       <!-- Voucher Data Table (Responsive Scroll Wrapper) -->
       <section class="panel" id="voucher-panel">
@@ -451,17 +608,92 @@
           </div>
         </div>
       </section>
+    </div>
 
-      <!-- Live Sheet Preview -->
-      <section class="panel" id="preview-panel">
-        <div class="panel-header">
-          <h2>👁 Preview Lembar Cetak (<span id="preview-layout-badge">A4 5×5</span>)</h2>
+    <!-- ===== TAB PANE 4: KONFIGURASI & CLOUD SYNC ===== -->
+    <div class="dash-tab-pane admin-only" id="pane-dash-config" style="display:none;">
+      <div class="config-hub-grid">
+        <!-- Card 1: Google Sheets Cloud Database Sync -->
+        <div class="panel config-card">
+          <div class="panel-header">
+            <h2>📊 Google Spreadsheet Database Cloud Sync</h2>
+            <span class="badge" style="background:var(--success-light);color:var(--success);">🟢 Cloud Realtime</span>
+          </div>
+          <div class="panel-body">
+            <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:0.85rem;">
+              Database cloud Google Spreadsheet memungkinkan sinkronisasi voucher terpusat secara realtime di semua perangkat (laptop admin, kasir, smartphone) tanpa perlu biaya sewa server / VPS bulanan.
+            </p>
+            <div class="form-group" style="margin-bottom:0.85rem;">
+              <label for="cfg-sheets-url">Web App URL Google Apps Script / Spreadsheet URL</label>
+              <input type="url" id="cfg-sheets-url" class="form-input" placeholder="https://script.google.com/macros/s/.../exec">
+            </div>
+            <label class="toggle-label" style="margin-bottom:1rem;">
+              <input type="checkbox" id="cfg-auto-sync-toggle" checked>
+              ⚡ Auto-Sync Realtime Otomatis Setiap Transaksi Kasir / Cetak
+            </label>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+              <button class="btn btn-primary btn-sm" id="cfg-btn-sync">📥 Tarik Data dari Cloud</button>
+              <button class="btn btn-secondary btn-sm" id="cfg-btn-save">📤 Backup ke Spreadsheet</button>
+              <button class="btn btn-secondary btn-sm" id="cfg-btn-guide">📖 Panduan Setup 2 Menit</button>
+            </div>
+          </div>
         </div>
-        <div class="preview-container" id="preview-grid">
-          <!-- Will be rendered dynamically with Dummy / Sample cards if vouchers are empty -->
-        </div>
-      </section>
 
+        <!-- Card 2: JSON Backup, Restore & Data Slate -->
+        <div class="panel config-card">
+          <div class="panel-header">
+            <h2>💾 Backup, Restore & Reset Slate (JSON)</h2>
+            <span class="badge">Offline & Safe</span>
+          </div>
+          <div class="panel-body">
+            <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:0.85rem;">
+              Ekspor seluruh database (voucher, saldo deposit agen, pengaturan, log aktivitas) ke 1 file .json terenkripsi, atau bersihkan data sebelum menjual source code kepada pembeli.
+            </p>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;">
+              <button class="btn btn-primary btn-sm" id="cfg-btn-backup">💾 Download Backup Database (.json)</button>
+              <button class="btn btn-secondary btn-sm" id="cfg-btn-restore">📂 Restore dari File JSON</button>
+            </div>
+            <div style="border-top:1px dashed var(--border);padding-top:0.85rem;margin-top:0.85rem;">
+              <strong style="font-size:0.82rem;color:var(--danger);display:block;margin-bottom:0.35rem;">⚠️ Mode Penjualan Source Code:</strong>
+              <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.65rem;">
+                Bersihkan data pribadi dan isi contoh dummy yang rapi agar pembeli source code Anda langsung siap pakai tanpa melihat voucher lama Anda.
+              </p>
+              <button class="btn btn-danger btn-sm" id="cfg-btn-reset-sale">🧹 Reset & Siapkan Data untuk Dijual</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 3: Outlet & Multi-SSID Hotspot Presets -->
+        <div class="panel config-card">
+          <div class="panel-header">
+            <h2>🏪 Profil Toko & Multi-SSID Hotspot</h2>
+            <span class="badge">Multi-Outlet</span>
+          </div>
+          <div class="panel-body">
+            <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:0.85rem;">
+              Simpan dan ganti profil toko, nama WiFi (SSID Hotspot), logo, dan tarif untuk berbagai cabang outlet warkop, kafe, atau RT/RW Net Anda dengan 1 kali klik.
+            </p>
+            <button class="btn btn-secondary btn-sm" id="cfg-btn-presets">🏪 Buka Kelola Profil Outlet</button>
+          </div>
+        </div>
+
+        <!-- Card 4: Security PIN & Audit Trail -->
+        <div class="panel config-card">
+          <div class="panel-header">
+            <h2>🔒 Keamanan & Audit Trail Kasir</h2>
+            <span class="badge">Keamanan</span>
+          </div>
+          <div class="panel-body">
+            <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:0.85rem;">
+              Lindungi akses Admin dari kasir dengan PIN 4-6 digit, dan periksa rekaman jejak setiap tindakan kasir (cetak, hapus, tambah) untuk mencegah kecurangan.
+            </p>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+              <button class="btn btn-secondary btn-sm" id="cfg-btn-pin">🔒 Ganti PIN Admin</button>
+              <button class="btn btn-secondary btn-sm" id="cfg-btn-audit">📜 Buka Log Kasir (Audit Trail)</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
   </main>
@@ -476,6 +708,6 @@
 
   <script src="xlsx.mini.min.js"></script>
   <script src="qrcode.min.js"></script>
-  <script src="main.js?v=2.6"></script>
+  <script src="main.js?v=2.7"></script>
 </body>
 </html>

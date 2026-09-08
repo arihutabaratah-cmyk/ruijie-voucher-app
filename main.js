@@ -123,11 +123,14 @@ document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   checkLicenseValidity();
   bindEvents();
+  initDashboardTabs();
   applyUIMode();
   updateProBadgeUI();
   renderResellerFilterSelect();
   restoreUI();
   checkStockAlerts();
+  updateBillingKPICards();
+  renderPackageBillingAnalytics();
   renderQuickPOSGrid();
   renderTable();
   renderPreview();
@@ -554,6 +557,46 @@ function bindEvents() {
   on('btn-rekap', 'click', showRekapModal);
   on('btn-export-pdf', 'click', exportPDF);
   on('btn-export-png', 'click', exportPreviewAsPNG);
+
+  // Studio Quick Action Buttons
+  on('btn-studio-pdf', 'click', exportPDF);
+  on('btn-studio-png', 'click', exportPreviewAsPNG);
+  on('btn-studio-print', 'click', handlePrint);
+
+  // Configuration Hub (Pane 4) Actions
+  on('cfg-btn-sync', 'click', () => syncFromGoogleSheets());
+  on('cfg-btn-save', 'click', () => saveToGoogleSheets());
+  on('cfg-btn-guide', 'click', showGoogleSheetsModal);
+  on('cfg-btn-backup', 'click', exportDatabaseJSON);
+  on('cfg-btn-restore', 'click', showDatabaseBackupModal);
+  on('cfg-btn-reset-sale', 'click', resetDatabaseForSale);
+  on('cfg-btn-presets', 'click', showStorePresetsModal);
+  on('cfg-btn-pin', 'click', showChangePinModal);
+  on('cfg-btn-audit', 'click', showAuditLogModal);
+
+  // Config Hub Sheets URL & Auto Sync Mirror
+  const cfgSheetsUrl = $id('cfg-sheets-url');
+  const sheetsUrlInput = $id('sheets-url-input');
+  if (cfgSheetsUrl) {
+    cfgSheetsUrl.addEventListener('change', (e) => {
+      const url = e.target.value.trim();
+      state.settings.sheetsUrl = url;
+      if (sheetsUrlInput) sheetsUrlInput.value = url;
+      saveState();
+      showToast('Link Google Spreadsheet disimpan');
+      triggerBackgroundAutoSync();
+    });
+  }
+  const cfgAutoSync = $id('cfg-auto-sync-toggle');
+  const autoSyncToggle = $id('auto-sync-sheets-toggle');
+  if (cfgAutoSync) {
+    cfgAutoSync.addEventListener('change', (e) => {
+      state.settings.autoSyncSheets = e.target.checked;
+      if (autoSyncToggle) autoSyncToggle.checked = e.target.checked;
+      saveState();
+      showToast(`Cloud Auto-Sync: ${e.target.checked ? 'Aktif' : 'Nonaktif'}`);
+    });
+  }
 
   // Background Image Upload & Opacity
   on('btn-upload-bg', 'click', () => {
@@ -2337,6 +2380,228 @@ function renderQuickPOSGrid() {
       quickPrintPackage(pkgName, 1);
     });
   });
+
+  updateBillingKPICards();
+  renderPackageBillingAnalytics();
+}
+
+// ===== 🧭 DASHBOARD TAB MANAGEMENT =====
+function initDashboardTabs() {
+  const tabs = $$('.btn-dash-tab');
+  const panes = $$('.dash-tab-pane');
+  if (!tabs.length || !panes.length) return;
+
+  tabs.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tabId = btn.dataset.dashTab;
+      activateDashboardTab(tabId);
+    });
+  });
+
+  let savedTab = 'overview';
+  try {
+    savedTab = sessionStorage.getItem('active_dashboard_tab') || 'overview';
+  } catch (e) {}
+  activateDashboardTab(savedTab);
+}
+
+function activateDashboardTab(tabId) {
+  const tabs = $$('.btn-dash-tab');
+  const panes = $$('.dash-tab-pane');
+
+  let targetTab = tabId;
+  const targetPane = $id(`pane-dash-${targetTab}`);
+  if (!targetPane) targetTab = 'overview';
+
+  tabs.forEach(t => {
+    if (t.dataset.dashTab === targetTab) {
+      t.classList.add('active');
+    } else {
+      t.classList.remove('active');
+    }
+  });
+
+  panes.forEach(p => {
+    if (p.id === `pane-dash-${targetTab}`) {
+      p.style.display = 'flex';
+      p.classList.add('active');
+    } else {
+      p.style.display = 'none';
+      p.classList.remove('active');
+    }
+  });
+
+  try {
+    sessionStorage.setItem('active_dashboard_tab', targetTab);
+  } catch (e) {}
+
+  if (targetTab === 'studio') {
+    renderPreview();
+  } else if (targetTab === 'database') {
+    renderTable();
+  } else if (targetTab === 'overview') {
+    updateBillingKPICards();
+    renderPackageBillingAnalytics();
+  }
+}
+
+// ===== 📊 EXECUTIVE BILLING KPI METRICS =====
+function updateBillingKPICards() {
+  const total = state.vouchers.length;
+  let unprintedCount = 0;
+  let printedCount = 0;
+  let totalOmset = 0;
+  let stockValue = 0;
+
+  state.vouchers.forEach(v => {
+    const rawPrice = String(v.harga || '0').replace(/[^\d.]/g, '');
+    let price = parseFloat(rawPrice) || 0;
+    if (price > 0 && price < 500) price *= 1000;
+
+    if (v.printed) {
+      printedCount++;
+      totalOmset += price;
+    } else {
+      unprintedCount++;
+      stockValue += price;
+    }
+  });
+
+  let totalAgentDeposit = 0;
+  if (Array.isArray(state.resellers)) {
+    state.resellers.forEach(r => {
+      totalAgentDeposit += parseFloat(r.balance) || 0;
+    });
+  }
+
+  setText('kpi-total-omset', `Rp ${formatNumber(totalOmset)}`);
+  setText('kpi-omset-sub', `Dari ${printedCount} voucher terjual/tercetak`);
+
+  setText('kpi-printed-count', `${printedCount} pcs`);
+  setText('kpi-printed-sub', `Sukses didistribusikan`);
+
+  setText('kpi-stock-count', `${unprintedCount} pcs`);
+  setText('kpi-stock-sub', `Nilai stok: Rp ${formatNumber(stockValue)}`);
+
+  const stockBadge = $id('kpi-stock-badge');
+  if (stockBadge) {
+    if (unprintedCount === 0) {
+      stockBadge.textContent = 'Habis';
+      stockBadge.className = 'kpi-badge' + (total > 0 ? ' kpi-badge-amber' : '');
+    } else if (unprintedCount <= 5) {
+      stockBadge.textContent = 'Menipis';
+      stockBadge.className = 'kpi-badge kpi-badge-amber';
+    } else {
+      stockBadge.textContent = 'Siap Jual';
+      stockBadge.className = 'kpi-badge kpi-badge-emerald';
+    }
+  }
+
+  setText('kpi-agent-balance', `Rp ${formatNumber(totalAgentDeposit)}`);
+  const agentCount = (state.resellers || []).length;
+  setText('kpi-agent-sub', `${agentCount} mitra agen aktif`);
+
+  setText('tab-db-counter', total);
+}
+
+// ===== 📈 PACKAGE BILLING ANALYTICS WIDGET =====
+function renderPackageBillingAnalytics() {
+  const container = $id('pkg-analytics-grid');
+  const summaryEl = $id('pkg-analytics-summary');
+  if (!container) return;
+
+  const pkgStats = {};
+  let totalPrintedRevenue = 0;
+  let totalPrintedCount = 0;
+
+  state.vouchers.forEach(v => {
+    const pkgName = v.paket || 'Reguler';
+    const rawPrice = String(v.harga || '0').replace(/[^\d.]/g, '');
+    let price = parseFloat(rawPrice) || 0;
+    if (price > 0 && price < 500) price *= 1000;
+
+    if (!pkgStats[pkgName]) {
+      pkgStats[pkgName] = {
+        name: pkgName,
+        price: price,
+        totalCount: 0,
+        soldCount: 0,
+        unsoldCount: 0,
+        soldRevenue: 0,
+        totalRevenue: 0
+      };
+    }
+
+    pkgStats[pkgName].totalCount++;
+    pkgStats[pkgName].totalRevenue += price;
+
+    if (v.printed) {
+      pkgStats[pkgName].soldCount++;
+      pkgStats[pkgName].soldRevenue += price;
+      totalPrintedRevenue += price;
+      totalPrintedCount++;
+    } else {
+      pkgStats[pkgName].unsoldCount++;
+    }
+  });
+
+  const pkgs = Object.values(pkgStats);
+  const pkgCount = pkgs.length;
+
+  if (summaryEl) {
+    if (pkgCount > 0) {
+      const avgRevenue = totalPrintedCount > 0 ? Math.round(totalPrintedRevenue / totalPrintedCount) : 0;
+      summaryEl.innerHTML = `<span><strong>${pkgCount}</strong> Varian Paket</span> • <span>Rata-rata: <strong>Rp ${formatNumber(avgRevenue)}</strong>/voucher</span>`;
+    } else {
+      summaryEl.innerHTML = `<span>0 Paket</span>`;
+    }
+  }
+
+  if (pkgs.length === 0) {
+    container.innerHTML = `
+      <div class="pkg-analytics-empty">
+        <span style="font-size:1.6rem;">📊</span>
+        <div>
+          <strong style="display:block;margin-bottom:0.2rem;color:var(--text);">Belum Ada Data Statistik Paket</strong>
+          <p style="margin:0;font-size:0.75rem;color:var(--text-secondary);">Import voucher dari Ruijie Cloud atau tambah voucher untuk melihat performa omset tiap paket hotspot.</p>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  // Sort by soldRevenue desc, then totalCount desc
+  pkgs.sort((a, b) => (b.soldRevenue - a.soldRevenue) || (b.totalCount - a.totalCount));
+
+  container.innerHTML = pkgs.map(p => {
+    const pct = p.totalCount > 0 ? Math.round((p.soldCount / p.totalCount) * 100) : 0;
+    const revContribution = totalPrintedRevenue > 0 ? Math.round((p.soldRevenue / totalPrintedRevenue) * 100) : 0;
+
+    return `
+      <div class="pkg-stat-card">
+        <div class="pkg-stat-top">
+          <div class="pkg-stat-info">
+            <span class="pkg-stat-badge">⚡ ${esc(p.name)}</span>
+            <span class="pkg-stat-price">Rp ${formatNumber(p.price)}</span>
+          </div>
+          <div class="pkg-stat-rev">
+            <span class="pkg-stat-rev-val">Rp ${formatNumber(p.soldRevenue)}</span>
+            <span class="pkg-stat-rev-label">${revContribution}% kontribusi omset</span>
+          </div>
+        </div>
+
+        <div class="pkg-bar-wrap">
+          <div class="pkg-bar-track">
+            <div class="pkg-bar-fill" style="width: ${pct}%;"></div>
+          </div>
+          <div class="pkg-bar-meta">
+            <span>Terjual: <strong>${p.soldCount}</strong> / ${p.totalCount} pcs (${pct}%)</span>
+            <span>Sisa Stok: <strong>${p.unsoldCount}</strong> pcs</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 function quickPrintPackage(pkgName, qty = 1) {
@@ -4676,6 +4941,9 @@ function updateSelectionUI() {
       printBtn.style.opacity = '1';
     }
   }
+
+  updateBillingKPICards();
+  renderPackageBillingAnalytics();
 }
 
 // ===== DELETE & CLEAR =====
@@ -5645,6 +5913,9 @@ function restoreUI() {
   setVal('font-select', state.settings.fontFamily || 'font-inter');
   setVal('border-select', state.settings.borderStyle || 'border-dashed');
   setVal('sheets-url-input', state.settings.sheetsUrl || '');
+  setVal('cfg-sheets-url', state.settings.sheetsUrl || '');
+  setChecked('auto-sync-sheets-toggle', state.settings.autoSyncSheets !== false);
+  setChecked('cfg-auto-sync-toggle', state.settings.autoSyncSheets !== false);
   setChecked('show-speed', state.settings.showSpeed !== false);
   setChecked('show-quota', state.settings.showQuota !== false);
   setChecked('show-hint', state.settings.showHint !== false);
