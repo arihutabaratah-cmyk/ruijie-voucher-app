@@ -1785,9 +1785,10 @@ function showThermalPrinterModal() {
           Aplikasi kami sudah otomatis mengatur ukuran kertas struk roll terus-menerus (continuous roll). Saat dialog cetak Chrome/Edge muncul, pastikan:
         </p>
         <div style="background:#ffffff;border:1px solid #cbd5e1;border-radius:6px;padding:0.55rem 0.75rem;font-size:0.74rem;color:#1e293b;line-height:1.5;">
-          <div>1️⃣ <strong>Paper size (Ukuran Kertas):</strong> Pilih <code>58mm</code> / <code>Receipt</code> / <code>Roll Paper 58 x MAX</code>.</div>
-          <div>2️⃣ <strong>Margins (Margin):</strong> Pilih <strong>None (Tanpa Margin)</strong>.</div>
-          <div>3️⃣ <strong>Options:</strong> <strong>Hapus centang</strong> "Headers and footers".</div>
+          <div>1️⃣ <strong>Destination (Tujuan Printer):</strong> Pilih <code>POS-58 Thermal Printer</code>.</div>
+          <div>2️⃣ <strong>Paper size (Ukuran Kertas):</strong> Pilih <code>58mm</code> / <code>Receipt</code> / <code>Roll Paper 58 x MAX</code>.</div>
+          <div>3️⃣ <strong>Margins (Margin):</strong> Pilih <strong>None (Tanpa Margin)</strong>.</div>
+          <div>4️⃣ <strong>Options:</strong> <strong>Hapus centang</strong> "Headers and footers".</div>
         </div>
       </div>
 
