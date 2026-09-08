@@ -199,161 +199,55 @@ function verifyLicenseKey(key, inputEmail) {
 }
 
 function checkLicenseValidity() {
-  if (state.proLicense && state.proLicense.key) {
-    const res = verifyLicenseKey(state.proLicense.key, state.proLicense.email);
-    if (res.valid) {
-      if (state.proLicense.expiresAt) {
-        const expDate = new Date(state.proLicense.expiresAt);
-        if (new Date() > expDate) {
-          state.isPro = false;
-          state.proLicense = null;
-          saveState();
-          return;
-        }
-      }
-      state.isPro = true;
-      return;
-    }
-  }
-  state.isPro = false;
+  state.isPro = true;
+  state.proLicense = {
+    key: 'SOURCE-CODE-FULL-LIFETIME-UNLOCKED',
+    email: 'admin@personal.local',
+    plan: 'LIFETIME',
+    activatedAt: '2026-01-01T00:00:00.000Z',
+    expiresAt: null
+  };
 }
 
 function activateLicense(key, email) {
-  if (!key) {
-    showToast('Masukkan kode lisensi Anda!', 'error');
-    return false;
-  }
-
-  const cleanEmail = (email || '').trim().toLowerCase();
-  const res = verifyLicenseKey(key, cleanEmail);
-
-  if (!res.valid) {
-    if (res.reason === 'EMAIL_MISMATCH') {
-      showToast('❌ Kunci Lisensi ini tidak cocok dengan email ini! Masukkan email terdaftar Anda saat membeli.', 'error');
-    } else if (res.reason === 'INVALID_EMAIL') {
-      showToast('Masukkan format alamat email yang valid!', 'error');
-    } else {
-      showToast('Kunci Lisensi tidak valid! Periksa kembali kode & email Anda.', 'error');
-    }
-    return false;
-  }
-
-  const now = new Date();
-  const expiresAt = res.plan === 'LIFETIME' ? null : new Date(now.getTime() + res.days * 24 * 60 * 60 * 1000).toISOString();
-
   state.isPro = true;
-  state.proLicense = {
-    key: res.cleanKey || key.trim().toUpperCase(),
-    email: res.email || cleanEmail || 'pro@user',
-    plan: res.plan,
-    activatedAt: now.toISOString(),
-    expiresAt: expiresAt
-  };
-
-  logActivity('SHIFT', `Aktivasi Lisensi PRO [${res.plan}] akun: ${state.proLicense.email}`);
-  saveState();
-  updateProBadgeUI();
-  renderPreview();
-  showToast(`🎉 Selamat! Lisensi PRO (${res.plan}) Berhasil Diaktifkan untuk ${state.proLicense.email}!`);
+  showToast('🎉 Sistem berstatus Full Lifetime Edition Unlocked!');
   return true;
 }
 
 function deactivateLicense() {
-  if (confirm('Yakin ingin keluar dan menghapus lisensi PRO dari perangkat ini?')) {
-    logActivity('SHIFT', `Logout lisensi akun: ${state.proLicense?.email || '-'}`);
-    state.isPro = false;
-    state.proLicense = null;
-    saveState();
-    updateProBadgeUI();
-    renderPreview();
-    closeModal();
-    showToast('Lisensi berhasil dikeluarkan dari perangkat ini.');
-  }
+  showToast('Sistem berstatus Full Lifetime Edition (Unlocked).');
 }
 
 // ===== 🛡️ PRO FEATURE GATE / REQUIRE PRO =====
 function requirePro(featureName = 'Fitur ini') {
-  if (state.isPro) return true;
-
-  const html = `
-    <div class="modal-header">
-      <h3>🔒 Fitur Khusus Lisensi PRO</h3>
-      <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
-    </div>
-    <div class="modal-body" style="text-align:center;padding:1.6rem 1.25rem;">
-      <div style="font-size:3rem;margin-bottom:0.5rem;">👑</div>
-      <h4 style="font-size:1.18rem;font-weight:900;color:var(--text);margin-bottom:0.4rem;">
-        Upgrade ke Lisensi PRO
-      </h4>
-      <p style="font-size:0.86rem;color:var(--text-secondary);max-width:440px;margin:0 auto 1.25rem;line-height:1.5;">
-        <strong>${esc(featureName)}</strong> adalah fitur eksklusif PRO. Dapatkan akses cetak unlimited tanpa batas, Google Sheets DB, Bluetooth POS, dan seluruh tema premium!
-      </p>
-
-      <div style="background:var(--primary-light);border:1px solid var(--primary-border);border-radius:var(--radius-xs);padding:0.95rem;margin-bottom:1.35rem;text-align:left;font-size:0.82rem;color:var(--text);">
-        <div style="font-weight:800;color:var(--primary);margin-bottom:0.4rem;">Keuntungan Lisensi PRO:</div>
-        <div>✓ Cetak Tanpa Batas (Unlimited Voucher)</div>
-        <div>✓ Cloud Database Google Spreadsheet</div>
-        <div>✓ Support Printer Kasir Bluetooth POS (58mm/80mm)</div>
-        <div>✓ Semua Tema Visual Premium & Tanpa Watermark</div>
-        <div>✓ Audit Trail Kasir & Surat Jalan Reseller</div>
-      </div>
-
-      <div style="display:flex;gap:0.55rem;justify-content:center;flex-wrap:wrap;">
-        <button class="btn btn-secondary" onclick="closeModal()">Nanti Saja</button>
-        <button class="btn btn-pro" onclick="closeModal();showUpgradeProModal();">💎 Beli / Aktivasi PRO Sekarang</button>
-      </div>
-    </div>
-  `;
-
-  openModal(html);
-  return false;
+  // 100% UNLOCKED: Semua fitur gratis tanpa batas untuk penggunaan pribadi & jual source code
+  state.isPro = true;
+  return true;
 }
 
 function updateProBadgeUI() {
   const proBtn = $id('btn-header-pro');
   const proText = $id('header-pro-text');
   const appBadge = $id('app-badge-status');
-  const sheetsEmail = $id('sheets-bound-email');
 
-  if (sheetsEmail) {
-    sheetsEmail.textContent = (state.isPro && state.proLicense?.email) ? state.proLicense.email : 'Belum Login PRO';
+  if (proBtn) {
+    proBtn.className = 'btn btn-pro-badge btn-sm active-pro';
+    proBtn.title = 'Database Backup & Restore Manager (Download / Upload JSON)';
+    proBtn.onclick = showDatabaseBackupModal;
+  }
+  if (proText) proText.textContent = '💾 Backup DB';
+  if (appBadge) {
+    appBadge.textContent = '⭐ Full Lifetime Edition';
+    appBadge.className = 'header-badge pro-badge';
   }
 
-  if (state.isPro) {
-    if (proBtn) {
-      proBtn.className = 'btn btn-pro-badge btn-sm active-pro';
-      proBtn.title = `Lisensi PRO Aktif (${state.proLicense?.email || ''}) • Klik untuk detail`;
-    }
-    if (proText) proText.textContent = '👑 PRO Aktif';
-    if (appBadge) {
-      appBadge.textContent = 'PRO Studio';
-      appBadge.className = 'header-badge pro-badge';
-    }
-
-    // Unmark locks on dropdown items
-    setText('menu-item-sheets', '📊 Database Google Spreadsheet');
-    setText('menu-item-reseller', '🏪 Manajemen Reseller & Agen');
-    setText('menu-item-audit', '📜 Log Aktivitas Kasir (Audit Trail)');
-    const btnBt = $id('btn-thermal-printer-setup');
-    if (btnBt) btnBt.textContent = '🖨️ Printer Thermal';
-  } else {
-    if (proBtn) {
-      proBtn.className = 'btn btn-pro-badge btn-sm';
-      proBtn.title = 'Aktivasi Lisensi PRO Tanpa Batas';
-    }
-    if (proText) proText.textContent = '💎 Upgrade PRO';
-    if (appBadge) {
-      appBadge.textContent = 'SaaS Studio (Free)';
-      appBadge.className = 'header-badge';
-    }
-
-    // Mark locks on dropdown items in Free mode
-    setText('menu-item-sheets', '📊 Database Google Spreadsheet (🔒 PRO)');
-    setText('menu-item-reseller', '🏪 Manajemen Reseller & Agen (🔒 PRO)');
-    setText('menu-item-audit', '📜 Log Aktivitas Kasir (🔒 PRO)');
-    const btnBt = $id('btn-thermal-printer-setup');
-    if (btnBt) btnBt.textContent = '🖨️ Printer Thermal (🔒 PRO)';
-  }
+  // Unmark locks on dropdown items
+  setText('menu-item-sheets', '📊 Database Google Spreadsheet');
+  setText('menu-item-reseller', '🤝 Manajemen Mitra & Agen');
+  setText('menu-item-audit', '📜 Log Aktivitas Kasir (Audit Trail)');
+  const btnBt = $id('btn-thermal-printer-setup');
+  if (btnBt) btnBt.textContent = '🖨️ Printer Thermal';
 }
 
 // ===== AUDIT TRAIL LOGGER =====
@@ -593,9 +487,10 @@ function bindEvents() {
     });
   }
 
-  // Header PRO Button & Dropdown Items
-  on('btn-header-pro', 'click', showUpgradeProModal);
-  on('menu-item-pro', 'click', () => { menuDropdown?.classList.remove('show'); showUpgradeProModal(); });
+  // Header Backup Button & Dropdown Items
+  on('btn-header-pro', 'click', showDatabaseBackupModal);
+  on('menu-item-backup', 'click', () => { menuDropdown?.classList.remove('show'); showDatabaseBackupModal(); });
+  on('menu-item-pro', 'click', () => { menuDropdown?.classList.remove('show'); showDatabaseBackupModal(); });
   on('menu-item-sheets', 'click', () => { menuDropdown?.classList.remove('show'); showGoogleSheetsModal(); });
   on('menu-item-reseller', 'click', () => { menuDropdown?.classList.remove('show'); showResellerModal(); });
   on('menu-item-audit', 'click', () => { menuDropdown?.classList.remove('show'); showAuditLogModal(); });
@@ -5462,12 +5357,60 @@ function setFilter(filterName) {
   renderTable();
 }
 
-// ===== LOCAL STORAGE PERSISTENCE =====
+// ===== 🛡️ DUAL-PERSISTENCE: LOCALSTORAGE + INDEXEDDB ENGINE =====
 const STORAGE_KEY = 'ruijie_voucher_app_v12_pro_gated';
+const IDB_NAME = 'RuijieVoucherPersistentDB';
+const IDB_STORE = 'app_state_store';
+
+function openIDB() {
+  return new Promise((resolve) => {
+    if (!window.indexedDB) {
+      resolve(null);
+      return;
+    }
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => resolve(null);
+  });
+}
+
+async function saveStateToIDB(dataStr) {
+  try {
+    const db = await openIDB();
+    if (!db) return;
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(dataStr, 'current_state');
+  } catch (e) {
+    // Silent
+  }
+}
+
+async function tryRecoverFromIDB() {
+  try {
+    const db = await openIDB();
+    if (!db) return null;
+    return new Promise((resolve) => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get('current_state');
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    });
+  } catch (e) {
+    return null;
+  }
+}
 
 function saveState() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const jsonStr = JSON.stringify(state);
+    localStorage.setItem(STORAGE_KEY, jsonStr);
+    saveStateToIDB(jsonStr);
   } catch (e) {
     console.warn('Failed to save state to localStorage:', e);
   }
@@ -5481,8 +5424,7 @@ function loadState() {
       if (parsed.uiMode) state.uiMode = parsed.uiMode;
       if (parsed.themeMode) state.themeMode = parsed.themeMode;
       if (parsed.adminPin) state.adminPin = parsed.adminPin;
-      if (parsed.isPro !== undefined) state.isPro = parsed.isPro;
-      if (parsed.proLicense) state.proLicense = parsed.proLicense;
+      state.isPro = true; // Always unlocked
       if (parsed.activeShift) state.activeShift = parsed.activeShift;
       if (Array.isArray(parsed.auditLogs)) state.auditLogs = parsed.auditLogs;
       if (Array.isArray(parsed.vouchers)) {
@@ -5515,9 +5457,181 @@ function loadState() {
       if (parsed.settings) {
         state.settings = { ...state.settings, ...parsed.settings };
       }
+    } else {
+      // Try recovery from IndexedDB
+      tryRecoverFromIDB().then(recovered => {
+        if (recovered) {
+          try {
+            const parsed = JSON.parse(recovered);
+            if (Array.isArray(parsed.vouchers) && parsed.vouchers.length > 0) {
+              state.vouchers = parsed.vouchers;
+              renderTable();
+              renderPreview();
+            }
+          } catch (e) {}
+        }
+      });
     }
   } catch (e) {
     console.warn('Failed to load state:', e);
+  }
+}
+
+// ===== 💾 DATABASE BACKUP & RESTORE MANAGER (PERSISTENT & STANDALONE) =====
+function showDatabaseBackupModal() {
+  const voucherCount = state.vouchers.length;
+  const resellerCount = state.resellers.length;
+  const presetCount = state.presets.length;
+
+  const html = `
+    <div class="modal-header">
+      <h3>💾 Manajemen Database & Backup (Pribadi & Standalone)</h3>
+      <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
+    </div>
+    <div class="modal-body" style="max-height:80vh;overflow-y:auto;">
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:0.85rem;margin-bottom:1.1rem;font-size:0.82rem;color:#1e40af;line-height:1.5;">
+        <strong>🛡️ Database Permanen (Dual Storage):</strong> Data tersimpan aman di browser Anda menggunakan kombinasi LocalStorage &amp; IndexedDB. Agar database tidak pernah hilang saat berganti komputer atau membersihkan browser, Anda dapat men-download file backup JSON secara rutin.
+      </div>
+
+      <div class="rekap-card-grid-3" style="margin-bottom:1.2rem;">
+        <div class="rekap-card">
+          <div class="rekap-val">${voucherCount}</div>
+          <div class="rekap-label">Total Voucher</div>
+        </div>
+        <div class="rekap-card">
+          <div class="rekap-val">${resellerCount}</div>
+          <div class="rekap-label">Mitra / Agen</div>
+        </div>
+        <div class="rekap-card">
+          <div class="rekap-val">${presetCount}</div>
+          <div class="rekap-label">Profil Toko / SSID</div>
+        </div>
+      </div>
+
+      <!-- Action Box: Download Backup -->
+      <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:1rem;margin-bottom:0.9rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+          <div>
+            <div style="font-size:0.95rem;font-weight:900;color:var(--text);">📥 Download Backup Database (.json)</div>
+            <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:2px;">
+              Simpan seluruh database voucher, agen, saldo deposit, dan pengaturan toko ke file JSON di komputer / HP Anda.
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="exportDatabaseJSON()" style="font-weight:800;white-space:nowrap;">
+            💾 Download Backup
+          </button>
+        </div>
+      </div>
+
+      <!-- Action Box: Restore Backup -->
+      <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:1rem;margin-bottom:0.9rem;">
+        <div style="font-size:0.95rem;font-weight:900;color:var(--text);margin-bottom:0.25rem;">📤 Restore Database dari File Backup (.json)</div>
+        <div style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:0.75rem;">
+          Pilih file backup JSON sebelumnya untuk mengembalikan seluruh data voucher dan agen secara instan.
+        </div>
+        <input type="file" id="input-restore-db" accept=".json" style="display:none;" onchange="handleRestoreDatabaseJSON(event)">
+        <button class="btn btn-secondary" onclick="$id('input-restore-db').click()" style="font-weight:800;">
+          📂 Pilih File Backup JSON &amp; Restore
+        </button>
+      </div>
+
+      <!-- Action Box: Clean Slate / Reset Data untuk Pembeli Baru -->
+      <div style="background:#fff1f2;border:1.5px solid #fecdd3;border-radius:12px;padding:1rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+          <div>
+            <div style="font-size:0.92rem;font-weight:900;color:#9f1239;">🧹 Bersihkan Data (Sebelum Jual Source Code)</div>
+            <div style="font-size:0.75rem;color:#be123c;margin-top:2px;">
+              Hapus semua voucher uji coba &amp; riwayat agar source code bersih seperti baru sebelum dikirim ke pembeli.
+            </div>
+          </div>
+          <button class="btn btn-danger btn-sm" onclick="resetDatabaseForSale()" style="font-weight:800;white-space:nowrap;">
+            🗑️ Kosongkan Data
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal()">Selesai</button>
+    </div>
+  `;
+
+  openModal(html, 'modal-medium');
+}
+
+function exportDatabaseJSON() {
+  const exportData = {
+    appName: 'Cetak Voucher Ruijie & Hotspot Studio Pro',
+    exportedAt: new Date().toISOString(),
+    version: 'Standalone-Full-Lifetime',
+    state: state
+  };
+
+  const jsonStr = JSON.stringify(exportData, null, 2);
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `backup_voucher_hotspot_${dateStr}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('💾 Database berhasil di-download sebagai file JSON!');
+}
+
+function handleRestoreDatabaseJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      const incomingState = data.state || data;
+      if (!incomingState || !Array.isArray(incomingState.vouchers)) {
+        showToast('Format file backup JSON tidak valid!', 'error');
+        return;
+      }
+
+      if (confirm(`Pulihkan database? Ditemukan ${incomingState.vouchers.length} voucher dalam file backup.`)) {
+        state = {
+          ...state,
+          ...incomingState,
+          isPro: true
+        };
+        saveState();
+        renderTable();
+        renderPreview();
+        renderResellerFilterSelect();
+        closeModal();
+        showToast(`🎉 Berhasil memulihkan ${state.vouchers.length} voucher & pengaturan database!`, 'success');
+      }
+    } catch (err) {
+      console.error('JSON Restore error:', err);
+      showToast('Gagal membaca file JSON backup!', 'error');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function resetDatabaseForSale() {
+  if (confirm('Yakin ingin mengosongkan semua data voucher & riwayat untuk persiapan pengiriman source code ke pembeli baru?')) {
+    state.vouchers = [];
+    state.auditLogs = [];
+    if (Array.isArray(state.resellers)) {
+      state.resellers.forEach(r => {
+        r.balance = 50000;
+        r.transactions = [];
+      });
+    }
+    saveState();
+    renderTable();
+    renderPreview();
+    closeModal();
+    showToast('✨ Database berhasil dibersihkan! Source code siap dikemas untuk pembeli.');
   }
 }
 
