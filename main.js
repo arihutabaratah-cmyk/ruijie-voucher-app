@@ -6823,14 +6823,26 @@ function showPrintBatchModal() {
         <div>
           <div style="font-size:0.8rem;color:var(--text-secondary);">Stok Voucher Belum Dicetak:</div>
           <div style="font-size:1.15rem;font-weight:900;color:var(--success);">
-            🟢 ${totalCount} Voucher <span style="font-size:0.82rem;font-weight:600;color:var(--text-secondary);">(${availablePages} lembar A4 @ ${perPage} pcs)</span>
+            🟢 ${totalCount} Voucher <span style="font-size:0.82rem;font-weight:600;color:var(--text-secondary);">(${availablePages} lembar @ ${perPage} pcs)</span>
           </div>
         </div>
         <div style="text-align:right;">
           <div style="font-size:0.75rem;color:var(--text-secondary);">Layout Kertas:</div>
-          <div style="font-size:0.88rem;font-weight:750;color:var(--primary);">${perPage} Voucher / Lembar</div>
+          <div style="font-size:0.88rem;font-weight:750;color:var(--primary);">${layoutVal.startsWith('thermal') ? 'Thermal ' + layoutVal.replace('thermal-', '') + 'mm' : perPage + ' Voucher / Lembar A4'}</div>
         </div>
       </div>
+
+      ${layoutVal.startsWith('thermal') ? `
+        <div style="background:#fffbeb;border:1.5px solid #f59e0b;border-radius:8px;padding:0.75rem 0.9rem;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.6rem;">
+          <div style="flex:1;min-width:240px;">
+            <div style="font-weight:850;font-size:0.82rem;color:#b45309;">⚠️ Format Aktif: Roll Thermal Kasir (${layoutVal.replace('thermal-', '')}mm)</div>
+            <div style="font-size:0.74rem;color:#78350f;margin-top:2px;">Jika mencetak menggunakan printer dokumen A4 (seperti <strong>Epson L120 / Canon / HP</strong>), ganti pilihan ke format lembaran A4 agar tidak error:</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="setPaperLayoutAndRefreshBatch('25')" style="font-weight:800;font-size:0.78rem;">
+            📄 Ganti ke A4 (25/Lembar)
+          </button>
+        </div>
+      ` : ''}
 
       <div style="font-size:0.86rem;font-weight:800;color:var(--text);margin-bottom:0.65rem;">
         Pilih Berapa Lembar yang Ingin Dicetak Sekarang:
@@ -6914,6 +6926,15 @@ function showPrintBatchModal() {
   }
 }
 
+function setPaperLayoutAndRefreshBatch(layoutVal) {
+  state.settings.layout = layoutVal;
+  const layoutSelect = $id('layout-select');
+  if (layoutSelect) layoutSelect.value = layoutVal;
+  saveState();
+  renderPreview();
+  showPrintBatchModal();
+}
+
 async function executeBatchPrint(pages, perPage) {
   const layoutVal = state.settings.layout || '25';
   const neededCount = pages * perPage;
@@ -6981,7 +7002,7 @@ async function executeBatchPrint(pages, perPage) {
     renderTable();
     renderPreview();
     showToast(`✅ Berhasil mencetak ${pages} lembar (${toPrint.length} voucher)! Sisa voucher tetap tersimpan di stok.`);
-  }, 120);
+  }, 250);
 }
 
 function executeCustomBatchPrint(perPage) {
