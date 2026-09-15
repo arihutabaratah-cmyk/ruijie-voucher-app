@@ -565,7 +565,7 @@ function printAgentThermalReceipt() {
     `;
   }).join('');
 
-  const win = window.open('', '_blank', 'width=380,height=600,top=100,left=100');
+  const win = window.open('', '_blank', 'width=420,height=650,top=100,left=100');
   if (!win) {
     window.print();
     return;
@@ -583,6 +583,9 @@ function printAgentThermalReceipt() {
           margin: 0mm !important;
         }
         @media print {
+          .no-print {
+            display: none !important;
+          }
           html, body {
             width: 58mm !important;
             max-width: 58mm !important;
@@ -607,22 +610,69 @@ function printAgentThermalReceipt() {
           font-family: monospace, 'Courier New', Courier, sans-serif;
           margin: 0;
           padding: 2mm;
-          background: #ffffff;
+          background: #f1f5f9;
           color: #000000;
-          width: 58mm;
           box-sizing: border-box;
+        }
+        .receipt-container-wrap {
+          background: #ffffff;
+          width: 58mm;
+          margin: 0 auto;
+          padding: 2mm;
+          box-sizing: border-box;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+          border-radius: 4px;
+        }
+        .no-print-toolbar {
+          position: sticky;
+          top: 0;
+          background: #0f172a;
+          color: #ffffff;
+          padding: 8px 12px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;
+          font-size: 11px;
+          margin-bottom: 8px;
+          border-radius: 6px;
+          z-index: 9999;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .no-print-toolbar button {
+          border: none;
+          padding: 5px 11px;
+          border-radius: 4px;
+          font-size: 11px;
+          font-weight: 700;
+          cursor: pointer;
         }
       </style>
     </head>
     <body>
-      ${vouchersHtml}
+      <div class="no-print no-print-toolbar">
+        <span>🖨️ Struk Mitra Agen <strong>58mm</strong></span>
+        <div style="display:flex;gap:6px;">
+          <button onclick="window.focus();window.print();" style="background:#2563eb;color:#fff;">Cetak Ulang</button>
+          <button onclick="window.close();" style="background:#475569;color:#fff;">✕ Tutup</button>
+        </div>
+      </div>
+
+      <div class="receipt-container-wrap">
+        ${vouchersHtml}
+      </div>
+
       <script>
         window.onload = function() {
           setTimeout(function() {
             window.focus();
             window.print();
-            setTimeout(function() { window.close(); }, 1000);
-          }, 200);
+          }, 350);
+        };
+        window.onafterprint = function() {
+          setTimeout(function() {
+            try { window.close(); } catch(e) {}
+          }, 400);
         };
       </script>
     </body>

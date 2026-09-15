@@ -1793,6 +1793,48 @@ function showThermalPrinterModal() {
         </div>
       </div>
 
+      <!-- 🚨 SOLUSI MENGATASI KETERANGAN "PRINTER ERROR" / "DRIVER UNAVAILABLE" -->
+      <div style="background:#fef2f2;border:1.5px solid #f87171;border-radius:10px;padding:0.95rem;margin-bottom:1rem;">
+        <div style="font-size:0.88rem;font-weight:900;color:#991b1b;margin-bottom:0.45rem;display:flex;align-items:center;gap:0.4rem;">
+          <span>🚨 Solusi Mengatasi Keterangan "Printer Error" atau "Driver Unavailable"</span>
+        </div>
+        <div style="font-size:0.77rem;color:#7f1d1d;line-height:1.55;">
+          Jika saat mencetak muncul tulisan <strong>"Printer error"</strong> di Windows atau dialog cetak, lakukan langkah perbaikan berikut:
+        </div>
+
+        <div style="display:grid;gap:0.6rem;margin-top:0.6rem;">
+          <!-- Solusi 1 -->
+          <div style="background:#ffffff;border:1px solid #fecaca;border-radius:6px;padding:0.6rem 0.75rem;font-size:0.75rem;color:#1e293b;">
+            <div style="font-weight:850;color:#b91c1c;margin-bottom:0.2rem;">1️⃣ Bersihkan Antrean Cetak yang Macet (Print Spooler Error)</div>
+            <div>Jika sebelumnya ada cetakan yang gagal, dokumen tersebut tersangkut di antrean Windows dan memblokir cetakan berikutnya:</div>
+            <div style="margin-top:0.25rem;padding:0.4rem 0.6rem;background:#f8fafc;border-radius:4px;font-family:monospace;font-size:0.72rem;color:#0f172a;">
+              Buka <strong>Windows Settings</strong> ➔ <strong>Printers & scanners</strong> ➔ Klik printer Anda ➔ <strong>Open print queue</strong> ➔ Menu <strong>Printer</strong> ➔ <strong>Cancel All Documents</strong>. Lalu matikan printer 5 detik dan nyalakan lagi.
+            </div>
+          </div>
+
+          <!-- Solusi 2 -->
+          <div style="background:#ffffff;border:1px solid #fecaca;border-radius:6px;padding:0.6rem 0.75rem;font-size:0.75rem;color:#1e293b;">
+            <div style="font-weight:850;color:#b91c1c;margin-bottom:0.2rem;">2️⃣ Gunakan Koneksi Langsung (⚡ Hubungkan Port CX58D di Atas)</div>
+            <div>Jika printer Bluetooth CX58D / CP-58B Anda berstatus <em>"Driver is unavailable"</em> di Windows, <strong>tidak perlu install driver apapun!</strong> Cukup pair Bluetooth di Windows, lalu klik tombol <strong>"⚡ Hubungkan Port CX58D"</strong> di atas. Aplikasi ini akan mengirim data struk langsung via Serial Port tanpa melewati Windows Spooler.</div>
+          </div>
+
+          <!-- Solusi 3 -->
+          <div style="background:#ffffff;border:1px solid #fecaca;border-radius:6px;padding:0.6rem 0.75rem;font-size:0.75rem;color:#1e293b;">
+            <div style="font-weight:850;color:#b91c1c;margin-bottom:0.2rem;">3️⃣ Pasang Driver Bawaan Windows: "Generic / Text Only" (1 Menit Jadi)</div>
+            <div>Jika ingin mencetak lewat dialog biasa namun driver tidak ada:</div>
+            <div style="margin-top:0.25rem;padding:0.4rem 0.6rem;background:#f8fafc;border-radius:4px;font-size:0.72rem;line-height:1.45;color:#0f172a;">
+              Buka <strong>Printers & scanners</strong> ➔ <strong>Add device</strong> ➔ <strong>The printer that I want isn't listed (Add manually)</strong> ➔ Pilih <strong>Add local printer with manual settings</strong> ➔ Pilih Port (<strong>USB001</strong> untuk kabel USB, atau port COM Bluetooth) ➔ Pada Manufacturer pilih <strong>Generic</strong> ➔ Pilih <strong>Generic / Text Only</strong> ➔ Beri nama <code>POS-58</code>.
+            </div>
+          </div>
+
+          <!-- Solusi 4 -->
+          <div style="background:#ffffff;border:1px solid #fecaca;border-radius:6px;padding:0.6rem 0.75rem;font-size:0.75rem;color:#1e293b;">
+            <div style="font-weight:850;color:#b91c1c;margin-bottom:0.2rem;">4️⃣ Cek Kertas Thermal & Penutup Roll</div>
+            <div>Pastikan kertas tidak terbalik (sisi licin menghadap ke head pemanas) dan penutup printer ditekan sampai berbunyi <em>klik</em>. Jika lampu merah menyala, printer otomatis menolak cetak.</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Layout Selector Shortcut -->
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.8rem;">
         <div style="font-size:0.78rem;font-weight:800;color:var(--text);margin-bottom:0.35rem;">
@@ -2240,7 +2282,7 @@ function triggerBrowserTestPrint(testVoucher, layoutVal, widthMm) {
 // ===== 🧾 BROWSER CONTINUOUS ROLL POPOUT (NO A4 FORCING) =====
 function printThermalPopout(receiptHtml, widthMm = 58) {
   const actualMm = parseInt(widthMm, 10) || 58;
-  const win = window.open('', '_blank', `width=${actualMm * 4},height=600,top=100,left=100`);
+  const win = window.open('', '_blank', `width=${actualMm * 4 + 40},height=650,top=100,left=100`);
   if (!win) {
     // If popup blocked, fallback to in-page print area
     const printArea = $id('print-area');
@@ -2264,6 +2306,9 @@ function printThermalPopout(receiptHtml, widthMm = 58) {
           margin: 0mm !important;
         }
         @media print {
+          .no-print {
+            display: none !important;
+          }
           html, body {
             width: ${actualMm}mm !important;
             max-width: ${actualMm}mm !important;
@@ -2288,22 +2333,69 @@ function printThermalPopout(receiptHtml, widthMm = 58) {
           font-family: monospace, 'Courier New', Courier, sans-serif;
           margin: 0;
           padding: 2mm;
-          background: #ffffff;
+          background: #f1f5f9;
           color: #000000;
-          width: ${actualMm}mm;
           box-sizing: border-box;
+        }
+        .receipt-container-wrap {
+          background: #ffffff;
+          width: ${actualMm}mm;
+          margin: 0 auto;
+          padding: 2mm;
+          box-sizing: border-box;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+          border-radius: 4px;
+        }
+        .no-print-toolbar {
+          position: sticky;
+          top: 0;
+          background: #0f172a;
+          color: #ffffff;
+          padding: 8px 12px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;
+          font-size: 11px;
+          margin-bottom: 8px;
+          border-radius: 6px;
+          z-index: 9999;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .no-print-toolbar button {
+          border: none;
+          padding: 5px 11px;
+          border-radius: 4px;
+          font-size: 11px;
+          font-weight: 700;
+          cursor: pointer;
         }
       </style>
     </head>
     <body>
-      ${receiptHtml}
+      <div class="no-print no-print-toolbar">
+        <span>🖨️ Struk Roll Thermal <strong>${actualMm}mm</strong></span>
+        <div style="display:flex;gap:6px;">
+          <button onclick="window.focus();window.print();" style="background:#2563eb;color:#fff;">Cetak / Print Ulang</button>
+          <button onclick="window.close();" style="background:#475569;color:#fff;">✕ Tutup</button>
+        </div>
+      </div>
+
+      <div class="receipt-container-wrap">
+        ${receiptHtml}
+      </div>
+
       <script>
         window.onload = function() {
           setTimeout(function() {
             window.focus();
             window.print();
-            setTimeout(function() { window.close(); }, 1000);
-          }, 200);
+          }, 350);
+        };
+        window.onafterprint = function() {
+          setTimeout(function() {
+            try { window.close(); } catch(e) {}
+          }, 400);
         };
       </script>
     </body>
