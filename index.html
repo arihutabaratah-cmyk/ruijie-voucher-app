@@ -555,6 +555,25 @@
             <button class="search-clear-btn" id="search-clear-btn" title="Hapus pencarian" style="display:none;">✕</button>
           </div>
 
+          <!-- Sort & Kelompokkan Dropdown -->
+          <div class="filter-group">
+            <select id="table-sort-select" class="form-input form-input-sm" title="Urutkan Tampilan & Cetak Voucher">
+              <option value="default">🟢 Belum Dicetak / Baru di Atas (Rekomendasi)</option>
+              <option value="paket-asc">📦 Kelompokkan per Paket (A-Z)</option>
+              <option value="paket-desc">📦 Kelompokkan per Paket (Z-A)</option>
+              <option value="harga-asc">💰 Harga (Termurah ➔ Termahal)</option>
+              <option value="harga-desc">💰 Harga (Termahal ➔ Termurah)</option>
+              <option value="code-asc">🔤 Kode Voucher (A-Z)</option>
+              <option value="code-desc">🔤 Kode Voucher (Z-A)</option>
+              <option value="periode-asc">⏱️ Masa Aktif (A-Z)</option>
+              <option value="raw-file">📁 Urutan Asli File Ruijie (Mentah)</option>
+              <option value="status-unprinted">🟢 Belum Dicetak Dahulu</option>
+              <option value="status-printed">⚪ Sudah Dicetak Dahulu</option>
+              <option value="route-stock">🟢 Stok Bebas Dahulu</option>
+              <option value="route-agent">🤝 Mitra Agen Dahulu</option>
+            </select>
+          </div>
+
           <!-- Filter Reseller Dropdown -->
           <div class="filter-group admin-only">
             <select id="filter-reseller-select" class="form-input form-input-sm" title="Filter Voucher berdasarkan Mitra / Agen Hotspot">
@@ -592,6 +611,7 @@
             <button class="btn btn-secondary admin-only" id="btn-add">＋ Tambah</button>
             <button class="btn btn-secondary admin-only" id="btn-assign-reseller" title="Kelola dan Alokasikan voucher ke Mitra / Agen Hotspot">🤝 Menu Agen</button>
             <button class="btn btn-secondary" id="btn-toggle-printed" title="Ubah status voucher terpilih (Belum / Sudah Dicetak)">🏷️ Ubah Status</button>
+            <button class="btn btn-secondary admin-only" id="btn-clean-printed" title="Hapus semua voucher yang sudah dicetak agar tidak tercetak ulang / kedaluwarsa">🧹 Bersihkan Selesai Cetak</button>
             <button class="btn btn-secondary admin-only" id="btn-route-audit" title="Audit rute distribusi voucher dan pastikan tidak ada selisih">🧭 Cek Rute & Selisih</button>
             <button class="btn btn-secondary" id="btn-export-pdf" title="Export Lembar Cetak sebagai Dokumen PDF Presisi Ukuran">📄 Export PDF</button>
             <button class="btn btn-secondary" id="btn-export-png" title="Download Lembar Cetak sebagai Gambar PNG">🖼️ Export PNG</button>
@@ -609,13 +629,27 @@
             <thead>
               <tr>
                 <th class="col-check"><input type="checkbox" id="check-all" title="Pilih / Batalkan Semua"></th>
-                <th>No</th>
-                <th>Kode Voucher</th>
-                <th>Paket</th>
-                <th>Harga</th>
-                <th>Periode</th>
-                <th>Rute & Penjual</th>
-                <th>Status Cetak</th>
+                <th class="sortable-th" data-sort="no" title="Klik untuk urutkan No / Urutan File Asli">
+                  <div class="th-content"><span>No</span><span class="sort-icon">⇅</span></div>
+                </th>
+                <th class="sortable-th" data-sort="code" title="Klik untuk urutkan Kode Voucher (A-Z)">
+                  <div class="th-content"><span>Kode Voucher</span><span class="sort-icon">⇅</span></div>
+                </th>
+                <th class="sortable-th" data-sort="paket" title="Klik untuk kelompokkan / urutkan berdasarkan Paket">
+                  <div class="th-content"><span>Paket</span><span class="sort-icon">⇅</span></div>
+                </th>
+                <th class="sortable-th" data-sort="harga" title="Klik untuk urutkan berdasarkan Harga">
+                  <div class="th-content"><span>Harga</span><span class="sort-icon">⇅</span></div>
+                </th>
+                <th class="sortable-th" data-sort="periode" title="Klik untuk urutkan berdasarkan Masa Aktif / Durasi">
+                  <div class="th-content"><span>Periode</span><span class="sort-icon">⇅</span></div>
+                </th>
+                <th class="sortable-th" data-sort="route" title="Klik untuk urutkan berdasarkan Rute & Penjual">
+                  <div class="th-content"><span>Rute & Penjual</span><span class="sort-icon">⇅</span></div>
+                </th>
+                <th class="sortable-th" data-sort="status" title="Klik untuk urutkan berdasarkan Status Cetak">
+                  <div class="th-content"><span>Status Cetak</span><span class="sort-icon">⇅</span></div>
+                </th>
                 <th class="admin-only">Aksi</th>
               </tr>
             </thead>

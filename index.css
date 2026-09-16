@@ -1736,6 +1736,45 @@ select.form-input {
   white-space: nowrap;
 }
 
+.data-table th.sortable-th {
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition), color var(--transition);
+}
+
+.data-table th.sortable-th:hover {
+  background: var(--surface-hover);
+  color: var(--primary);
+}
+
+.data-table th.sortable-th .th-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.data-table th.sortable-th .sort-icon {
+  font-size: 0.75rem;
+  opacity: 0.45;
+  transition: opacity var(--transition), transform var(--transition);
+  display: inline-block;
+}
+
+.data-table th.sortable-th:hover .sort-icon {
+  opacity: 0.9;
+}
+
+.data-table th.sortable-th.sort-active {
+  color: var(--primary);
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.data-table th.sortable-th.sort-active .sort-icon {
+  opacity: 1;
+  color: var(--primary);
+  font-weight: 900;
+}
+
 .data-table td {
   padding: 0.52rem 0.85rem;
   border-bottom: 1px solid var(--border-light);

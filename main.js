@@ -51,6 +51,8 @@ const state = {
   searchQuery: '',
   filterReseller: 'all',
   autoArchive24h: true,
+  sortBy: 'default', // 'default' | 'no' | 'code' | 'paket' | 'harga' | 'periode' | 'route' | 'status'
+  sortDir: 'asc', // 'asc' | 'desc'
   presets: [DEFAULT_PRESET],
   activePresetId: 'preset_default',
   bluetoothDevice: null,
@@ -670,6 +672,17 @@ function bindEvents() {
     renderPreview();
   });
 
+  // Sort Controls (Dropdown & Interactive Header)
+  on('table-sort-select', 'change', (e) => {
+    handleSortSelectChange(e.target.value);
+  });
+
+  $$('.data-table th.sortable-th').forEach(th => {
+    th.addEventListener('click', () => {
+      handleHeaderSortClick(th.dataset.sort);
+    });
+  });
+
   // Settings & Branding
   on('logo-upload', 'change', handleLogoUpload);
   on('logo-area', 'click', () => { const el = $id('logo-upload'); if (el) el.click(); });
@@ -689,6 +702,7 @@ function bindEvents() {
   on('btn-import', 'click', () => { const el = $id('csv-file'); if (el) el.click(); });
   on('csv-file', 'change', handleFileInput);
   on('btn-toggle-printed', 'click', toggleSelectedPrintedStatus);
+  on('btn-clean-printed', 'click', cleanPrintedVouchers);
   on('btn-delete-selected', 'click', confirmDeleteSelected);
   on('btn-print', 'click', handlePrint);
 
@@ -5897,7 +5911,14 @@ function importNewVouchersOnly(newVouchers) {
     }
   }
 
-  state.vouchers.forEach(v => v.selected = false);
+  const nowIso = new Date().toISOString();
+  // 1. Nonaktifkan centang pada SEMUA voucher lama agar tidak tercetak dobel / expired
+  state.vouchers.forEach(v => {
+    v.selected = false;
+    v.isNewBatch = false;
+  });
+
+  // 2. Tandai voucher baru sebagai batch baru & dicentang siap cetak
   toAdd.forEach(v => {
     v.selected = true;
     v.printed = false;
@@ -5906,33 +5927,44 @@ function importNewVouchersOnly(newVouchers) {
     v.resellerName = null;
     v.soldBy = null;
     v.soldAt = null;
+    v.importedAt = nowIso;
+    v.isNewBatch = true;
   });
-  state.vouchers.push(...toAdd);
+
+  // 3. TARUH VOUCHER BARU DI PALING ATAS (UNSHIFT)
+  state.vouchers.unshift(...toAdd);
+
+  // 4. Buka tab "🟢 Belum Dicetak" dan arahkan sortir ke default (Baru di Atas)
   state.filter = 'unprinted';
+  state.sortBy = 'default';
+  state.sortDir = 'asc';
   $$('.filter-tab').forEach(tab => {
     tab.classList.toggle('active', tab.dataset.filter === 'unprinted');
   });
 
-  logActivity('SYNC', `Import ${toAdd.length} voucher baru dari file`);
+  logActivity('SYNC', `Import ${toAdd.length} voucher baru ke posisi teratas`);
   saveState();
   checkStockAlerts();
   renderQuickPOSGrid();
   renderTable();
   renderPreview();
-  showToast(`✨ Berhasil menambahkan ${toAdd.length} voucher baru ke stok bebas!`);
+  showToast(`✨ Berhasil! ${toAdd.length} voucher baru ditempatkan di PALING ATAS & otomatis dicentang siap cetak. Voucher lama dinonaktifkan centangnya.`);
 }
 
 function reconcileAllVouchers(allVouchers) {
   const existingMap = new Map();
   state.vouchers.forEach(v => {
     existingMap.set((v.code || '').toLowerCase().trim(), v);
+    v.selected = false;
+    v.isNewBatch = false;
   });
 
-  let newlyAdded = 0;
+  const nowIso = new Date().toISOString();
+  const newlyAddedList = [];
   allVouchers.forEach(v => {
     const cleanCode = (v.code || '').toLowerCase().trim();
     if (!existingMap.has(cleanCode)) {
-      state.vouchers.push({
+      const item = {
         ...v,
         printed: false,
         printedAt: null,
@@ -5940,25 +5972,34 @@ function reconcileAllVouchers(allVouchers) {
         resellerName: null,
         soldBy: null,
         soldAt: null,
+        importedAt: nowIso,
+        isNewBatch: true,
         selected: true
-      });
-      existingMap.set(cleanCode, v);
-      newlyAdded++;
+      };
+      newlyAddedList.push(item);
+      existingMap.set(cleanCode, item);
     }
   });
 
-  state.filter = 'all';
+  if (newlyAddedList.length > 0) {
+    // Taruh voucher baru di paling atas
+    state.vouchers.unshift(...newlyAddedList);
+  }
+
+  state.filter = 'unprinted';
+  state.sortBy = 'default';
+  state.sortDir = 'asc';
   $$('.filter-tab').forEach(tab => {
-    tab.classList.toggle('active', tab.dataset.filter === 'all');
+    tab.classList.toggle('active', tab.dataset.filter === 'unprinted');
   });
 
-  logActivity('SYNC', `Rekonsiliasi file Ruijie: ${newlyAdded} voucher baru ditambahkan, data lama tetap terlindungi`);
+  logActivity('SYNC', `Rekonsiliasi file Ruijie: ${newlyAddedList.length} voucher baru ditambahkan ke posisi teratas`);
   saveState();
   checkStockAlerts();
   renderQuickPOSGrid();
   renderTable();
   renderPreview();
-  showToast(`✅ Rekonsiliasi selesai: ${newlyAdded} voucher baru ditambahkan. Status voucher lama tetap terkunci aman.`);
+  showToast(`✅ Rekonsiliasi selesai: ${newlyAddedList.length} voucher baru di posisi teratas & dicentang siap cetak.`);
 }
 
 function replaceAllVouchers(allVouchers) {
@@ -6027,7 +6068,8 @@ function showAddModal() {
       return;
     }
 
-    state.vouchers.push({
+    const nowIso = new Date().toISOString();
+    state.vouchers.unshift({
       code: code,
       paket: ($id('m-paket')?.value || '').trim() || 'Reguler',
       harga: ($id('m-harga')?.value || '').trim(),
@@ -6036,7 +6078,9 @@ function showAddModal() {
       quota: '',
       resellerId: null,
       resellerName: null,
-      createdAt: new Date().toISOString(),
+      createdAt: nowIso,
+      importedAt: nowIso,
+      isNewBatch: true,
       printed: false,
       printedAt: null,
       selected: true
@@ -6057,6 +6101,216 @@ function showAddModal() {
   });
 }
 
+// ===== 🔀 VOUCHER SORTING & GROUPING ENGINE =====
+function sortVoucherList(list) {
+  const sortBy = state.sortBy || 'default';
+  const sortDir = state.sortDir || 'asc';
+  const dirFactor = sortDir === 'desc' ? -1 : 1;
+
+  if (sortBy === 'default') {
+    return [...list].sort((a, b) => {
+      const va = a.voucher;
+      const vb = b.voucher;
+
+      // 1. Belum Dicetak (0) di PALING ATAS, Sudah Dicetak (1) di PALING BAWAH
+      const stA = va.printed ? 1 : 0;
+      const stB = vb.printed ? 1 : 0;
+      if (stA !== stB) return stA - stB;
+
+      // 2. Batch Baru Di-Import (0) di atas batch lama (1)
+      const isNewA = va.isNewBatch ? 0 : 1;
+      const isNewB = vb.isNewBatch ? 0 : 1;
+      if (isNewA !== isNewB) return isNewA - isNewB;
+
+      // 3. Waktu Import Terbaru
+      if (va.importedAt || vb.importedAt) {
+        const timeA = va.importedAt ? new Date(va.importedAt).getTime() : 0;
+        const timeB = vb.importedAt ? new Date(vb.importedAt).getTime() : 0;
+        if (timeA !== timeB) return timeB - timeA;
+      }
+
+      // 4. Stable order
+      return a.originalIndex - b.originalIndex;
+    });
+  }
+
+  if (sortBy === 'raw-file' || sortBy === 'no') {
+    if (sortDir === 'desc') {
+      return [...list].sort((a, b) => b.originalIndex - a.originalIndex);
+    }
+    return [...list].sort((a, b) => a.originalIndex - b.originalIndex);
+  }
+
+  return [...list].sort((a, b) => {
+    const va = a.voucher;
+    const vb = b.voucher;
+    let cmp = 0;
+
+    switch (sortBy) {
+      case 'code': {
+        const codeA = (va.code || '').trim();
+        const codeB = (vb.code || '').trim();
+        cmp = codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+        break;
+      }
+      case 'paket': {
+        const pkgA = (va.paket || '').trim();
+        const pkgB = (vb.paket || '').trim();
+        cmp = pkgA.localeCompare(pkgB, undefined, { numeric: true, sensitivity: 'base' });
+        break;
+      }
+      case 'harga': {
+        let pA = parseFloat(String(va.harga || 0).replace(/[^\d.]/g, '')) || 0;
+        let pB = parseFloat(String(vb.harga || 0).replace(/[^\d.]/g, '')) || 0;
+        if (pA > 0 && pA < 500) pA *= 1000;
+        if (pB > 0 && pB < 500) pB *= 1000;
+        cmp = pA - pB;
+        break;
+      }
+      case 'periode': {
+        const perA = (va.periode || '').trim();
+        const perB = (vb.periode || '').trim();
+        cmp = perA.localeCompare(perB, undefined, { numeric: true, sensitivity: 'base' });
+        break;
+      }
+      case 'route': {
+        // Priority: Stok Bebas (0), Kasir POS (1), Mitra Agen (2)
+        const getRouteScore = (v) => {
+          if (v.resellerId || v.soldByAgent) return 2;
+          if (v.printed) return 1;
+          return 0;
+        };
+        const scoreA = getRouteScore(va);
+        const scoreB = getRouteScore(vb);
+        cmp = scoreA - scoreB;
+        if (cmp === 0 && scoreA === 2) {
+          cmp = (va.resellerName || '').localeCompare(vb.resellerName || '', undefined, { sensitivity: 'base' });
+        }
+        break;
+      }
+      case 'status': {
+        // Belum Dicetak (0), Sudah Dicetak (1)
+        const stA = va.printed ? 1 : 0;
+        const stB = vb.printed ? 1 : 0;
+        cmp = stA - stB;
+        break;
+      }
+      default:
+        cmp = 0;
+    }
+
+    if (cmp !== 0) return cmp * dirFactor;
+    return a.originalIndex - b.originalIndex; // Stable tie-breaker to original import sequence
+  });
+}
+
+function handleHeaderSortClick(sortKey) {
+  if (!sortKey) return;
+
+  if (sortKey === 'no') {
+    if (state.sortBy === 'no' || state.sortBy === 'raw-file') {
+      state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+      state.sortBy = 'no';
+    } else {
+      state.sortBy = 'no';
+      state.sortDir = 'asc';
+    }
+  } else if (state.sortBy === sortKey) {
+    if (state.sortDir === 'asc') {
+      state.sortDir = 'desc';
+    } else {
+      // 3rd click: Reset to default (Belum Dicetak di Paling Atas)
+      state.sortBy = 'default';
+      state.sortDir = 'asc';
+      showToast('Urutan tabel kembali ke default: 🟢 Voucher Belum Dicetak di Paling Atas');
+    }
+  } else {
+    state.sortBy = sortKey;
+    state.sortDir = 'asc';
+  }
+
+  saveState();
+  updateSortHeaderUI();
+  renderTable();
+  renderPreview();
+}
+
+function handleSortSelectChange(val) {
+  if (!val || val === 'default') {
+    state.sortBy = 'default';
+    state.sortDir = 'asc';
+    showToast('Tabel diurutkan: 🟢 Voucher Belum Dicetak / Baru di Paling Atas');
+  } else if (val === 'raw-file') {
+    state.sortBy = 'raw-file';
+    state.sortDir = 'asc';
+    showToast('Tabel diurutkan persis sesuai urutan file Ruijie mentah');
+  } else if (val === 'paket-asc') {
+    state.sortBy = 'paket'; state.sortDir = 'asc';
+  } else if (val === 'paket-desc') {
+    state.sortBy = 'paket'; state.sortDir = 'desc';
+  } else if (val === 'harga-asc') {
+    state.sortBy = 'harga'; state.sortDir = 'asc';
+  } else if (val === 'harga-desc') {
+    state.sortBy = 'harga'; state.sortDir = 'desc';
+  } else if (val === 'code-asc') {
+    state.sortBy = 'code'; state.sortDir = 'asc';
+  } else if (val === 'code-desc') {
+    state.sortBy = 'code'; state.sortDir = 'desc';
+  } else if (val === 'periode-asc') {
+    state.sortBy = 'periode'; state.sortDir = 'asc';
+  } else if (val === 'status-unprinted') {
+    state.sortBy = 'status'; state.sortDir = 'asc';
+  } else if (val === 'status-printed') {
+    state.sortBy = 'status'; state.sortDir = 'desc';
+  } else if (val === 'route-stock') {
+    state.sortBy = 'route'; state.sortDir = 'asc';
+  } else if (val === 'route-agent') {
+    state.sortBy = 'route'; state.sortDir = 'desc';
+  }
+
+  saveState();
+  updateSortHeaderUI();
+  renderTable();
+  renderPreview();
+}
+
+function updateSortHeaderUI() {
+  const sortBy = state.sortBy || 'default';
+  const sortDir = state.sortDir || 'asc';
+
+  // 1. Sync dropdown
+  const sortSelect = $id('table-sort-select');
+  if (sortSelect) {
+    let selectVal = 'default';
+    if (sortBy === 'raw-file') selectVal = 'raw-file';
+    else if (sortBy === 'paket') selectVal = sortDir === 'desc' ? 'paket-desc' : 'paket-asc';
+    else if (sortBy === 'harga') selectVal = sortDir === 'desc' ? 'harga-desc' : 'harga-asc';
+    else if (sortBy === 'code') selectVal = sortDir === 'desc' ? 'code-desc' : 'code-asc';
+    else if (sortBy === 'periode') selectVal = 'periode-asc';
+    else if (sortBy === 'status') selectVal = sortDir === 'desc' ? 'status-printed' : 'status-unprinted';
+    else if (sortBy === 'route') selectVal = sortDir === 'desc' ? 'route-agent' : 'route-stock';
+    else selectVal = 'default';
+
+    sortSelect.value = selectVal;
+  }
+
+  // 2. Sync Column Headers
+  $$('.data-table th.sortable-th').forEach(th => {
+    const key = th.dataset.sort;
+    const icon = th.querySelector('.sort-icon');
+    const isActive = (sortBy === key);
+
+    th.classList.toggle('sort-active', isActive);
+    if (icon) {
+      if (isActive) {
+        icon.textContent = sortDir === 'asc' ? '▲' : '▼';
+      } else {
+        icon.textContent = '⇅';
+      }
+    }
+  });
+}
+
 // ===== FILTERED & SEARCHED VOUCHERS =====
 function getFilteredVouchersWithIndices() {
   const filter = state.filter || 'all';
@@ -6067,7 +6321,7 @@ function getFilteredVouchersWithIndices() {
   const now = new Date();
   const past24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  return state.vouchers
+  const filtered = state.vouchers
     .map((v, originalIndex) => ({ voucher: v, originalIndex }))
     .filter(({ voucher }) => {
       if (filter === 'unprinted' && voucher.printed) return false;
@@ -6112,10 +6366,15 @@ function getFilteredVouchersWithIndices() {
 
       return true;
     });
+
+  return sortVoucherList(filtered);
 }
 
 function getSelectedVouchers() {
-  return state.vouchers.filter(v => v.selected !== false);
+  const selected = state.vouchers
+    .map((v, originalIndex) => ({ voucher: v, originalIndex }))
+    .filter(({ voucher }) => voucher.selected !== false);
+  return sortVoucherList(selected).map(({ voucher }) => voucher);
 }
 
 // ===== SELECTION HELPERS =====
@@ -6350,6 +6609,57 @@ function confirmDeleteSelected() {
   });
 }
 
+// ===== 🧹 BERSIHKAN VOUCHER SUDAH DICETAK / KEDALUWARSA =====
+function cleanPrintedVouchers() {
+  const printedList = state.vouchers.filter(v => v.printed);
+  if (printedList.length === 0) {
+    showToast('Semua voucher di daftar saat ini masih berstatus "Belum Dicetak". Tidak ada voucher lama.', 'info');
+    return;
+  }
+
+  const html = `
+    <div class="modal-header">
+      <h3>🧹 Bersihkan Voucher Selesai Cetak</h3>
+      <button class="btn-icon" onclick="closeModal()" title="Tutup">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:#fff1f2;border:1.5px solid #fecdd3;border-radius:10px;padding:0.95rem;margin-bottom:1rem;">
+        <div style="font-weight:900;color:#9f1239;font-size:0.95rem;margin-bottom:4px;">
+          🛡️ Cegah Voucher Kedaluwarsa (Expired) Tercetak Dobel
+        </div>
+        <p style="font-size:0.82rem;color:#be123c;line-height:1.5;">
+          Ditemukan <strong>${printedList.length}</strong> voucher lama yang statusnya <strong>"Sudah Dicetak"</strong>.<br>
+          Menghapus voucher ini akan menyisakan <strong>hanya voucher baru yang belum dicetak</strong> di aplikasi, sehingga printer tidak akan pernah mencetak voucher lama yang sudah kedaluwarsa.
+        </p>
+      </div>
+      <p style="font-size:0.86rem;color:var(--text);">
+        Apakah Anda yakin ingin menghapus <strong>${printedList.length}</strong> voucher lama yang sudah dicetak dari sistem?
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Batal</button>
+      <button class="btn btn-danger" id="btn-confirm-clean-printed" style="font-weight:800;">
+        🗑️ Hapus ${printedList.length} Voucher Selesai Cetak
+      </button>
+    </div>
+  `;
+
+  openModal(html);
+
+  on('btn-confirm-clean-printed', () => {
+    logActivity('DELETE', `Bersihkan ${printedList.length} voucher yang sudah dicetak`);
+    state.vouchers = state.vouchers.filter(v => !v.printed);
+    saveState();
+    checkStockAlerts();
+    triggerBackgroundAutoSync();
+    renderQuickPOSGrid();
+    renderTable();
+    renderPreview();
+    closeModal();
+    showToast(`✅ Berhasil menghapus ${printedList.length} voucher lama! Hanya voucher baru siap cetak yang tersisa.`);
+  });
+}
+
 // ===== MODAL UTILS =====
 function openModal(html, extraClass = '') {
   const content = $id('modal-content');
@@ -6408,9 +6718,14 @@ function renderTable() {
     const isSelected = v.selected !== false;
     const rowClass = isSelected ? 'row-selected' : '';
     const isPrinted = !!v.printed;
-    const statusBadge = isPrinted
-      ? `<span class="badge-status badge-status-printed badge-status-toggle" data-index="${i}" title="Klik untuk ubah status">⚪ Sudah Dicetak</span>`
-      : `<span class="badge-status badge-status-unprinted badge-status-toggle" data-index="${i}" title="Klik untuk ubah status">🟢 Belum Dicetak</span>`;
+    let statusBadge = '';
+    if (isPrinted) {
+      statusBadge = `<span class="badge-status badge-status-printed badge-status-toggle" data-index="${i}" title="Klik untuk ubah status">⚪ Sudah Dicetak</span>`;
+    } else if (v.isNewBatch) {
+      statusBadge = `<span class="badge-status badge-status-unprinted badge-status-toggle" data-index="${i}" title="Klik untuk ubah status" style="background:#dcfce7;color:#15803d;font-weight:900;border:1.5px solid #86efac;box-shadow:0 1px 3px rgba(22,163,74,0.15);">✨ Baru Di-Import</span>`;
+    } else {
+      statusBadge = `<span class="badge-status badge-status-unprinted badge-status-toggle" data-index="${i}" title="Klik untuk ubah status">🟢 Belum Dicetak</span>`;
+    }
 
     let routeBadge = '';
     if (v.resellerId || v.soldByAgent) {
@@ -6443,6 +6758,7 @@ function renderTable() {
   }).join('');
 
   updateSelectionUI();
+  updateSortHeaderUI();
 }
 
 // ===== RENDER PREVIEW =====
@@ -6903,9 +7219,9 @@ function showPrintBatchModal() {
           🖨️ Cetak SEMUA Stok Belum Dicetak (${totalCount} Voucher • ${availablePages} Lembar)
         </button>
       ` : `
-        <button class="btn btn-secondary" style="width:100%;justify-content:center;font-size:0.82rem;" onclick="executeBatchPrint(1, ${perPage})">
-          🔄 Cetak Ulang 1 Lembar (${perPage} Voucher)
-        </button>
+        <div style="background:#fff1f2;border:1.5px solid #fecdd3;border-radius:8px;padding:0.75rem;margin-top:0.5rem;font-size:0.8rem;color:#9f1239;text-align:center;">
+          ⚠️ Semua voucher di aplikasi sudah pernah dicetak!<br>Silakan import file baru dari Ruijie Cloud untuk mencetak voucher baru.
+        </div>
       `}
     </div>
     <div class="modal-footer">
@@ -6939,28 +7255,36 @@ async function executeBatchPrint(pages, perPage) {
   const layoutVal = state.settings.layout || '25';
   const neededCount = pages * perPage;
   
-  // Ambil hanya voucher yang BELUM dicetak dan BELUM dialokasikan ke agen
-  let toPrint = state.vouchers.filter(v => !v.printed && !v.resellerId && !v.soldBy).slice(0, neededCount);
+  // Ambil voucher yang BELUM dicetak dan BELUM dialokasikan ke agen
+  let eligible = state.vouchers
+    .map((v, originalIndex) => ({ voucher: v, originalIndex }))
+    .filter(({ voucher }) => !voucher.printed && !voucher.resellerId && !voucher.soldBy);
 
-  // Jika stok belum dicetak kosong (misal reprint), ambil dari voucher bebas
-  if (toPrint.length === 0) {
-    toPrint = state.vouchers.filter(v => !v.resellerId).slice(0, neededCount);
-  }
-
-  if (toPrint.length === 0) {
-    showToast('Tidak ada voucher stok bebas yang dapat dicetak.', 'error');
+  // KUNCI AMAN: Jika stok belum dicetak kosong, jangan pernah mencetak voucher lama!
+  if (eligible.length === 0) {
+    showToast('⚠️ Tidak ada voucher belum dicetak yang tersedia. Semua voucher di sistem sudah berstatus dicetak untuk mencegah voucher kedaluwarsa (expired) tercetak ulang!', 'error');
     return;
   }
+
+  // Jika user sedang mencentang voucher tertentu, dahulukan voucher unprinted yang dicentang
+  const selectedEligible = eligible.filter(({ voucher }) => voucher.selected !== false);
+  const pool = selectedEligible.length >= neededCount ? selectedEligible : eligible;
+
+  // Urutkan pool sesuai sort yang aktif (default: baru & unprinted di paling atas)
+  const sortedEligible = sortVoucherList(pool).map(({ voucher }) => voucher);
+  const toPrint = sortedEligible.slice(0, neededCount);
 
   closeModal();
 
   const cashierName = state.currentUser?.name || state.currentUser?.username || 'Admin POS';
   const nowIso = new Date().toISOString();
 
-  // Tandai HANYA voucher yang dicetak tersebut sebagai "printed = true"
+  // Tandai HANYA voucher yang dicetak tersebut sebagai "printed = true" & nonaktifkan centang
   toPrint.forEach(v => {
     v.printed = true;
     v.printedAt = nowIso;
+    v.selected = false;
+    v.isNewBatch = false;
     if (!v.soldBy && !v.resellerId) {
       v.soldBy = `Kasir POS (${cashierName})`;
       v.soldAt = nowIso;
@@ -7097,6 +7421,13 @@ function saveState() {
   }
 }
 
+function reorderVouchersUnprintedFirst() {
+  if (!Array.isArray(state.vouchers) || state.vouchers.length === 0) return;
+  const unprinted = state.vouchers.filter(v => !v.printed);
+  const printed = state.vouchers.filter(v => v.printed);
+  state.vouchers = [...unprinted, ...printed];
+}
+
 function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('ruijie_voucher_app_v11_licensed') || localStorage.getItem('ruijie_voucher_app_v10_pro');
@@ -7127,6 +7458,7 @@ function loadState() {
             selected: v.selected !== false
           };
         });
+        reorderVouchersUnprintedFirst();
       }
       if (Array.isArray(parsed.resellers) && parsed.resellers.length > 0) {
         state.resellers = parsed.resellers;
@@ -7138,6 +7470,8 @@ function loadState() {
       if (parsed.settings) {
         state.settings = { ...state.settings, ...parsed.settings };
       }
+      if (parsed.sortBy) state.sortBy = parsed.sortBy;
+      if (parsed.sortDir) state.sortDir = parsed.sortDir;
     } else {
       // Try recovery from IndexedDB
       tryRecoverFromIDB().then(recovered => {
@@ -7146,6 +7480,7 @@ function loadState() {
             const parsed = JSON.parse(recovered);
             if (Array.isArray(parsed.vouchers) && parsed.vouchers.length > 0) {
               state.vouchers = parsed.vouchers;
+              reorderVouchersUnprintedFirst();
               renderTable();
               renderPreview();
             }
@@ -7345,6 +7680,7 @@ function restoreUI() {
     setVal('bg-opacity-slider', state.settings.bgOpacity || 20);
     setText('bg-opacity-val', `${state.settings.bgOpacity || 20}%`);
   }
+  updateSortHeaderUI();
   updateLogoUI();
 }
 
